@@ -13,11 +13,13 @@ test("evolução mostra mediana da rota", async () => {
   await page.waitForSelector(".bignum");
   assert.equal(await page.locator(".bignum").textContent(), "R$ 190,00");
   assert.match(await page.locator(".hero h1").textContent(), /A → B/);
-  assert.equal(await page.locator(".grafico path.serie").count(), 3);
+  assert.equal(await page.locator(".grafico circle.cte").count(), 6, "um ponto por CT-e da rota");
+  assert.equal(await page.locator(".grafico path.mediana").count(), 1);
+  assert.match(await page.locator(".legenda-gradiente").textContent(), /mais barato R\$ 160,00.*mais caro R\$ 190,00/);
   assert.match(await page.locator(".split").textContent(), /11,8%/);   // 190 / 170 − 1
   assert.equal(await page.locator("#tab-transp tbody tr").count(), 3);
-  await page.locator(".grafico circle.ponto").first().hover();
-  assert.match(await page.locator("#tip").textContent(), /CT-e/);
+  await page.locator(".grafico circle.cte").first().hover();
+  assert.match(await page.locator("#tip").textContent(), /CT-e \d+/);
   await page.screenshot({ path: "test-results/evolucao-1280.png", fullPage: true });
   assert.deepEqual(erros, []);
   await ctx.close();
@@ -63,6 +65,21 @@ test("rota com café e açúcar mostra o aviso e o filtro resolve", async () => 
   await page.waitForFunction(() => !document.querySelector("#aviso-produtos"));
   assert.equal(await page.locator(".bignum").textContent(), "R$ 535,60");
   assert.match(await page.locator(".kpis").textContent(), /Toneladas/);
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});
+
+test("mediana do mês desliga e clicar num ponto abre o CT-e", async () => {
+  const { page, ctx, erros } = await abrir(browser, { dados: baseExemplo(), hash: "#evolucao?rota=A%20%E2%86%92%20B", gravavel: true, quem: "Ana" });
+  await page.waitForSelector(".grafico path.mediana");
+  await page.click("[data-mediana='0']");
+  await page.waitForFunction(() => location.hash.includes("mediana=0"));
+  assert.equal(await page.locator(".grafico path.mediana").count(), 0);
+  const chave = await page.locator(".grafico circle.cte").last().getAttribute("data-chave");
+  await page.locator(".grafico circle.cte").last().click();
+  await page.waitForSelector("#form-cte.editando");
+  const numero = await page.evaluate(k => window.RADAR_APP.dados.ctes.find(c => c.chave === k).numero, chave);
+  assert.match(await page.locator("#form-cte .card-head").textContent(), new RegExp(`Corrigindo o CT-e Nº ${numero}`));
   assert.deepEqual(erros, []);
   await ctx.close();
 });

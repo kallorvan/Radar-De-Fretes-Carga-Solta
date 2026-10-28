@@ -1,9 +1,7 @@
-// Gráficos em SVG montados como texto. Mês sem dado interrompe a linha; nunca vira zero.
+// Gráficos em SVG montados como texto: os pontos por CT-e da Evolução e a linha miúda das Rotas.
 
 import { esc, fmtMes, fmtNum } from "./formato.js";
 
-export const CORES_SERIES = ["var(--navy)", "var(--accent)", "var(--plum)", "var(--yard-20)", "var(--pie-6)", "var(--pie-5)"];
-const COR_RESTO = "var(--steel-l)";
 const r1 = n => Math.round(n * 10) / 10;
 
 /* Passo "redondo" (1, 2, 2,5 ou 5 × 10^k) para cerca de 4 intervalos. */
@@ -17,50 +15,69 @@ function marcas(min, max) {
   return out;
 }
 
-export function linhasMensais({ meses, series }, { largura = 760, altura = 300, formatar = v => fmtNum(v, 2) } = {}) {
-  const esq = 64, dir = 14, topo = 12, base = 26;
-  // a escala segue as medianas: um CT-e fora da curva (unidade diferente, erro de digitação) não achata a linha;
-  // a faixa mín–máx é cortada na borda e os extremos continuam na dica
-  const valores = series.flatMap(s => Object.values(s.pontos).map(p => p.mediana));
-  if (!meses.length || !valores.length) return `<svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Sem dados no período"></svg>`;
-  let vmin = Math.min(...valores), vmax = Math.max(...valores);
-  const folga = (vmax - vmin || Math.abs(vmax) || 1) * 0.08;
-  const ticks = marcas(vmin >= 0 ? Math.max(0, vmin - folga) : vmin - folga, vmax + folga);
-  vmin = ticks[0]; vmax = ticks.at(-1);
-  const w = largura - esq - dir, h = altura - topo - base;
-  const x = i => r1(esq + (meses.length === 1 ? w / 2 : (i * w) / (meses.length - 1)));
-  const y = v => r1(topo + h - ((v - vmin) / (vmax - vmin)) * h);
-  const yc = v => Math.min(topo + h, Math.max(topo, y(v)));
+/* Gradiente do frete: navy (mais barato) → plum → accent (mais caro), linear em RGB entre as paradas. */
+const PARADAS = [[0x11, 0x23, 0x46], [0x8e, 0x5a, 0xa8], [0xe4, 0x53, 0x6c]];
+export function corGradiente(t) {
+  const x = Math.min(1, Math.max(0, Number(t) || 0)) * (PARADAS.length - 1), i = Math.min(PARADAS.length - 2, Math.floor(x)), f = x - i;
+  return "#" + PARADAS[i].map((c, k) => Math.round(c + (PARADAS[i + 1][k] - c) * f).toString(16).padStart(2, "0")).join("");
+}
 
-  const partes = [`<svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Evolução mensal por transportador">`];
+const percentil = (ord, q) => {
+  const pos = (ord.length - 1) * q, i = Math.floor(pos);
+  return ord[i] + ((ord[i + 1] ?? ord[i]) - ord[i]) * (pos - i);
+};
+/* Escala do percentil 5 ao 95 com folga: um CT-e fora da curva (unidade errada, digitação) não achata os outros. */
+export function escalaPercentil(valores) {
+  const ord = [...valores].sort((a, b) => a - b);
+  let min = percentil(ord, 0.05), max = percentil(ord, 0.95);
+  const folga = (max - min || Math.abs(max) || 1) * 0.08;
+  const ticks = marcas(min >= 0 ? Math.max(0, min - folga) : min - folga, max + folga);
+  return { min: ticks[0], max: ticks.at(-1), ticks };
+}
+
+const diaUTC = iso => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+const proxMes = mes => { let [a, m] = mes.split("-").map(Number); if (++m > 12) { m = 1; a++; } return `${a}-${String(m).padStart(2, "0")}`; };
+
+/* Um ponto por CT-e na data de emissão; a cor é a posição do valor entre o menor e o maior do recorte.
+   medianas: [{ mes, valor }] desenhadas em degraus (um patamar por mês). */
+export function pontosCtes(pontos, { medianas = [], largura = 760, altura = 300, formatar = v => fmtNum(v, 2) } = {}) {
+  const esq = 64, dir = 14, topo = 12, base = 26;
+  if (!pontos.length) return `<svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Sem CT-e no recorte"></svg>`;
+  const { min: vmin, max: vmax, ticks } = escalaPercentil(pontos.map(p => p.valor));
+  const datas = pontos.map(p => p.data).sort();
+  const meses = [];
+  for (let m = datas[0].slice(0, 7); m <= datas.at(-1).slice(0, 7); m = proxMes(m)) meses.push(m);
+  const t0 = diaUTC(meses[0] + "-01"), t1 = diaUTC(proxMes(meses.at(-1)) + "-01");
+  const w = largura - esq - dir, h = altura - topo - base;
+  const xt = t => r1(esq + ((t - t0) / (t1 - t0)) * w);
+  const x = iso => xt(diaUTC(iso) + 432e5);   // meio do dia
+  const y = v => r1(topo + h - ((v - vmin) / (vmax - vmin)) * h);
+  const lo = Math.min(...pontos.map(p => p.valor)), hi = Math.max(...pontos.map(p => p.valor));
+  const cor = v => corGradiente(hi === lo ? 0.5 : (v - lo) / (hi - lo));
+
+  const partes = [`<svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Frete de cada CT-e na data de emissão">`];
   for (const t of ticks) partes.push(`<line class="gl" x1="${esq}" x2="${largura - dir}" y1="${y(t)}" y2="${y(t)}"/>`,
     `<text class="ax" x="${esq - 8}" y="${y(t) + 3}" text-anchor="end">${esc(formatar(t))}</text>`);
   const cada = Math.ceil(meses.length / 12);
-  meses.forEach((m, i) => { if (i % cada === 0 || i === meses.length - 1) partes.push(`<text class="ax" x="${x(i)}" y="${altura - 8}" text-anchor="middle">${fmtMes(m)}</text>`); });
-
-  // as séries de destaque por último, para ficarem por cima
-  const ordem = series.map((s, i) => [s, i]).reverse();
-  for (const [s, i] of ordem) {
-    const cor = i < CORES_SERIES.length ? CORES_SERIES[i] : COR_RESTO;
-    const classe = i < CORES_SERIES.length ? "serie" : "serie resto";
-    let d = "", aberto = false;
-    meses.forEach((m, j) => {
-      const p = s.pontos[m];
-      if (!p) { aberto = false; return; }
-      d += `${aberto ? "L" : "M"}${x(j)} ${y(p.mediana)} `;
-      aberto = true;
-    });
-    partes.push(`<g class="grupo-serie" data-raiz="${esc(s.raiz)}"><title>${esc(s.nome)}</title>`);
-    meses.forEach((m, j) => {
-      const p = s.pontos[m];
-      if (p && p.max > p.min) partes.push(`<line class="faixa" x1="${x(j)}" x2="${x(j)}" y1="${yc(p.min)}" y2="${yc(p.max)}" stroke="${cor}" stroke-opacity=".35" stroke-width="5"/>`);
-    });
-    partes.push(`<path class="${classe}" data-raiz="${esc(s.raiz)}" d="${d.trim()}" stroke="${cor}" fill="none" stroke-width="${i < CORES_SERIES.length ? 2.2 : 1.4}"/>`);
-    meses.forEach((m, j) => {
-      const p = s.pontos[m];
-      if (p) partes.push(`<circle class="ponto" data-raiz="${esc(s.raiz)}" data-nome="${esc(s.nome)}" data-mes="${m}" data-mediana="${p.mediana}" data-min="${p.min}" data-max="${p.max}" data-n="${p.n}" cx="${x(j)}" cy="${y(p.mediana)}" r="3.6" fill="${cor}"/>`);
-    });
-    partes.push("</g>");
+  meses.forEach((m, i) => {
+    const xi = xt(diaUTC(m + "-01")), xf = xt(diaUTC(proxMes(m) + "-01"));
+    if (i) partes.push(`<line class="gl mes" x1="${xi}" x2="${xi}" y1="${topo}" y2="${topo + h}"/>`);
+    if (i % cada === 0) partes.push(`<text class="ax" x="${r1((xi + xf) / 2)}" y="${altura - 8}" text-anchor="middle">${fmtMes(m)}</text>`);
+  });
+  if (medianas.length) {
+    let d = "";
+    for (const { mes, valor } of [...medianas].sort((a, b) => a.mes.localeCompare(b.mes))) {
+      if (valor == null || mes < meses[0] || mes > meses.at(-1)) continue;
+      const yv = Math.min(topo + h, Math.max(topo, y(valor)));
+      d += `M${xt(diaUTC(mes + "-01"))} ${yv} H${xt(diaUTC(proxMes(mes) + "-01"))} `;
+    }
+    if (d) partes.push(`<path class="mediana" d="${d.trim()}" fill="none"/>`);
+  }
+  // os mais caros por cima: são os que chamam a conferência
+  for (const p of [...pontos].sort((a, b) => a.valor - b.valor)) {
+    const preso = p.valor < vmin || p.valor > vmax;
+    const cy = Math.min(topo + h, Math.max(topo, y(p.valor)));
+    partes.push(`<circle class="cte${preso ? " preso" : ""}" data-chave="${esc(p.chave)}" cx="${x(p.data)}" cy="${cy}" r="4.5" fill="${cor(p.valor)}"/>`);
   }
   partes.push("</svg>");
   return partes.join("");

@@ -92,9 +92,20 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
 .legenda{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;color:var(--steel)}
 .legenda span{display:inline-flex;align-items:center;gap:6px}
 .legenda i{width:14px;height:3px;display:inline-block}
-.grafico svg .ponto{cursor:pointer}
-.grafico svg .grupo-serie.apagado{opacity:.15}
-.grafico svg .resto{opacity:.7}
+/* gráfico de pontos: um por CT-e, cor em gradiente navy → plum → accent */
+.grafico svg circle.cte{cursor:pointer;stroke:var(--card);stroke-width:1.2;opacity:.92}
+.grafico svg circle.cte:hover{opacity:1;stroke:var(--ink,#0b1730);stroke-width:1.6}
+.grafico svg circle.cte.preso{stroke:var(--ink,#0b1730);stroke-width:1.8;stroke-dasharray:2 1.5}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .grafico svg circle.cte{stroke:#dfe6f3;stroke-width:1.4}
+  :root:not([data-theme="light"]) .legenda-gradiente i{outline:1px solid #dfe6f3}}
+:root[data-theme="dark"] .grafico svg circle.cte{stroke:#dfe6f3;stroke-width:1.4}
+:root[data-theme="dark"] .legenda-gradiente i{outline:1px solid #dfe6f3}
+.grafico svg path.mediana{stroke:var(--steel);stroke-width:1.6;stroke-dasharray:5 4;opacity:.75}
+.grafico svg line.gl.mes{stroke-dasharray:2 4}
+.legenda-gradiente{display:flex;align-items:center;gap:10px;margin-top:12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;color:var(--steel)}
+.legenda-gradiente i{flex:0 1 220px;height:8px;display:inline-block}
+.legenda-gradiente b{color:var(--navy);font-weight:600}
+.modes .modes-rot{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;color:var(--steel);margin-right:6px;align-self:center}
 .botoes{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:18px}
 .resumo-imp{margin-top:16px;font-size:13px}
 .resumo-imp b{font-family:var(--font-mono);color:var(--navy)}

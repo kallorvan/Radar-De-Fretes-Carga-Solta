@@ -431,9 +431,20 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
 .legenda{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;color:var(--steel)}
 .legenda span{display:inline-flex;align-items:center;gap:6px}
 .legenda i{width:14px;height:3px;display:inline-block}
-.grafico svg .ponto{cursor:pointer}
-.grafico svg .grupo-serie.apagado{opacity:.15}
-.grafico svg .resto{opacity:.7}
+/* gráfico de pontos: um por CT-e, cor em gradiente navy → plum → accent */
+.grafico svg circle.cte{cursor:pointer;stroke:var(--card);stroke-width:1.2;opacity:.92}
+.grafico svg circle.cte:hover{opacity:1;stroke:var(--ink,#0b1730);stroke-width:1.6}
+.grafico svg circle.cte.preso{stroke:var(--ink,#0b1730);stroke-width:1.8;stroke-dasharray:2 1.5}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .grafico svg circle.cte{stroke:#dfe6f3;stroke-width:1.4}
+  :root:not([data-theme="light"]) .legenda-gradiente i{outline:1px solid #dfe6f3}}
+:root[data-theme="dark"] .grafico svg circle.cte{stroke:#dfe6f3;stroke-width:1.4}
+:root[data-theme="dark"] .legenda-gradiente i{outline:1px solid #dfe6f3}
+.grafico svg path.mediana{stroke:var(--steel);stroke-width:1.6;stroke-dasharray:5 4;opacity:.75}
+.grafico svg line.gl.mes{stroke-dasharray:2 4}
+.legenda-gradiente{display:flex;align-items:center;gap:10px;margin-top:12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;color:var(--steel)}
+.legenda-gradiente i{flex:0 1 220px;height:8px;display:inline-block}
+.legenda-gradiente b{color:var(--navy);font-weight:600}
+.modes .modes-rot{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;color:var(--steel);margin-right:6px;align-self:center}
 .botoes{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:18px}
 .resumo-imp{margin-top:16px;font-size:13px}
 .resumo-imp b{font-family:var(--font-mono);color:var(--navy)}
@@ -546,6 +557,339 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       __defProp(target, name, { get: all[name], enumerable: true });
   };
 
+  // src/dados-itinerarios.js
+  var CODIGOS_CIDADE = {
+    "ABADIA DOS DOURADOS": "ADD",
+    "AGUAI": "AGI",
+    "AGUIA BRANCA": "ZAB",
+    "AIURUOCA": "AUR",
+    "ALBERTINA": "ALX",
+    "ALFENAS": "ALF",
+    "ALPINOPOLIS": "AMS",
+    "ALTEROSA": "ALT",
+    "ALTINOPOLIS": "ANE",
+    "AMERICANA": "APS",
+    "ANAPOLIS": "AQQ",
+    "ANDRADAS": "ARC",
+    "ANGATUBA": "AVA",
+    "ANTONINA": "ASF",
+    "ANTONIO CARLOS": "ASJ",
+    "APUCARANA": "ATM",
+    "ARAGUARI": "ARG",
+    "ARAQUARI": "AVV",
+    "ARARA/PB": "AVX",
+    "ARARAQUARA": "AXA",
+    "ARARAS": "ARR",
+    "ARAXA": "AXS",
+    "ARCEBURGO": "AXT",
+    "ARCOS": "AXV",
+    "AREADO": "AXZ",
+    "ARTUR NOGUEIRA": "BAN",
+    "ATIBAIA": "BBJ",
+    "BALNEARIO PICARRAS": "BDM",
+    "BANDEIRA DO SUL": "BDX",
+    "BARRA DO GARCAS": "BFS",
+    "BARRO ALTO": "BHA",
+    "BARUERI": "BHI",
+    "BATATAIS": "BHO",
+    "BAURU": "BHR",
+    "BEBEDOURO": "BHT",
+    "BELO HORIZONTE": "BIU",
+    "BETIM": "BLB",
+    "BOA VISTA/RR": "BMB",
+    "BOM JESUS DA PENHA": "BNQ",
+    "BOM SUCESSO": "BOO",
+    "BORDA DA MATA": "BPU",
+    "BOTELHOS": "BQA",
+    "BRAGANCA PAULISTA": "BQL",
+    "BRASOPOLIS": "BRB",
+    "BREJETUBA": "BRG",
+    "BRODOWSKI": "BSD",
+    "BRUMADINHO": "BSG",
+    "BURITIS": "BTI",
+    "BURITIZEIRO": "BTM",
+    "CABO VERDE": "BUD",
+    "CABREUVA": "BUF",
+    "CACONDE": "BVQ",
+    "CALDAS": "BZL",
+    "CAMANDUCAIA": "BYB",
+    "CAMBUI": "BYN",
+    "CAMPANHA": "BYT",
+    "CAMPO ALEGRE DE GOIAS": "BKR",
+    "CAMPO BELO": "BKV",
+    "CAMPO DO MEIO": "BWC",
+    "CAMPO FLORIDO": "BWF",
+    "CAMPO REDONDO": "BWV",
+    "CAMPOS ALTOS": "CAA",
+    "CAMPOS GERAIS": "KAF",
+    "CANAPOLIS": "XXT",
+    "CANDEIAS": "ZBZ",
+    "CAPETINGA": "XXD",
+    "CAPUTIRA": "CAR",
+    "CARATINGA": "CBG",
+    "CAREACU": "ZBT",
+    "CARIACICA": "CBV",
+    "CARMO DA CACHOEIRA": "CCO",
+    "CARMO DE MINAS": "CCQ",
+    "CARMO DO PARANAIBA": "CAP",
+    "CARMO DO RIO CLARO": "CCT",
+    "CARRANCAS": "AAF",
+    "CARVALHOPOLIS": "CDQ",
+    "CASA GRANDE": "CDT",
+    "CASCA": "CDV",
+    "CASSIA": "XXE",
+    "CATALAO": "CEU",
+    "CATANDUVA": "CEV",
+    "CAXIAS DO SUL": "CFU",
+    "CENTRALINA": "CGN",
+    "CERQUILHO": "CGT",
+    "COCALZINHO DE GOIAS": "CJO",
+    "COLINA": "CLA",
+    "CONCEICAO DA APARECIDA": "COA",
+    "CONCEICAO DAS ALAGOAS": "CMC",
+    "CONCEICAO DO RIO VERDE": "CMQ",
+    "CONCORDIA": "CMV",
+    "CONGONHAL": "CNI",
+    "CONTAGEM": "CNU",
+    "CORDISLANDIA": "COM",
+    "COROMANDEL": "COY",
+    "CORREGO DANTA": "CPQ",
+    "CORREGO FUNDO": "CPT",
+    "COSMOPOLIS": "CQJ",
+    "COTIA": "CQP",
+    "CRISTAIS": "CRH",
+    "CRISTAIS PAULISTA": "CRI",
+    "CRISTINA": "ZCN",
+    "CRUZILIA": "CSR",
+    "CUBATAO": "CST",
+    "CURITIBA": "CTO",
+    "DIVINOLANDIA": "DBY",
+    "DIVISA ALEGRE": "DCC",
+    "DIVISA NOVA": "DCD",
+    "DOIS CORREGOS": "DCG",
+    "DURANDE": "DNL",
+    "ELIAS FAUSTO": "EAL",
+    "ELOI MENDES": "ELM",
+    "EMBU": "EAS",
+    "ESPERA FELIZ": "ECE",
+    "ESPIRITO SANTO": "ECP",
+    "ESPIRITO SANTO DO PINHAL": "ESP",
+    "ESTIVA": "ECZ",
+    "EXTERIOR/EX": "EXZ",
+    "EXTREMA": "EDT",
+    "FAMA": "FAD",
+    "FORMIGA": "FRM",
+    "FRANCA": "FRA",
+    "FRUTAL": "FFN",
+    "GARCA": "GAN",
+    "GASPAR": "GAT",
+    "GENOVA/EX": "XGN",
+    "GOIANIA": "GCE",
+    "GOIATUBA": "GCL",
+    "GUACUI": "GED",
+    "GUARUJA": "GJA",
+    "GUARULHOS": "GAJ",
+    "GUAXUPE": "GXP",
+    "HELIODORA": "HBB",
+    "IAPU": "IBY",
+    "IBATIBA": "ICH",
+    "IBIA": "ICK",
+    "IBIRACI": "IDE",
+    "IGARAPAVA": "IGA",
+    "IGUATAMA": "IFG",
+    "INGAI": "IGZ",
+    "IPANEMA": "IHP",
+    "ITAJAI": "ILU",
+    "ITAMOGI": "IMM",
+    "ITANHANDU": "IMQ",
+    "ITAPETININGA": "INN",
+    "ITAPIRA": "ITP",
+    "ITAQUAQUECETUBA": "IQC",
+    "ITATIBA": "ITT",
+    "ITAU DE MINAS": "IPK",
+    "ITOBI": "ITB",
+    "ITUIUTABA": "IQF",
+    "ITUMBIARA": "IQG",
+    "ITUMIRIM": "IQH",
+    "ITUPEVA": "IPE",
+    "ITUTINGA": "IQN",
+    "JABOTICABAL": "JBG",
+    "JACAREI": "JBN",
+    "JACUTINGA": "JCA",
+    "JANDIRA": "JDB",
+    "JAU": "JAU",
+    "JOAO PINHEIRO": "JGG",
+    "JOINVILLE": "JGP",
+    "JUNDIAI": "JUD",
+    "JURUAIA": "JIM",
+    "LAGOA DOURADA": "JKH",
+    "LAJINHA": "JLL",
+    "LAMBARI": "JLN",
+    "LAVRAS": "LAH",
+    "LEME": "LEM",
+    "LENCOIS PAULISTA": "LEP",
+    "LIMEIRA": "LIM",
+    "LINHARES": "LBM",
+    "LONDRINA": "LON",
+    "LORENA": "LBX",
+    "LUIS ANTONIO": "LCG",
+    "LUMINARIAS": "LCQ",
+    "LUZ": "LCV",
+    "MACAUBAL": "MCB",
+    "MACHADO": "MCH",
+    "MADRE DE DEUS DE MINAS": "WNZ",
+    "MAIRIPORA": "MAI",
+    "MANDURI": "WCM",
+    "MANHUACU": "WCR",
+    "MANHUMIRIM": "WCS",
+    "MARACAI": "WDK",
+    "MARILIA": "MRL",
+    "MARINGA": "MRG",
+    "MATAO": "MTO",
+    "MAUA": "MBB",
+    "MEDEIROS": "MBL",
+    "MINDURI": "MDB",
+    "MOCOCA": "MCC",
+    "MOEMA": "MEV",
+    "MOGI DAS CRUZES": "MEZ",
+    "MOGI MIRIM": "MFD",
+    "MOGI-GUACU": "MFZ",
+    "MONSENHOR PAULO": "MFP",
+    "MONTE ALEGRE DE MINAS": "MGB",
+    "MONTE BELO": "MOB",
+    "MONTE CARMELO": "MOC",
+    "MONTE SIAO": "MHC",
+    "MONTIVIDIU": "MHM",
+    "MORADA NOVA DE MINAS": "MHP",
+    "MUTUM": "MLD",
+    "MUZAMBINHO": "MLF",
+    "NATERCIA": "MLP",
+    "NAVIRAI/MS": "MLV",
+    "NEPOMUCENO": "MMH",
+    "NITEROI": "MMX",
+    "NOVA ALVORADA DO SUL/MS": "MNR",
+    "NOVA LIMA": "MPV",
+    "NOVA ODESSA": "MQI",
+    "NOVA PONTE": "MQX",
+    "NOVA RESENDE": "MRF",
+    "OLIVEIRA": "MUV",
+    "ORINDIUVA": "MVH",
+    "ORLANDIA": "MVM",
+    "OSASCO": "MVS",
+    "OSVALDO CRUZ": "MVV",
+    "OURINHOS": "OUR",
+    "OURO FINO": "MXJ",
+    "OUROESTE": "MXT",
+    "PAINS": "MZU",
+    "PALESTINA": "NAA",
+    "PARAGUACU": "NCG",
+    "PARANAGUA": "NDC",
+    "PARANAPANEMA": "NDG",
+    "PASSOS": "PAS",
+    "PATOS DE MINAS": "NGT",
+    "PATROCINIO": "PAT",
+    "PATROCINIO PAULISTA": "AAL",
+    "PAULINIA": "PAU",
+    "PEDREGULHO": "PED",
+    "PIEDADE DO RIO GRANDE": "NNL",
+    "PIRACICABA": "NPQ",
+    "PIRAJU": "NPV",
+    "PITANGUEIRAS": "PTA",
+    "PIUMHI": "PMH",
+    "PLANURA": "NSA",
+    "POCO FUNDO": "NSM",
+    "POCOS DE CALDAS": "POC",
+    "POMPEU": "NTB",
+    "PONTES GESTAL": "NTZ",
+    "PONTO FINAL": "IGO",
+    "POUSO ALEGRE": "PAG",
+    "POUSO ALTO": "NXR",
+    "PRAIA GRANDE": "NZE",
+    "PRATAPOLIS": "WKD",
+    "PRESIDENTE OLEGARIO": "PRO",
+    "REGISTRO": "REG",
+    "RESSAQUINHA": "RQA",
+    "RIBEIRAO PIRES": "RPZ",
+    "RIBEIRAO PRETO": "RPR",
+    "RIO CLARO": "RCL",
+    "RIO DE JANEIRO": "RDJ",
+    "RIO PARANAIBA": "RPW",
+    "RONDONOPOLIS": "XAO",
+    "SALTO DE PIRAPORA": "SBF",
+    "SANTA BARBARA D OESTE": "SCD",
+    "SANTA CRUZ DA ESPERANCA": "SCK",
+    "SANTA CRUZ DAS PALMEIRAS": "SCP",
+    "SANTA HELENA DE GOIAS": "SEE",
+    "SANTA JULIANA": "JUL",
+    "SANTA MARGARIDA": "SFE",
+    "SANTA MARIA": "SFH",
+    "SANTA RITA DE CALDAS": "SGE",
+    "SANTA RITA DO PASSA QUATRO": "SGO",
+    "SANTA RITA DO SAPUCAI": "SGP",
+    "SANTANA DA VARGEM": "SAV",
+    "SANTANA DE PARNAIBA": "SHK",
+    "SANTANA DO PARAISO": "SIQ",
+    "SANTO ANDRE": "SJN",
+    "SANTO ANTONIO DO AMPARO": "TTR",
+    "SANTOS": "SAN",
+    "SAO BENTO ABADE": "SMO",
+    "SAO BENTO DO SUL": "GOL",
+    "SAO BERNARDO DO CAMPO": "SBC",
+    "SAO FRANCISCO DE PAULA": "SOU",
+    "SAO GONCALO DO SAPUCAI": "SGS",
+    "SAO GOTARDO": "SPY",
+    "SAO JOAO DA BOA VISTA": "SBV",
+    "SAO JOAO DA MATA": "SQP",
+    "SAO JOAO DEL REI": "SRA",
+    "SAO JOAO DO MANHUACU": "SRJ",
+    "SAO JOSE DA BARRA": "SSM",
+    "SAO JOSE DO ALEGRE": "STE",
+    "SAO JOSE DO RIO PARDO": "SUE",
+    "SAO JOSE DOS CAMPOS": "SJS",
+    "SAO MANOEL": "SVO",
+    "SAO MARCOS": "AOW",
+    "SAO PAULO": "SPA",
+    "SAO ROMAO": "SZV",
+    "SAO ROQUE DE MINAS": "SZZ",
+    "SAO SEBASTIAO": "SZK",
+    "SAO SEBASTIAO DA BELA VISTA": "SWC",
+    "SAO SEBASTIAO DA GRAMA": "SWE",
+    "SAO SEBASTIAO DO PARAISO": "SSP",
+    "SAO THOME DAS LETRAS": "SWX",
+    "SAO VICENTE": "SVC",
+    "SAO VICENTE DE MINAS": "SYI",
+    "SEBASTIANOPOLIS DO SUL": "SKO",
+    "SERRA DO SALITRE": "YBO",
+    "SERRANIA": "YDK",
+    "SETE LAGOAS": "YEG",
+    "SILVIANOPOLIS": "YEW",
+    "SOORETAMA": "YGE",
+    "SOROCABA": "SRC",
+    "SUMARE": "SMR",
+    "SUZANO": "YGX",
+    "TAPIRATIBA": "TBB",
+    "TAQUARIVAI": "TBM",
+    "TATUI": "TBW",
+    "TAUBATE": "TBY",
+    "TRES CORACOES": "TFR",
+    "TRES PONTAS": "TGA",
+    "TURVOLANDIA": "UAA",
+    "UBERABA": "UBA",
+    "UBERLANDIA": "UAO",
+    "URUCUIA": "UCI",
+    "VALPARAISO": "VAF",
+    "VARGEM GRANDE DO SUL": "VAR",
+    "VARGINHA": "VGH",
+    "VAZANTE": "VBM",
+    "VESPASIANO": "VCJ",
+    "VIANA": "VCN",
+    "VILA VELHA": "VDR",
+    "VISTA ALEGRE DO ALTO": "VED",
+    "VITORIA": "VEI",
+    "VITORIA DA CONQUISTA/BA": "VIC",
+    "VOTUPORANGA": "VEV"
+  };
+
   // src/calculos.js
   var arred2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
   var soDigitos = (v) => String(v ?? "").replace(/\D/g, "");
@@ -558,14 +902,16 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const n = Number(s);
     return Number.isFinite(n) ? n : null;
   }
-  function calcularCte({ valorAssegurado, taxaSeguro, valorFrete, adicionais, quantidade, unidade = null, pesoKg = null, pesoInformado = false }) {
-    const valorSeguro = arred2((valorAssegurado || 0) * (taxaSeguro || 0));
+  var arred6 = (n) => Math.round((n + Number.EPSILON) * 1e6) / 1e6;
+  function calcularCte({ valorAssegurado, valorSeguro: seguro, valorFrete, adicionais, quantidade, unidade = null, pesoKg = null, pesoInformado = false }) {
+    const valorSeguro = arred2(seguro || 0);
+    const taxaSeguro = valorAssegurado > 0 ? arred6(valorSeguro / valorAssegurado) : null;
     const tarifa = arred2((valorFrete || 0) - valorSeguro - (adicionais || 0));
     const qtd = quantidade > 0 ? quantidade : null;
     const peso = pesoInformado ? pesoKg > 0 ? pesoKg : null : qtd && unidade?.kg > 0 ? arred2(qtd * unidade.kg) : pesoKg > 0 ? pesoKg : null;
     const precoTonelada = peso ? arred2(tarifa / (peso / 1e3)) : null;
     const precoSaca = qtd && unidade?.saca ? arred2(tarifa / qtd) : null;
-    return { valorSeguro, tarifa, pesoKg: peso, precoTonelada, precoSaca };
+    return { taxaSeguro, valorSeguro, tarifa, pesoKg: peso, precoTonelada, precoSaca };
   }
   function normalizarCnpj(v) {
     const d = soDigitos(v);
@@ -578,9 +924,20 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const d = soDigitos(chave);
     return d.length === 44 ? Number(d.slice(25, 34)) : null;
   }
+  function cnpjDaChave(chave) {
+    const d = soDigitos(chave);
+    return d.length === 44 ? d.slice(6, 20) : "";
+  }
   var normalizarCidade = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().trim().replace(/\s+/g, " ");
   var rotaDe = (c) => `${normalizarCidade(c.origem)} → ${normalizarCidade(c.destino)}`;
   var mesDe = (iso) => String(iso ?? "").slice(0, 7);
+  var PORTOS = { SANTOS: "SAN", GUARUJA: "GJA" };
+  function codigoItinerario(origem, destino) {
+    const o = normalizarCidade(origem), d = normalizarCidade(destino);
+    if (PORTOS[d] && CODIGOS_CIDADE[o]) return CODIGOS_CIDADE[o] + PORTOS[d];
+    if (PORTOS[o] && CODIGOS_CIDADE[d]) return PORTOS[o] + CODIGOS_CIDADE[d];
+    return "";
+  }
 
   // src/formato.js
   var NADA = "—";
@@ -642,8 +999,10 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     { id: "BAG", nome: "Big bag", kg: null, saca: false }
   ];
   var PRODUTOS_INICIAIS = [{ id: "CAFE", nome: "Café" }, { id: "ACUCAR", nome: "Açúcar" }];
+  var CORTE_PADRAO = "2026-08-01";
   var novaBase = () => ({
-    versao: 2,
+    versao: 3,
+    corte: CORTE_PADRAO,
     salvoEm: null,
     salvoPor: null,
     ctes: [],
@@ -692,21 +1051,43 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     };
     r.ctes = r.ctes.map(normaliza);
     r.lixeira = r.lixeira.map((l) => ({ ...l, cte: normaliza(l.cte) }));
+    if ((r.versao || 1) < 3) {
+      if (r.corte === void 0) r.corte = CORTE_PADRAO;
+      const v3 = (c) => ({
+        ...c,
+        taxaSeguro: c.valorAssegurado > 0 ? arred6((c.valorSeguro || 0) / c.valorAssegurado) : null,
+        itinerario: c.itinerario || codigoItinerario(c.origem, c.destino)
+      });
+      r.ctes = r.ctes.map(v3);
+      r.lixeira = r.lixeira.map((l) => ({ ...l, cte: v3(l.cte) }));
+      r.versao = 3;
+    }
     return r;
+  }
+  var noCorte = (d, cte) => !d.corte || String(cte.emissao) >= d.corte;
+  var ctesNoCorte = (d) => d.ctes.filter((c) => noCorte(d, c));
+  function definirCorte(d, valor, quem, agora) {
+    const v = valor ? String(valor) : null;
+    if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return { ok: false };
+    d.corte = v;
+    registrar(d, "corte", quem, agora, "", v ? `data de corte ${v.split("-").reverse().join("/")}` : "sem data de corte");
+    return { ok: true, corte: v };
   }
   var unidadeDe = (d, id) => (d.unidades || []).find((u) => u.id === id) || null;
   var produtoDe = (d, id) => (d.produtos || []).find((p) => p.id === id) || null;
-  var NUMERICOS = ["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"];
+  var NUMERICOS = ["valorAssegurado", "valorSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"];
   function normalizar(c) {
+    const chave = soDigitos(c.chave);
     const n = {
-      chave: soDigitos(c.chave),
+      chave,
       numero: c.numero === "" || c.numero == null ? null : Number(soDigitos(c.numero)) || null,
       emissao: String(c.emissao ?? "").slice(0, 10),
-      cnpjTransportador: normalizarCnpj(c.cnpjTransportador),
+      cnpjTransportador: normalizarCnpj(c.cnpjTransportador) || cnpjDaChave(chave),
+      // o transportador é o emitente da chave
       cnpjCliente: normalizarCnpj(c.cnpjCliente),
       origem: normalizarCidade(c.origem),
       destino: normalizarCidade(c.destino),
-      itinerario: String(c.itinerario ?? "").trim().toUpperCase(),
+      itinerario: codigoItinerario(c.origem, c.destino),
       produto: c.produto ? String(c.produto) : null,
       unidade: c.unidade ? String(c.unidade) : null,
       pesoInformado: Boolean(c.pesoInformado),
@@ -714,7 +1095,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       observacoes: String(c.observacoes ?? "").trim()
     };
     for (const k of NUMERICOS) n[k] = numeroBR(c[k]);
-    for (const k of ["valorAssegurado", "taxaSeguro", "adicionais"]) if (n[k] == null) n[k] = 0;
+    for (const k of ["valorAssegurado", "valorSeguro", "adicionais"]) if (n[k] == null) n[k] = 0;
     return n;
   }
   var ERRO_PESO = "Informe o peso total do CT-e (kg).";
@@ -734,6 +1115,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     if (!c.numero) erros.numero = "Informe o número do CT-e.";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(c.emissao)) erros.emissao = "Informe a data de emissão.";
     if (c.cnpjTransportador.length !== 14) erros.cnpjTransportador = "CNPJ do transportador precisa ter 14 dígitos.";
+    else if (chaveValida(c.chave) && c.cnpjTransportador !== cnpjDaChave(c.chave)) erros.cnpjTransportador = "O CNPJ do transportador não bate com a chave de acesso.";
     if (c.cnpjCliente.length !== 14) erros.cnpjCliente = "CNPJ do cliente precisa ter 14 dígitos.";
     if (!c.origem) erros.origem = "Informe a cidade de origem.";
     if (!c.destino) erros.destino = "Informe a cidade de destino.";
@@ -825,7 +1207,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     if (Object.keys(erros).length) return { ok: false, erros };
     const antes = { valorSeguro: cte.valorSeguro, tarifa: cte.tarifa };
     Object.assign(cte, { produto, unidade, pesoInformado: c.pesoInformado, pesoKg: c.pesoKg }, calcular(d, c), { alteradoPor: quem, alteradoEm: agora });
-    if (cte.divergencia) {
+    if (cte.divergencia?.planilha && "tarifa" in cte.divergencia.planilha) {
       Object.assign(cte, antes);
       precosDaTarifa(d, cte);
     }
@@ -878,12 +1260,12 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   var ARQ_DADOS = "radar-carga-solta-dados.js";
   var PASTA_BKP = "backups";
   var MAX_BKP = 60;
-  var MARCA = "window.RADAR_CS2=";
-  var MARCA_ANTIGA = "window.RADAR_CS=";
+  var MARCA = "window.RADAR_CS3=";
+  var MARCAS_ANTIGAS = ["window.RADAR_CS2=", "window.RADAR_CS="];
   var PREFIXO_BKP = "radar-carga-solta-dados ";
   function lerDadosJs(texto) {
     const t = String(texto ?? "");
-    const marca = t.includes(MARCA) ? MARCA : MARCA_ANTIGA, i = t.indexOf(marca);
+    const marca = [MARCA, ...MARCAS_ANTIGAS].find((m) => t.includes(m)) || MARCA, i = t.indexOf(marca);
     if (i < 0) return null;
     const corpo = t.slice(i + marca.length).trim().replace(/;\s*$/, "");
     try {
@@ -905,8 +1287,8 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   }
   var ehBackup = (nome) => /^radar-carga-solta-dados \d{4}-\d{2}-\d{2} \d{2}h\d{2}m\d{2}s\.js$/.test(nome);
   var podar = (nomes, max = MAX_BKP) => nomes.filter(ehBackup).sort().slice(0, Math.max(0, nomes.filter(ehBackup).length - max));
-  var novaSessao = () => ({ alterados: /* @__PURE__ */ new Set(), excluidos: /* @__PURE__ */ new Set(), restaurados: /* @__PURE__ */ new Set(), cadastro: /* @__PURE__ */ new Map(), listas: /* @__PURE__ */ new Map(), log: [], toques: /* @__PURE__ */ new Map() });
-  var sessaoVazia = (s) => !s.alterados.size && !s.excluidos.size && !s.restaurados.size && !s.cadastro.size && !s.listas?.size && !s.log.length;
+  var novaSessao = () => ({ alterados: /* @__PURE__ */ new Set(), excluidos: /* @__PURE__ */ new Set(), restaurados: /* @__PURE__ */ new Set(), cadastro: /* @__PURE__ */ new Map(), listas: /* @__PURE__ */ new Map(), config: /* @__PURE__ */ new Map(), log: [], toques: /* @__PURE__ */ new Map() });
+  var sessaoVazia = (s) => !s.alterados.size && !s.excluidos.size && !s.restaurados.size && !s.cadastro.size && !s.listas?.size && !s.config?.size && !s.log.length;
   function juntar(arquivo, tela, sessao) {
     const r = migrarBase(arquivo);
     const tocados = /* @__PURE__ */ new Set([...sessao.alterados, ...sessao.excluidos, ...sessao.restaurados]);
@@ -931,6 +1313,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       if (i >= 0) lista[i] = structuredClone(item);
       else lista.push(structuredClone(item));
     }
+    for (const [k, v] of sessao.config || []) r[k] = v;
     r.log = [...r.log || [], ...sessao.log].slice(-MAX_LOG);
     return r;
   }
@@ -941,7 +1324,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const mudaram = arquivo.ctes.filter((c) => porChave.has(c.chave) && !sessao.alterados.has(c.chave) && porChave.get(c.chave) !== JSON.stringify(c)).length;
     const noArquivo = new Set(arquivo.ctes.map((c) => c.chave));
     const saem = tela.ctes.filter((c) => !noArquivo.has(c.chave) && !sessao.alterados.has(c.chave) && !sessao.restaurados.has(c.chave)).length;
-    const minhas = sessao.alterados.size + sessao.excluidos.size + sessao.restaurados.size + sessao.cadastro.size + (sessao.listas?.size || 0);
+    const minhas = sessao.alterados.size + sessao.excluidos.size + sessao.restaurados.size + sessao.cadastro.size + (sessao.listas?.size || 0) + (sessao.config?.size || 0);
     const quem = (arquivo.salvoPor ? arquivo.salvoPor + " gravou" : "Alguém gravou") + (arquivo.salvoEm ? ` em ${fmtQuando(arquivo.salvoEm)}` : "");
     const partes = [];
     if (entram) partes.push(`${entram} CT-e que você não tem na tela`);
@@ -966,7 +1349,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     })).catch(() => void 0);
     return { get: (k) => op("readonly", (st) => st.get(k)), put: (k, v) => op("readwrite", (st) => st.put(v, k)), del: (k) => op("readwrite", (st) => st.delete(k)) };
   }
-  var serSessao = (s) => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], cadastro: [...s.cadastro], listas: [...s.listas || []], log: [...s.log], toques: [...s.toques || []] });
+  var serSessao = (s) => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], cadastro: [...s.cadastro], listas: [...s.listas || []], config: [...s.config || []], log: [...s.log], toques: [...s.toques || []] });
   var desSessao = (s) => ({
     alterados: new Set(s.alterados),
     excluidos: new Set(s.excluidos),
@@ -974,6 +1357,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     // sessões antigas guardavam só o nome do CNPJ
     cadastro: new Map((s.cadastro || []).map(([k, v]) => [k, typeof v === "string" ? { nome: v } : v])),
     listas: new Map(s.listas || []),
+    config: new Map(s.config || []),
     log: s.log,
     toques: new Map(s.toques || [])
   });
@@ -1081,6 +1465,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       const igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
       for (const [cnpj, reg] of foto.cadastro) if (igual(s.cadastro.get(cnpj), reg)) s.cadastro.delete(cnpj);
       for (const [k, item] of foto.listas || []) if (igual(s.listas?.get(k), item)) s.listas.delete(k);
+      for (const [k, v] of foto.config || []) if (s.config?.has(k) && igual(s.config.get(k), v)) s.config.delete(k);
       s.log.splice(0, foto.log.length);
     }
     g.salvar = async ({ juntar: deveJuntar = false, manual = false } = {}) => {
@@ -1173,13 +1558,14 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 
   // src/hash.js
   var ABAS = ["evolucao", "rotas", "lancamentos", "cadastro", "dados"];
-  var CHAVES = ["rota", "produto", "transportador", "cliente", "itinerario", "mesIni", "mesFim", "metrica"];
+  var CHAVES = ["rota", "produto", "transportador", "cliente", "itinerario", "mesIni", "mesFim", "metrica", "mediana"];
   var METRICAS = ["tonelada", "saca", "tarifa"];
   function lerHash(hash) {
     const [aba, q = ""] = String(hash || "").replace(/^#/, "").split("?");
     const filtros = {};
     for (const [k, v] of new URLSearchParams(q)) if (CHAVES.includes(k) && v) filtros[k] = v;
     if (!METRICAS.includes(filtros.metrica)) filtros.metrica = "tonelada";
+    if (filtros.mediana !== "0") delete filtros.mediana;
     return { aba: ABAS.includes(aba) ? aba : "evolucao", filtros };
   }
   function escreverHash(aba, filtros = {}) {
@@ -1195,6 +1581,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     cadastrarUnidade: () => cadastrarUnidade2,
     classificar: () => classificar2,
     corrigir: () => corrigir2,
+    definirCorte: () => definirCorte2,
     definirProdutoPadrao: () => definirProdutoPadrao2,
     excluir: () => excluir2,
     importar: () => importar,
@@ -1239,7 +1626,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       motivo: `${cte.produto ? "produto do CT-e" : "produto padrão do cliente"}; ` + (cte.unidade ? "unidade do CT-e" : `${cte.quantidade} ${ton ? "≤" : ">"} ${LIMITE_TONELADA} → ${u ? u.nome.toLowerCase() : "sem saca para o produto"}`)
     };
   }
-  var pendentesDeClassificacao = (d) => d.ctes.filter((c) => !c.produto || !c.unidade);
+  var pendentesDeClassificacao = (d) => ctesNoCorte(d).filter((c) => !c.produto || !c.unidade);
 
   // src/importacao.js
   var ABA_BASE = "BASE CARGA SOLTA 2026";
@@ -1302,19 +1689,21 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const l = Object.fromEntries(Object.entries(linhaBruta).map(([k, v2]) => [chaveCab(k), v2]));
     const g = (k) => k === "quantidade" ? l["QUANTIDADE"] ?? l["QT. SACAS"] : l[COL[k] ?? COL_NOVAS[k]];
     const produto = acharNaLista(d.produtos, g("produto")), unidade = acharNaLista(d.unidades, g("unidade"));
+    const assegurado = numeroBR(g("valorAssegurado")), taxa = numeroBR(g("taxaSeguro"));
+    const valorSeguro = numeroBR(g("valorSeguro")) ?? (assegurado && taxa ? arred2(assegurado * taxa) : 0);
     const quantidade = numeroBR(g("quantidade")), pesoLido = numeroBR(g("pesoKg")), u = unidadeDe(d, unidade);
     const pesoInformado = pesoLido > 0 && !(u?.kg > 0 && quantidade > 0 && Math.abs(pesoLido - quantidade * u.kg) < 0.5);
+    const chave = String(g("chave") ?? "").replace(/\D/g, ""), cnpjPlanilha = normalizarCnpj(g("cnpjTransportador"));
     const campos = {
-      chave: String(g("chave") ?? "").replace(/\D/g, ""),
+      chave,
       numero: g("numero"),
       emissao: dataISO(g("emissao")),
-      cnpjTransportador: normalizarCnpj(g("cnpjTransportador")),
+      cnpjTransportador: cnpjDaChave(chave) || cnpjPlanilha,
       cnpjCliente: normalizarCnpj(g("cnpjCliente")),
       origem: g("origem") ?? "",
       destino: g("destino") ?? "",
-      itinerario: g("itinerario") ?? "",
-      valorAssegurado: numeroBR(g("valorAssegurado")),
-      taxaSeguro: numeroBR(g("taxaSeguro")),
+      valorAssegurado: assegurado,
+      valorSeguro,
       valorFrete: numeroBR(g("valorFrete")),
       adicionais: numeroBR(g("adicionais")),
       quantidade,
@@ -1331,7 +1720,12 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       ok: true,
       numLinha,
       campos: v.campos,
-      planilha: { valorSeguro: numeroBR(g("valorSeguro")), tarifa: numeroBR(g("tarifa")), precoSaca: numeroBR(g("precoSaca")) },
+      planilha: {
+        tarifa: numeroBR(g("tarifa")),
+        precoSaca: numeroBR(g("precoSaca")),
+        cnpjTransportador: cnpjPlanilha,
+        itinerario: String(g("itinerario") ?? "").trim().toUpperCase()
+      },
       nomes: { transportador: String(g("transportador") ?? "").trim(), cliente: String(g("cliente") ?? "").trim() }
     };
   }
@@ -1349,7 +1743,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
         r.rejeitados.push({ numLinha: n.numLinha, motivo: n.motivo });
         return;
       }
-      cadastra(n.campos.cnpjTransportador, n.nomes.transportador);
+      if (!n.planilha.cnpjTransportador || n.planilha.cnpjTransportador === n.campos.cnpjTransportador) cadastra(n.campos.cnpjTransportador, n.nomes.transportador);
       cadastra(n.campos.cnpjCliente, n.nomes.cliente);
       const classificado = !Object.keys(validarCampos(d, n.campos).erros).length;
       const inc = incluir(d, n.campos, quem, agora, "importacao", { exigirClassificacao: false });
@@ -1362,19 +1756,26 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
         Object.assign(inc.cte, { unidade: null, pesoKg: null, pesoInformado: false, precoTonelada: null, precoSaca: null });
         r.aClassificar++;
       }
-      const calc = { valorSeguro: inc.cte.valorSeguro, tarifa: inc.cte.tarifa };
+      const calc = { tarifa: inc.cte.tarifa };
       const ehSaca = unidadeDe(d, inc.cte.unidade)?.saca;
       const conferir = { ...calc, ...ehSaca ? { precoSaca: inc.cte.precoSaca } : {} };
       const difere = Object.keys(conferir).some((k) => n.planilha[k] != null && conferir[k] != null && Math.abs(conferir[k] - n.planilha[k]) > TOLERANCIA);
+      const calculado = {}, planilha = {};
       if (difere) {
-        const planilha = {};
-        for (const k of ["valorSeguro", "tarifa"]) if (n.planilha[k] != null) {
+        Object.assign(calculado, calc, { precoSaca: inc.cte.precoSaca });
+        for (const k of ["tarifa"]) if (n.planilha[k] != null) {
           planilha[k] = n.planilha[k];
           inc.cte[k] = n.planilha[k];
         }
         if (n.planilha.precoSaca != null) planilha.precoSaca = n.planilha.precoSaca;
-        inc.cte.divergencia = { calculado: { ...calc, precoSaca: inc.cte.precoSaca }, planilha };
         precosDaTarifa(d, inc.cte);
+      }
+      for (const k of ["cnpjTransportador", "itinerario"]) if (n.planilha[k] && n.planilha[k] !== inc.cte[k]) {
+        calculado[k] = inc.cte[k];
+        planilha[k] = n.planilha[k];
+      }
+      if (Object.keys(planilha).length) {
+        inc.cte.divergencia = { calculado, planilha };
         r.divergentes++;
       }
     });
@@ -1507,6 +1908,11 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     if (r.ok) s.listas.set("unidade:" + r.id, structuredClone(r.unidade));
     return r;
   }
+  function definirCorte2(d, s, valor, quem, agora) {
+    const r = comLog(d, s, () => definirCorte(d, valor, quem, agora));
+    if (r.ok) s.config.set("corte", r.corte);
+    return r;
+  }
   function importar(d, s, resultado, quem, agora) {
     const chaves = new Set(d.ctes.map((c) => c.chave));
     const cnpjs = new Map(d.cnpjs.map((c) => [c.cnpj, { ...c }]));
@@ -1605,7 +2011,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const v = metrica === "tarifa" ? c.tarifa : metrica === "saca" ? c.precoSaca : c.precoTonelada;
     return v == null || !Number.isFinite(v) ? null : v;
   };
-  var produtosDaRota = (d, rota) => [...new Set(d.ctes.filter((c) => rotaDe(c) === rota && c.produto).map((c) => c.produto))].sort();
+  var produtosDaRota = (d, rota) => [...new Set(ctesNoCorte(d).filter((c) => rotaDe(c) === rota && c.produto).map((c) => c.produto))].sort();
   function mediana(nums) {
     if (!nums.length) return null;
     const s = [...nums].sort((a, b) => a - b), m = s.length >> 1;
@@ -1624,8 +2030,8 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     }
     return out;
   }
-  function filtrar(d, f = {}) {
-    return d.ctes.filter((c) => (!f.rota || rotaDe(c) === f.rota) && (!f.transportador || raizCnpj(c.cnpjTransportador) === f.transportador) && (!f.cliente || raizCnpj(c.cnpjCliente) === f.cliente) && (!f.itinerario || c.itinerario === f.itinerario) && (!f.produto || c.produto === f.produto) && (!f.mesIni || mesDe(c.emissao) >= f.mesIni) && (!f.mesFim || mesDe(c.emissao) <= f.mesFim));
+  function filtrar(d, f = {}, { aplicarCorte = true } = {}) {
+    return (aplicarCorte ? ctesNoCorte(d) : d.ctes).filter((c) => (!f.rota || rotaDe(c) === f.rota) && (!f.transportador || raizCnpj(c.cnpjTransportador) === f.transportador) && (!f.cliente || raizCnpj(c.cnpjCliente) === f.cliente) && (!f.itinerario || c.itinerario === f.itinerario) && (!f.produto || c.produto === f.produto) && (!f.mesIni || mesDe(c.emissao) >= f.mesIni) && (!f.mesFim || mesDe(c.emissao) <= f.mesFim));
   }
   function porMes(ctes, metrica) {
     var _a;
@@ -1643,28 +2049,6 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const valor = ultimoMes ? medianas[ultimoMes] : null;
     const ant = mesAnterior ? medianas[mesAnterior] : null;
     return { ultimoMes, valor, mesAnterior, variacao: ant ? valor / ant - 1 : null };
-  }
-  function serieMensal(d, ctes, metrica) {
-    var _a, _b;
-    const grupos = /* @__PURE__ */ new Map();
-    for (const c of ctes) {
-      const v = valorMetrica(c, metrica);
-      if (v == null) continue;
-      const g = grupoDoCnpj(d, c.cnpjTransportador);
-      if (!grupos.has(g.raiz)) grupos.set(g.raiz, { raiz: g.raiz, nome: g.nome, n: 0, vals: {} });
-      const s = grupos.get(g.raiz);
-      s.n++;
-      ((_a = s.vals)[_b = mesDe(c.emissao)] || (_a[_b] = [])).push(v);
-    }
-    const todos = [...grupos.values()].flatMap((s) => Object.keys(s.vals)).sort();
-    const meses = todos.length ? mesesEntre(todos[0], todos.at(-1)) : [];
-    const series = [...grupos.values()].sort((a, b) => b.n - a.n || a.nome.localeCompare(b.nome, "pt-BR")).map(({ raiz, nome, n, vals }) => ({
-      raiz,
-      nome,
-      n,
-      pontos: Object.fromEntries(Object.entries(vals).map(([m, v]) => [m, { mediana: mediana(v), min: Math.min(...v), max: Math.max(...v), n: v.length }]))
-    }));
-    return { meses, series };
   }
   function resumoGeral(ctes, metrica) {
     return {
@@ -1720,9 +2104,9 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     }).sort((a, b) => b.nCtes - a.nCtes || a.nome.localeCompare(b.nome, "pt-BR"));
   }
   function excecoes(d) {
-    const out = [];
+    const out = [], ctes = ctesNoCorte(d);
     const grupos = /* @__PURE__ */ new Map();
-    for (const c of d.ctes) {
+    for (const c of ctes) {
       if (!c.produto || !c.unidade || !(c.pesoKg > 0) || c.precoTonelada == null) {
         out.push({ tipo: "a-classificar", cte: c, detalhe: "Sem produto, unidade ou peso: fica fora do R$/t e conta na tarifa." });
         continue;
@@ -1739,17 +2123,15 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
         out.push({ tipo: "preco-fora", cte: c, detalhe: `R$/t fora da faixa de ${nome} na rota (mediana ${m.toFixed(2).replace(".", ",")}).` });
     }
     const semNome = /* @__PURE__ */ new Set();
-    for (const c of d.ctes) for (const cnpj of [c.cnpjTransportador, c.cnpjCliente])
+    for (const c of ctes) for (const cnpj of [c.cnpjTransportador, c.cnpjCliente])
       if (!nomeDoCnpj(d, cnpj)) semNome.add(normalizarCnpj(cnpj));
     for (const cnpj of semNome) out.push({ tipo: "sem-cadastro", cnpj, detalhe: "CNPJ sem nome no cadastro." });
-    for (const c of d.ctes) if (c.divergencia)
+    for (const c of ctes) if (c.divergencia)
       out.push({ tipo: "diverge-planilha", cte: c, detalhe: "Na importação, o cálculo não bateu com a planilha; vale o número da planilha." });
     return out;
   }
 
   // src/graficos.js
-  var CORES_SERIES = ["var(--navy)", "var(--accent)", "var(--plum)", "var(--yard-20)", "var(--pie-6)", "var(--pie-5)"];
-  var COR_RESTO = "var(--steel-l)";
   var r1 = (n) => Math.round(n * 10) / 10;
   function marcas(min, max) {
     if (min === max) {
@@ -1763,53 +2145,69 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     if (out.at(-1) < max) out.push(+(out.at(-1) + passo).toFixed(10));
     return out;
   }
-  function linhasMensais({ meses, series }, { largura = 760, altura = 300, formatar = (v) => fmtNum(v, 2) } = {}) {
+  var PARADAS = [[17, 35, 70], [142, 90, 168], [228, 83, 108]];
+  function corGradiente(t) {
+    const x = Math.min(1, Math.max(0, Number(t) || 0)) * (PARADAS.length - 1), i = Math.min(PARADAS.length - 2, Math.floor(x)), f = x - i;
+    return "#" + PARADAS[i].map((c, k) => Math.round(c + (PARADAS[i + 1][k] - c) * f).toString(16).padStart(2, "0")).join("");
+  }
+  var percentil = (ord, q) => {
+    const pos = (ord.length - 1) * q, i = Math.floor(pos);
+    return ord[i] + ((ord[i + 1] ?? ord[i]) - ord[i]) * (pos - i);
+  };
+  function escalaPercentil(valores) {
+    const ord = [...valores].sort((a, b) => a - b);
+    let min = percentil(ord, 0.05), max = percentil(ord, 0.95);
+    const folga = (max - min || Math.abs(max) || 1) * 0.08;
+    const ticks = marcas(min >= 0 ? Math.max(0, min - folga) : min - folga, max + folga);
+    return { min: ticks[0], max: ticks.at(-1), ticks };
+  }
+  var diaUTC = (iso) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+  var proxMes = (mes) => {
+    let [a, m] = mes.split("-").map(Number);
+    if (++m > 12) {
+      m = 1;
+      a++;
+    }
+    return `${a}-${String(m).padStart(2, "0")}`;
+  };
+  function pontosCtes(pontos, { medianas = [], largura = 760, altura = 300, formatar = (v) => fmtNum(v, 2) } = {}) {
     const esq = 64, dir = 14, topo = 12, base = 26;
-    const valores = series.flatMap((s) => Object.values(s.pontos).map((p) => p.mediana));
-    if (!meses.length || !valores.length) return `<svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Sem dados no período"></svg>`;
-    let vmin = Math.min(...valores), vmax = Math.max(...valores);
-    const folga = (vmax - vmin || Math.abs(vmax) || 1) * 0.08;
-    const ticks = marcas(vmin >= 0 ? Math.max(0, vmin - folga) : vmin - folga, vmax + folga);
-    vmin = ticks[0];
-    vmax = ticks.at(-1);
+    if (!pontos.length) return `<svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Sem CT-e no recorte"></svg>`;
+    const { min: vmin, max: vmax, ticks } = escalaPercentil(pontos.map((p) => p.valor));
+    const datas = pontos.map((p) => p.data).sort();
+    const meses = [];
+    for (let m = datas[0].slice(0, 7); m <= datas.at(-1).slice(0, 7); m = proxMes(m)) meses.push(m);
+    const t0 = diaUTC(meses[0] + "-01"), t1 = diaUTC(proxMes(meses.at(-1)) + "-01");
     const w = largura - esq - dir, h = altura - topo - base;
-    const x = (i) => r1(esq + (meses.length === 1 ? w / 2 : i * w / (meses.length - 1)));
+    const xt = (t) => r1(esq + (t - t0) / (t1 - t0) * w);
+    const x = (iso) => xt(diaUTC(iso) + 432e5);
     const y = (v) => r1(topo + h - (v - vmin) / (vmax - vmin) * h);
-    const yc = (v) => Math.min(topo + h, Math.max(topo, y(v)));
-    const partes = [`<svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Evolução mensal por transportador">`];
+    const lo = Math.min(...pontos.map((p) => p.valor)), hi = Math.max(...pontos.map((p) => p.valor));
+    const cor = (v) => corGradiente(hi === lo ? 0.5 : (v - lo) / (hi - lo));
+    const partes = [`<svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Frete de cada CT-e na data de emissão">`];
     for (const t of ticks) partes.push(
       `<line class="gl" x1="${esq}" x2="${largura - dir}" y1="${y(t)}" y2="${y(t)}"/>`,
       `<text class="ax" x="${esq - 8}" y="${y(t) + 3}" text-anchor="end">${esc(formatar(t))}</text>`
     );
     const cada = Math.ceil(meses.length / 12);
     meses.forEach((m, i) => {
-      if (i % cada === 0 || i === meses.length - 1) partes.push(`<text class="ax" x="${x(i)}" y="${altura - 8}" text-anchor="middle">${fmtMes(m)}</text>`);
+      const xi = xt(diaUTC(m + "-01")), xf = xt(diaUTC(proxMes(m) + "-01"));
+      if (i) partes.push(`<line class="gl mes" x1="${xi}" x2="${xi}" y1="${topo}" y2="${topo + h}"/>`);
+      if (i % cada === 0) partes.push(`<text class="ax" x="${r1((xi + xf) / 2)}" y="${altura - 8}" text-anchor="middle">${fmtMes(m)}</text>`);
     });
-    const ordem = series.map((s, i) => [s, i]).reverse();
-    for (const [s, i] of ordem) {
-      const cor = i < CORES_SERIES.length ? CORES_SERIES[i] : COR_RESTO;
-      const classe = i < CORES_SERIES.length ? "serie" : "serie resto";
-      let d = "", aberto = false;
-      meses.forEach((m, j) => {
-        const p = s.pontos[m];
-        if (!p) {
-          aberto = false;
-          return;
-        }
-        d += `${aberto ? "L" : "M"}${x(j)} ${y(p.mediana)} `;
-        aberto = true;
-      });
-      partes.push(`<g class="grupo-serie" data-raiz="${esc(s.raiz)}"><title>${esc(s.nome)}</title>`);
-      meses.forEach((m, j) => {
-        const p = s.pontos[m];
-        if (p && p.max > p.min) partes.push(`<line class="faixa" x1="${x(j)}" x2="${x(j)}" y1="${yc(p.min)}" y2="${yc(p.max)}" stroke="${cor}" stroke-opacity=".35" stroke-width="5"/>`);
-      });
-      partes.push(`<path class="${classe}" data-raiz="${esc(s.raiz)}" d="${d.trim()}" stroke="${cor}" fill="none" stroke-width="${i < CORES_SERIES.length ? 2.2 : 1.4}"/>`);
-      meses.forEach((m, j) => {
-        const p = s.pontos[m];
-        if (p) partes.push(`<circle class="ponto" data-raiz="${esc(s.raiz)}" data-nome="${esc(s.nome)}" data-mes="${m}" data-mediana="${p.mediana}" data-min="${p.min}" data-max="${p.max}" data-n="${p.n}" cx="${x(j)}" cy="${y(p.mediana)}" r="3.6" fill="${cor}"/>`);
-      });
-      partes.push("</g>");
+    if (medianas.length) {
+      let d = "";
+      for (const { mes, valor } of [...medianas].sort((a, b) => a.mes.localeCompare(b.mes))) {
+        if (valor == null || mes < meses[0] || mes > meses.at(-1)) continue;
+        const yv = Math.min(topo + h, Math.max(topo, y(valor)));
+        d += `M${xt(diaUTC(mes + "-01"))} ${yv} H${xt(diaUTC(proxMes(mes) + "-01"))} `;
+      }
+      if (d) partes.push(`<path class="mediana" d="${d.trim()}" fill="none"/>`);
+    }
+    for (const p of [...pontos].sort((a, b) => a.valor - b.valor)) {
+      const preso = p.valor < vmin || p.valor > vmax;
+      const cy = Math.min(topo + h, Math.max(topo, y(p.valor)));
+      partes.push(`<circle class="cte${preso ? " preso" : ""}" data-chave="${esc(p.chave)}" cx="${x(p.data)}" cy="${cy}" r="4.5" fill="${cor(p.valor)}"/>`);
     }
     partes.push("</svg>");
     return partes.join("");
@@ -1841,42 +2239,48 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   var variacaoHtml = (v) => v == null ? "—" : `<span class="${v > 0 ? "sobe" : v < 0 ? "desce" : ""}">${v > 0 ? "+" : ""}${fmtPct(v)}</span>`;
   var NOMES_METRICA = { tonelada: "Preço por tonelada", saca: "Preço por saca", tarifa: "Tarifa do frete" };
   function listas(d) {
+    const ctes = ctesNoCorte(d);
     const grupos = (campo) => {
       const m = /* @__PURE__ */ new Map();
-      for (const c of d.ctes) {
+      for (const c of ctes) {
         const g = grupoDoCnpj(d, c[campo]);
         m.set(g.raiz, g.nome);
       }
       return [...m].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
     };
-    const meses = [...new Set(d.ctes.map((c) => mesDe(c.emissao)))].sort().map((m) => [m, fmtMes(m)]);
+    const meses = [...new Set(ctes.map((c) => mesDe(c.emissao)))].sort().map((m) => [m, fmtMes(m)]);
     return {
       rotas: resumoRotas(d, "saca").map((r) => [r.rota, `${r.rota} · ${r.nCtes} CT-e`]),
       transportadores: grupos("cnpjTransportador"),
       clientes: grupos("cnpjCliente"),
-      itinerarios: [...new Set(d.ctes.map((c) => c.itinerario).filter(Boolean))].sort().map((i) => [i, i]),
+      itinerarios: [...new Set(ctes.map((c) => c.itinerario).filter(Boolean))].sort().map((i) => [i, i]),
       meses,
-      produtos: d.produtos.filter((p) => d.ctes.some((c) => c.produto === p.id)).map((p) => [p.id, p.nome])
+      produtos: d.produtos.filter((p) => ctes.some((c) => c.produto === p.id)).map((p) => [p.id, p.nome])
     };
   }
   var TITULOS_EXC = {
     "preco-fora": ["R$/t fora da faixa da rota", "Acima de 3× ou abaixo de ⅓ da mediana da rota para o mesmo produto. Confira quantidade, unidade e frete no CT-e."],
     "a-classificar": ["CT-e a classificar", "Sem produto, unidade ou peso: fica fora do R$/t e conta só na tarifa. Classifique em Dados → Classificar CT-e."],
     "sem-cadastro": ["CNPJ sem nome no cadastro", "O painel mostra o CNPJ no lugar do nome. Cadastre o nome na aba Cadastro."],
-    "diverge-planilha": ["Cálculo diferente da planilha", "Na importação, seguro, tarifa ou preço por saca não bateram com a conta. Vale o número da planilha."]
+    "diverge-planilha": ["Diferente da planilha", "Na importação, o CNPJ do transportador, o itinerário ou a tarifa não bateram; vale o CNPJ da chave e o itinerário do cadastro do Rodopar, e a tarifa da planilha."]
   };
+  var NOMES_DIVERGENCIA = { tarifa: "Tarifa", precoSaca: "R$/saca", cnpjTransportador: "CNPJ", itinerario: "Itinerário" };
+  var fmtDivergente = (k, v) => k === "cnpjTransportador" ? fmtCnpj(v) : k === "itinerario" ? v || "em branco" : fmtMoeda(v);
+  var oQueDivergiu = (div) => Object.keys(div?.planilha || {}).map((k) => `${NOMES_DIVERGENCIA[k] || k}: planilha ${fmtDivergente(k, div.planilha[k])}${k in (div.calculado || {}) ? " · painel " + fmtDivergente(k, div.calculado[k]) : ""}`).join("<br>");
   function excecoesHtml(d) {
     const ex = excecoes(d);
     if (!ex.length) return `<div class="card"><div class="limpo"><b>Nenhuma exceção</b><p>Todos os CT-e têm sacas, CNPJ cadastrado e preço dentro da faixa da rota.</p></div></div>`;
     const porTipo = Object.keys(TITULOS_EXC).map((t) => [t, ex.filter((e) => e.tipo === t)]).filter(([, l]) => l.length);
     return `<p class="hint">Todas entram nos totais do painel; ficam aqui para que a correção volte ao lançamento.</p>` + porTipo.map(([tipo, lista]) => {
       const [titulo, acao] = TITULOS_EXC[tipo];
-      const linhas = lista.map((e) => e.cte ? `<tr><td class="mono">${esc(e.cte.numero)}</td><td>${fmtData(e.cte.emissao)}</td><td>${esc(grupoDoCnpj(d, e.cte.cnpjTransportador).nome)}</td><td>${esc(rotaDe(e.cte))}</td><td>${esc(produtoDe(d, e.cte.produto)?.nome || "—")}</td><td class="num">${fmtMoeda(e.cte.precoTonelada)}</td></tr>` : `<tr><td class="mono" colspan="2">${fmtCnpj(e.cnpj)}</td><td colspan="4">${d.ctes.filter((c) => c.cnpjTransportador === e.cnpj || c.cnpjCliente === e.cnpj).length} CT-e usam este CNPJ</td></tr>`);
-      const cab = lista[0].cte ? `<tr><th>CT-e</th><th>Emissão</th><th>Transportador</th><th>Rota</th><th>Produto</th><th class="num">R$/t</th></tr>` : `<tr><th colspan="2">CNPJ</th><th colspan="4">Uso</th></tr>`;
+      const diverge = tipo === "diverge-planilha";
+      const linhas = lista.map((e) => e.cte ? `<tr><td class="mono">${esc(e.cte.numero)}${tipo === "a-classificar" ? "" : `<button class="btn mini" type="button" data-abrir-cte="${e.cte.chave}">Abrir na base</button>`}</td><td>${fmtData(e.cte.emissao)}</td><td>${esc(grupoDoCnpj(d, e.cte.cnpjTransportador).nome)}</td><td>${esc(rotaDe(e.cte))}</td><td>${esc(produtoDe(d, e.cte.produto)?.nome || "—")}</td><td class="num">${fmtMoeda(e.cte.precoTonelada)}</td>${diverge ? `<td class="sub">${esc(oQueDivergiu(e.cte.divergencia)).replace(/&lt;br&gt;/g, "<br>")}</td>` : ""}</tr>` : `<tr><td class="mono" colspan="2">${fmtCnpj(e.cnpj)} <button class="btn mini" type="button" data-abrir-cnpj="${e.cnpj}">Abrir no cadastro</button></td><td colspan="4">${d.ctes.filter((c) => c.cnpjTransportador === e.cnpj || c.cnpjCliente === e.cnpj).length} CT-e usam este CNPJ</td></tr>`);
+      const cab = lista[0].cte ? `<tr><th>CT-e</th><th>Emissão</th><th>Transportador</th><th>Rota</th><th>Produto</th><th class="num">R$/t</th>${diverge ? "<th>O que divergiu</th>" : ""}</tr>` : `<tr><th colspan="2">CNPJ</th><th colspan="4">Uso</th></tr>`;
       return `<div class="exc" data-tipo="${tipo}"><span class="pill">${lista.length} ${lista.length === 1 ? "registro" : "registros"}</span><h4>${esc(titulo)}</h4>
       <p class="exc-act">${esc(acao)}</p><div class="tabela"><table><thead>${cab}</thead><tbody>${linhas.slice(0, 20).join("")}</tbody>
       <tbody class="resto" hidden>${linhas.slice(20).join("")}</tbody></table></div>
-      ${linhas.length > 20 ? `<div class="botoes"><button class="btn mini" type="button" data-ver-todas>Ver todas (${linhas.length})</button></div>` : ""}</div>`;
+      <div class="botoes">${tipo === "a-classificar" ? `<button class="btn mini primario" type="button" data-ir-classificar>Classificar CT-e</button>` : ""}
+      ${linhas.length > 20 ? `<button class="btn mini" type="button" data-ver-todas>Ver todas (${linhas.length})</button>` : ""}</div></div>`;
     }).join("");
   }
   function renderEvolucao(raiz, App2) {
@@ -1890,8 +2294,13 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       return;
     }
     const ctes = filtrar(d, f);
+    const foraDoCorte = d.ctes.length - ctesNoCorte(d).length;
     const r = resumoGeral(ctes, metrica);
-    const serie = serieMensal(d, ctes, metrica);
+    const comValor = ctes.filter((c) => valorMetrica(c, metrica) != null);
+    const pontos = comValor.map((c) => ({ data: c.emissao, valor: valorMetrica(c, metrica), chave: c.chave }));
+    const comMediana = f.mediana !== "0";
+    const medianas = comMediana ? Object.entries(medianasPorMes(comValor, metrica)).map(([mes, valor]) => ({ mes, valor })) : [];
+    const vals = pontos.map((p) => p.valor), lo = vals.length ? Math.min(...vals) : null, hi = vals.length ? Math.max(...vals) : null;
     const L = listas(d);
     const nomeMetrica = NOMES_METRICA[metrica];
     const misturados = f.rota && !f.produto ? produtosDaRota(d, f.rota) : [];
@@ -1931,14 +2340,17 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     </div>
   </div></section>
   <section class="secao"><div class="wrap pilha">
+    ${foraDoCorte ? `<p class="hint" id="aviso-corte">${fmtNum(foraDoCorte)} CT-e emitido${foraDoCorte === 1 ? "" : "s"} antes de ${fmtData(d.corte)} fora da análise (sem CT-e em mãos para classificar). A data de corte fica em Dados.</p>` : ""}
     ${misturados.length > 1 ? `<div class="exc" id="aviso-produtos"><span class="pill">Produtos misturados</span>
       <h4>Esta rota tem ${esc(misturados.map((p) => produtoDe(d, p)?.nome || p).join(" e "))}</h4>
       <p class="exc-act">O frete de produtos diferentes tem preço diferente: escolha o produto no recorte para comparar transportadores.</p></div>` : ""}
     <div class="card">
-      <div class="card-head"><div><h3>Evolução mensal</h3><p class="hint">Mediana do mês por transportador; o traço vertical vai do menor ao maior preço do mês (cortado na borda quando passa da escala). Passe o cursor para ver mínimo, máximo e número de CT-e.</p></div></div>
-      <div class="grafico">${linhasMensais(serie, { formatar })}</div>
-      <div class="legenda">${serie.series.slice(0, CORES_SERIES.length).map((s, i) => `<span data-raiz="${esc(s.raiz)}"><i style="background:${CORES_SERIES[i]}"></i>${esc(s.nome)} · ${s.n}</span>`).join("")}
-        ${serie.series.length > CORES_SERIES.length ? `<span><i style="background:var(--steel-l)"></i>outros ${serie.series.length - CORES_SERIES.length} em cinza</span>` : ""}</div>
+      <div class="card-head"><div><h3>Evolução por CT-e</h3><p class="hint">Cada ponto é um CT-e, na data de emissão. A cor vai do azul (frete mais barato do recorte) ao rosa (mais caro)${comMediana ? "; a linha tracejada é a mediana do mês" : ""}. Clique num ponto para abrir o CT-e. Ponto com contorno na borda: fora da escala; o valor real aparece ao passar o mouse.</p></div>
+        <div class="modes light" role="group" aria-label="Mediana do mês"><span class="modes-rot">Mediana do mês</span>
+          <button type="button" data-mediana="1" aria-pressed="${comMediana}">ligada</button>
+          <button type="button" data-mediana="0" aria-pressed="${!comMediana}">desligada</button></div></div>
+      <div class="grafico">${pontosCtes(pontos, { medianas, formatar })}</div>
+      ${vals.length ? `<div class="legenda-gradiente"><span>mais barato <b>${formatar(lo)}</b></span><i style="background:linear-gradient(90deg, ${corGradiente(0)}, ${corGradiente(0.5)}, ${corGradiente(1)})"></i><span>mais caro <b>${formatar(hi)}</b></span></div>` : ""}
     </div>
     <div class="kpis">
       <div class="kpi"><b>${fmtNum(r.nCtes)}</b><u>CT-e no recorte</u></div>
@@ -1963,21 +2375,30 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     $$("[data-metrica]", raiz).forEach((b) => b.addEventListener("click", () => App2.mudarFiltros({ metrica: b.dataset.metrica })));
     $$("select[data-f]", raiz).forEach((s) => s.addEventListener("change", () => App2.mudarFiltros({ [s.dataset.f]: s.value })));
     $("[data-limpar]", raiz).addEventListener("click", () => App2.irPara("evolucao", { metrica }));
+    $$("[data-abrir-cte]", raiz).forEach((b) => b.addEventListener("click", () => App2.abrirCte(b.dataset.abrirCte)));
+    $$("[data-abrir-cnpj]", raiz).forEach((b) => b.addEventListener("click", () => App2.abrirCnpj(b.dataset.abrirCnpj)));
+    $$("[data-ir-classificar]", raiz).forEach((b) => b.addEventListener("click", () => {
+      App2.irPara("dados", { metrica });
+      requestAnimationFrame(() => document.querySelector("#classificar")?.scrollIntoView({ block: "start" }));
+    }));
     $$("[data-ver-todas]", raiz).forEach((b) => b.addEventListener("click", () => {
       b.closest(".exc").querySelector("tbody.resto").hidden = false;
       b.remove();
     }));
-    const graf = $(".grafico", raiz);
+    $$("[data-mediana]", raiz).forEach((b) => b.addEventListener("click", () => App2.mudarFiltros({ mediana: b.dataset.mediana === "0" ? "0" : "" })));
+    const graf = $(".grafico", raiz), porChave = new Map(comValor.map((c) => [c.chave, c]));
     graf.addEventListener("mousemove", (ev) => {
-      const p = ev.target.closest("circle.ponto");
-      if (!p) return dica(null);
-      const ds = p.dataset;
-      dica(`<b>${esc(ds.nome)}</b>${esc(fmtMesLongo(ds.mes))}<br>mediana ${formatar(+ds.mediana)}<br><span>${formatar(+ds.min)} a ${formatar(+ds.max)} · ${ds.n} CT-e</span>`, ev);
+      const c = porChave.get(ev.target.closest("circle.cte")?.dataset.chave);
+      if (!c) return dica(null);
+      dica(`<b>CT-e ${esc(c.numero)}</b>${fmtData(c.emissao)} · ${esc(grupoDoCnpj(d, c.cnpjTransportador).nome)}<br>${esc(rotaDe(c))}${c.produto ? " · " + esc(produtoDe(d, c.produto)?.nome || c.produto) : ""}<br><span>${esc(formatar(valorMetrica(c, metrica)))}</span>`, ev);
     });
     graf.addEventListener("mouseleave", () => dica(null));
-    $$(".legenda [data-raiz]", raiz).forEach((l) => {
-      l.addEventListener("mouseenter", () => $$(".grupo-serie", graf).forEach((g) => g.classList.toggle("apagado", g.dataset.raiz !== l.dataset.raiz)));
-      l.addEventListener("mouseleave", () => $$(".grupo-serie", graf).forEach((g) => g.classList.remove("apagado")));
+    graf.addEventListener("click", (ev) => {
+      const p = ev.target.closest("circle.cte");
+      if (p) {
+        dica(null);
+        App2.abrirCte(p.dataset.chave);
+      }
     });
   }
 
@@ -2014,21 +2435,25 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   // src/telas/lancamentos.js
   var POR_PAGINA = 100;
   var estado = { editando: null, busca: "", limite: POR_PAGINA, rascunho: null };
+  function abrirNaBase(cte, { editar = true } = {}) {
+    Object.assign(estado, { editando: editar ? cte.chave : null, busca: String(cte.numero), limite: POR_PAGINA, rascunho: null });
+  }
   var CAMPOS = [
     ["chave", "Chave de acesso", true, "w2", "text", "44 dígitos"],
     ["numero", "Nº CT-e", true, "", "text", ""],
     ["emissao", "Emissão", true, "", "date", ""],
-    ["cnpjTransportador", "CNPJ do transportador", true, "", "text", "00.000.000/0000-00"],
+    ["cnpjTransportador", "CNPJ do transportador", true, "", "text", "sai da chave de acesso"],
     ["cnpjCliente", "CNPJ do cliente", true, "", "text", "00.000.000/0000-00"],
     ["origem", "Cidade origem", true, "", "text", ""],
     ["destino", "Cidade destino", true, "", "text", ""],
-    ["itinerario", "Cód. itinerário", false, "", "text", ""],
+    ["itinerario", "Cód. itinerário", false, "", "text", "cadastro do Rodopar"],
     ["valorAssegurado", "Valor assegurado", false, "", "text", ""],
-    ["taxaSeguro", "Taxa do seguro", false, "", "text", "ex.: 0,0005"],
+    ["valorSeguro", "Valor do seguro", false, "", "text", ""],
     ["valorFrete", "Valor do frete", true, "", "text", ""],
     ["adicionais", "Adicionais", false, "", "text", ""]
   ];
-  var NUM = /* @__PURE__ */ new Set(["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
+  var TRAVADOS = /* @__PURE__ */ new Set(["cnpjTransportador", "itinerario"]);
+  var NUM = /* @__PURE__ */ new Set(["valorAssegurado", "valorSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
   var fmtCampo = (k, v) => v == null || v === "" ? "" : k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) : k === "pesoKg" ? fmtNum(v, Number.isInteger(v) ? 0 : 2) : NUM.has(k) ? String(v).replace(".", ",") : String(v);
   var opcoesLista = (lista, atual) => `<option value="">Escolha</option>` + lista.map((x) => `<option value="${esc(x.id)}"${x.id === atual ? " selected" : ""}>${esc(x.nome)}</option>`).join("");
   function lerForm(form) {
@@ -2049,18 +2474,18 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const cidades = [...new Set(App2.dados.ctes.flatMap((c) => [c.origem, c.destino]))].sort();
     return `<form id="form-cte" class="card${cte ? " editando" : ""}" novalidate data-escreve>
     <div class="card-head"><div><h3>${cte ? "Corrigir lançamento" : "Lançar CT-e"}</h3>
-      <p class="hint">${cte ? `Corrigindo o CT-e Nº ${esc(cte.numero)}, lançado por ${esc(cte.criadoPor)} em ${fmtQuando(cte.criadoEm)}. A chave não muda.` : "Campos com * são obrigatórios. Seguro, tarifa, peso, R$/t e R$/saca são calculados."}</p></div></div>
+      <p class="hint">${cte ? `Corrigindo o CT-e Nº ${esc(cte.numero)}, lançado por ${esc(cte.criadoPor)} em ${fmtQuando(cte.criadoEm)}. A chave não muda.` : "Campos com * são obrigatórios. Taxa do seguro, tarifa, peso, R$/t e R$/saca são calculados."}</p></div></div>
     <div class="form-grid">
       ${CAMPOS.map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
         <input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
-          value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${k === "origem" || k === "destino" ? 'list="cidades"' : ""} autocomplete="off">
+          value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? 'list="cidades"' : ""} autocomplete="off">
         ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("")}
       <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App2.dados.produtos, v.produto)}</select><span class="erro" data-erro="produto"></span></label>
       <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App2.dados.unidades, v.unidade)}</select><span class="erro" data-erro="unidade"></span></label>
       <label class="campo"><span>Quantidade <i class="obrig">*</i></span><input name="quantidade" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off"><span class="erro" data-erro="quantidade"></span></label>
       <div class="campo"><span>Peso total (kg)</span><input name="pesoKg" type="text" inputmode="decimal" value="${esc(fmtCampo("pesoKg", v.pesoKg))}" autocomplete="off" aria-label="Peso total (kg)">
         <label class="nota caixa"><input type="checkbox" name="pesoInformado" ${v.pesoInformado ? "checked" : ""}> Usar o peso do CT-e</label><span class="erro" data-erro="pesoKg"></span></div>
-      <label class="campo"><span>Valor do seguro</span><output name="valorSeguro">—</output></label>
+      <label class="campo"><span>Taxa do seguro</span><output name="taxaSeguro">—</output></label>
       <label class="campo"><span>Tarifa do frete</span><output name="tarifa">—</output></label>
       <label class="campo"><span>R$/t</span><output name="precoTonelada">—</output></label>
       <label class="campo"><span>R$/saca</span><output name="precoSaca">—</output></label>
@@ -2074,6 +2499,9 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   </form>`;
   }
   function atualizarForm(form, App2) {
+    const chave = estado.editando || form.querySelector("[name=chave]").value;
+    form.querySelector("[name=cnpjTransportador]").value = fmtCnpj(cnpjDaChave(chave)) || "";
+    form.querySelector("[name=itinerario]").value = codigoItinerario(form.querySelector("[name=origem]").value, form.querySelector("[name=destino]").value);
     const cliente = form.querySelector("[name=cnpjCliente]"), prod = form.querySelector("[name=produto]");
     const padrao = App2.dados.cnpjs.find((x) => x.cnpj === normalizarCnpj(cliente.value))?.produtoPadrao;
     if (!prod.value && padrao && produtoDe(App2.dados, padrao)) prod.value = padrao;
@@ -2087,7 +2515,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const r = calcularCte({ ...c, unidade: u, pesoInformado: caixa.checked });
     if (!caixa.checked) peso.value = r.pesoKg != null ? fmtNum(r.pesoKg) : "";
     const ok = c.valorFrete != null;
-    form.querySelector("output[name=valorSeguro]").textContent = ok ? fmtMoeda(r.valorSeguro) : "—";
+    form.querySelector("output[name=taxaSeguro]").textContent = r.taxaSeguro != null ? fmtPct(r.taxaSeguro, 4) : "—";
     form.querySelector("output[name=tarifa]").textContent = ok ? fmtMoeda(r.tarifa) : "—";
     form.querySelector("output[name=precoTonelada]").textContent = ok && r.precoTonelada != null ? fmtMoeda(r.precoTonelada) : "—";
     form.querySelector("output[name=precoSaca]").textContent = ok && r.precoSaca != null ? fmtMoeda(r.precoSaca) : "—";
@@ -2150,12 +2578,12 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   }
   function pintarBase(raiz, App2) {
     const d = App2.dados, q = soDigitos(estado.busca);
-    const todas = filtrar(d, { ...App2.filtros, metrica: void 0 }).filter((c) => !q || (q.length <= 9 ? String(c.numero).startsWith(String(Number(q))) : c.chave.includes(q))).sort((a, b) => b.emissao.localeCompare(a.emissao) || b.numero - a.numero);
+    const todas = filtrar(d, { ...App2.filtros, metrica: void 0 }, { aplicarCorte: false }).filter((c) => !q || (q.length <= 9 ? String(c.numero).startsWith(String(Number(q))) : c.chave.includes(q))).sort((a, b) => b.emissao.localeCompare(a.emissao) || b.numero - a.numero);
     const linhas = todas.slice(0, estado.limite);
     const recorte = ["rota", "transportador", "cliente", "itinerario", "mesIni", "mesFim"].some((k) => App2.filtros[k]);
     $("#base-cont", raiz).textContent = `${fmtNum(todas.length)} de ${fmtNum(d.ctes.length)} CT-e${recorte ? " (com o recorte da Evolução)" : ""}. Mais recentes primeiro.`;
     tabelaOrdenavel($("#tab-base", raiz), [
-      { titulo: "Emissão", valor: (c) => c.emissao, html: (c) => fmtData(c.emissao) },
+      { titulo: "Emissão", valor: (c) => c.emissao, html: (c) => fmtData(c.emissao) + (noCorte(d, c) ? "" : '<span class="sub">antes do corte</span>') },
       { titulo: "Nº", valor: (c) => c.numero, html: (c) => `<span class="mono">${esc(c.numero)}</span>` },
       { titulo: "Transportador", valor: (c) => grupoDoCnpj(d, c.cnpjTransportador).nome, html: (c) => esc(nomeDoCnpj(d, c.cnpjTransportador) || fmtCnpj(c.cnpjTransportador)) },
       { titulo: "Cliente", valor: (c) => grupoDoCnpj(d, c.cnpjCliente).nome, html: (c) => esc(nomeDoCnpj(d, c.cnpjCliente) || fmtCnpj(c.cnpjCliente)) },
@@ -2242,6 +2670,9 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 
   // src/telas/cadastro.js
   var estado2 = { busca: "" };
+  var abrirNoCadastro = (cnpj) => {
+    estado2.busca = cnpj;
+  };
   var opcoesProduto = (d, atual) => `<option value="">—</option>` + d.produtos.map((p) => `<option value="${esc(p.id)}"${p.id === atual ? " selected" : ""}>${esc(p.nome)}</option>`).join("");
   function renderCadastro(raiz, App2) {
     const d = App2.dados, so = App2.somenteLeitura;
@@ -2351,7 +2782,8 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     cadastro: "Cadastro",
     classificar: "Classificou",
     produto: "Produto",
-    unidade: "Unidade"
+    unidade: "Unidade",
+    corte: "Data de corte"
   };
   function escolhaDe(d, cte) {
     if (!estado3.escolhas.get(cte.chave)?.tocada) {
@@ -2410,6 +2842,9 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       <div class="card"><h3>Exportar para Excel</h3><p class="hint">A base inteira no mesmo layout da planilha: ${fmtNum(d.ctes.length)} CT-e e ${fmtNum(d.cnpjs.length)} CNPJ.</p>
         <button class="btn" type="button" data-exportar ${d.ctes.length ? "" : "disabled"}>Baixar .xlsx</button></div>
     </div>
+    <div class="card" data-escreve><h3>Data de corte</h3><p class="hint">CT-e emitidos antes desta data ficam na base, mas fora da Evolução, das Rotas, das exceções e da classificação. Vazio = todos entram.</p>
+      <div class="form-linha"><label class="campo"><span>Data de corte</span><input id="corte" type="date" value="${esc(d.corte || "")}"></label>
+        <button class="btn primario" type="button" data-salvar-corte>Salvar data de corte</button></div></div>
     <div class="card" id="classificar"><h3>Classificar CT-e</h3>${classificarHtml(App2)}</div>
     <div class="card"><h3>Lixeira</h3><p class="hint">CT-e excluídos. Restaurar devolve o lançamento para a base, com o registro de quem restaurou.</p><div id="tab-lixeira"></div></div>
     <div class="card"><h3>Histórico</h3><p class="hint">As ${fmtNum(d.log.length)} últimas ações (o painel guarda até 500), da mais recente para a mais antiga.</p><div id="tab-log"></div></div>
@@ -2482,6 +2917,10 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       if (b.dataset.restaurar) {
         const r = await App2.alterar((dd, s, quem, agora) => App2.acoes.restaurar(dd, s, b.dataset.restaurar, quem, agora));
         if (r?.ok) aviso(`CT-e ${r.cte.numero} restaurado.`);
+      } else if (b.hasAttribute("data-salvar-corte")) {
+        const r = await App2.alterar((dd, s, quem, agora) => App2.acoes.definirCorte(dd, s, $("#corte", raiz).value, quem, agora));
+        if (r?.ok) aviso(r.corte ? `Data de corte: ${fmtData(r.corte)}.` : "Sem data de corte: todos os CT-e entram na análise.");
+        else if (r) aviso("Data inválida.", true);
       } else if (b.hasAttribute("data-nome")) {
         await App2.pedirNome();
         App2.render();
@@ -2578,6 +3017,19 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       if (location.hash === h) App.render();
       else location.hash = h;
     },
+    /* Abre o CT-e na base (corrigindo, quando o painel pode lançar), sem o recorte da Evolução. */
+    abrirCte(chave) {
+      const c = App.dados.ctes.find((x) => x.chave === chave);
+      if (!c) return;
+      abrirNaBase(c, { editar: !App.somenteLeitura });
+      App.irPara("lancamentos", { metrica: App.filtros.metrica });
+      scrollTo(0, 0);
+    },
+    abrirCnpj(cnpj) {
+      abrirNoCadastro(cnpj);
+      App.irPara("cadastro", { metrica: App.filtros.metrica });
+      scrollTo(0, 0);
+    },
     mudarFiltros(parciais) {
       const f = { ...App.filtros, ...parciais };
       for (const k of Object.keys(f)) if (!f[k]) delete f[k];
@@ -2660,7 +3112,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     }
   }
   async function iniciar() {
-    const lido = window.RADAR_CS2 || window.RADAR_CS;
+    const lido = window.RADAR_CS3 || window.RADAR_CS2 || window.RADAR_CS;
     const arquivo = lido ? migrarBase({ versao: 1, cnpjs: [], lixeira: [], log: [], ...lido }) : novaBase();
     App.dados = arquivo;
     App.gravador = criarGravador({

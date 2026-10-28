@@ -1,42 +1,53 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { linhasMensais, miniGrafico, CORES_SERIES } from "../src/graficos.js";
+import { pontosCtes, corGradiente, escalaPercentil, miniGrafico } from "../src/graficos.js";
 
-const ponto = (mediana, min = mediana, max = mediana, n = 1) => ({ mediana, min, max, n });
 const meses = ["2026-01", "2026-02", "2026-03", "2026-04"];
-const serie = (raiz, pontos, nome = raiz) => ({ raiz, nome, n: Object.keys(pontos).length, pontos });
+const p = (data, valor, chave = data + valor) => ({ data, valor, chave });
 
-test("linhasMensais quebra a linha em mês vazio", () => {
-  const svg = linhasMensais({ meses, series: [serie("1", { "2026-01": ponto(175), "2026-02": ponto(180), "2026-04": ponto(190) })] }, {});
-  const d = svg.match(/<path class="serie"[^>]* d="([^"]+)"/)[1];
-  assert.equal((d.match(/M/g) || []).length, 2);
+test("corGradiente vai do navy ao rosa passando pelo plum", () => {
+  assert.equal(corGradiente(0), "#112346");
+  assert.equal(corGradiente(1), "#e4536c");
+  assert.equal(corGradiente(0.5), "#8e5aa8");
+  assert.equal(corGradiente(-1), "#112346");
+  assert.equal(corGradiente(2), "#e4536c");
+});
+
+test("escalaPercentil deixa o CT-e fora da curva fora da escala", () => {
+  const vals = [...Array.from({ length: 20 }, (_, i) => 100 + i), 5000];
+  const e = escalaPercentil(vals);
+  assert.ok(e.max < 5000, `max ${e.max}`);
+  assert.ok(e.min <= 100, `min ${e.min}`);
+});
+
+test("pontosCtes desenha um ponto por CT-e e prende o fora da escala na borda", () => {
+  const pontos = [...Array.from({ length: 20 }, (_, i) => p(`2026-08-${String(i + 1).padStart(2, "0")}`, 100 + i)), p("2026-09-02", 5000, "fora")];
+  const svg = pontosCtes(pontos, {});
+  assert.equal((svg.match(/<circle class="cte/g) || []).length, 21);
+  assert.equal((svg.match(/class="cte preso"/g) || []).length, 1);
+  assert.match(svg, /data-chave="fora"/);
+  assert.match(svg, /ago\/26/);
   assert.ok(!/NaN|Infinity|undefined/.test(svg));
-  assert.match(svg, /jan\/26/);
 });
 
-test("sétima série fica em steel-l", () => {
-  const series = Array.from({ length: 7 }, (_, i) => serie(String(i), { "2026-01": ponto(100 + i) }));
-  const svg = linhasMensais({ meses, series }, {});
-  assert.equal((svg.match(/class="serie resto"/g) || []).length, 1);
-  assert.match(svg, /data-raiz="6"[^>]*stroke="var\(--steel-l\)"|stroke="var\(--steel-l\)"[^>]*data-raiz="6"/);
-  assert.match(svg, new RegExp(`stroke="${CORES_SERIES[0].replace(/[()]/g, "\\$&")}"`));
+test("um ponto só, ou todos iguais: sem NaN e cor do meio", () => {
+  for (const pontos of [[p("2026-08-10", 175)], [p("2026-08-01", 175), p("2026-08-02", 175), p("2026-08-03", 175)]]) {
+    const svg = pontosCtes(pontos, {});
+    assert.ok(!/NaN|Infinity|undefined/.test(svg), svg);
+    assert.match(svg, /fill="#8e5aa8"/);
+  }
 });
 
-test("pontos carregam min, max e n", () => {
-  const svg = linhasMensais({ meses, series: [serie("1", { "2026-02": ponto(180, 175, 185, 2) })] }, {});
-  assert.match(svg, /<circle class="ponto"[^>]*data-mes="2026-02"[^>]*data-mediana="180"[^>]*data-min="175"[^>]*data-max="185"[^>]*data-n="2"/);
-  assert.match(svg, /class="faixa"/);
+test("mediana do mês em degraus só quando pedida", () => {
+  const pontos = [p("2026-08-05", 170), p("2026-08-20", 180), p("2026-09-10", 190)];
+  const com = pontosCtes(pontos, { medianas: [{ mes: "2026-08", valor: 175 }, { mes: "2026-09", valor: 190 }] });
+  assert.equal((com.match(/<path class="mediana"/g) || []).length, 1);
+  assert.equal((pontosCtes(pontos, {}).match(/class="mediana"/g) || []).length, 0);
 });
 
-test("escapa nome do transportador no title", () => {
-  const svg = linhasMensais({ meses, series: [serie("1", { "2026-01": ponto(1) }, "A<B>")] }, {});
-  assert.ok(!svg.includes("A<B>"));
-  assert.ok(svg.includes("A&lt;B&gt;"));
-});
-
-test("rótulos do eixo y usam o formatador", () => {
-  const svg = linhasMensais({ meses, series: [serie("1", { "2026-01": ponto(100), "2026-02": ponto(200) })] }, { formatar: v => "R$" + v });
-  assert.match(svg, /R\$\d/);
+test("rótulos do eixo y usam o formatador e sem dados devolve svg vazio", () => {
+  assert.match(pontosCtes([p("2026-08-01", 100), p("2026-08-02", 200)], { formatar: v => "R$" + v }), />R\$\d+</);
+  assert.ok(!/NaN/.test(pontosCtes([], {})));
 });
 
 test("miniGrafico sem dados devolve svg vazio sem NaN", () => {
@@ -50,18 +61,3 @@ test("miniGrafico sem dados devolve svg vazio sem NaN", () => {
   assert.match(com, /fill="var\(--accent\)"/);
 });
 
-test("escala segue as medianas e a faixa extrema é cortada no gráfico", () => {
-  const svg = linhasMensais({ meses: ["2026-07"], series: [serie("1", { "2026-07": ponto(32.25, 32, 541.84, 10) }), serie("2", { "2026-07": ponto(32.14, 31.37, 713.62, 9) })] }, {});
-  const rotulos = [...svg.matchAll(/<text class="ax"[^>]*text-anchor="end">([^<]+)</g)].map(m => Number(m[1].replace(/\./g, "").replace(",", ".")));
-  assert.ok(Math.max(...rotulos) < 40, `eixo até ${Math.max(...rotulos)}`);
-  for (const m of svg.matchAll(/<line class="faixa"[^>]* y1="([-\d.]+)" y2="([-\d.]+)"/g)) {
-    assert.ok(+m[1] >= 12 && +m[2] >= 12 && +m[1] <= 274 && +m[2] <= 274, "faixa dentro da área do gráfico");
-  }
-  assert.match(svg, /data-max="713.62"/);
-});
-
-test("eixo não desce abaixo de zero quando todos os preços são positivos", () => {
-  const svg = linhasMensais({ meses, series: [serie("1", { "2026-01": ponto(8), "2026-02": ponto(640) })] }, {});
-  const rotulos = [...svg.matchAll(/<text class="ax"[^>]*text-anchor="end">([^<]+)</g)].map(m => m[1]);
-  assert.ok(!rotulos.some(r => r.startsWith("-")), rotulos.join(" "));
-});

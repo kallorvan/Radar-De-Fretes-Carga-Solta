@@ -1,7 +1,7 @@
 // Evolução: o preço do recorte no topo, o gráfico mensal por transportador, a comparação na rota e as exceções.
 
-import { filtrar, serieMensal, resumoGeral, transportadoresNaRota, excecoes, resumoRotas, produtosDaRota } from "../agregacao.js";
-import { linhasMensais, CORES_SERIES } from "../graficos.js";
+import { filtrar, resumoGeral, transportadoresNaRota, excecoes, resumoRotas, produtosDaRota, valorMetrica, medianasPorMes } from "../agregacao.js";
+import { pontosCtes, corGradiente } from "../graficos.js";
 import { grupoDoCnpj, produtoDe, ctesNoCorte } from "../base.js";
 import { raizCnpj, rotaDe, mesDe } from "../calculos.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtMesLongo, fmtMes, fmtData, fmtCnpj } from "../formato.js";
@@ -74,7 +74,11 @@ export function renderEvolucao(raiz, App) {
   const ctes = filtrar(d, f);
   const foraDoCorte = d.ctes.length - ctesNoCorte(d).length;
   const r = resumoGeral(ctes, metrica);
-  const serie = serieMensal(d, ctes, metrica);
+  const comValor = ctes.filter(c => valorMetrica(c, metrica) != null);
+  const pontos = comValor.map(c => ({ data: c.emissao, valor: valorMetrica(c, metrica), chave: c.chave }));
+  const comMediana = f.mediana !== "0";
+  const medianas = comMediana ? Object.entries(medianasPorMes(comValor, metrica)).map(([mes, valor]) => ({ mes, valor })) : [];
+  const vals = pontos.map(p => p.valor), lo = vals.length ? Math.min(...vals) : null, hi = vals.length ? Math.max(...vals) : null;
   const L = listas(d);
   const nomeMetrica = NOMES_METRICA[metrica];
   const misturados = f.rota && !f.produto ? produtosDaRota(d, f.rota) : [];
@@ -120,11 +124,12 @@ export function renderEvolucao(raiz, App) {
       <h4>Esta rota tem ${esc(misturados.map(p => produtoDe(d, p)?.nome || p).join(" e "))}</h4>
       <p class="exc-act">O frete de produtos diferentes tem preço diferente: escolha o produto no recorte para comparar transportadores.</p></div>` : ""}
     <div class="card">
-      <div class="card-head"><div><h3>Evolução mensal</h3><p class="hint">Mediana do mês por transportador; o traço vertical vai do menor ao maior preço do mês (cortado na borda quando passa da escala). Passe o cursor para ver mínimo, máximo e número de CT-e.</p></div></div>
-      <div class="grafico">${linhasMensais(serie, { formatar })}</div>
-      <div class="legenda">${serie.series.slice(0, CORES_SERIES.length).map((s, i) =>
-        `<span data-raiz="${esc(s.raiz)}"><i style="background:${CORES_SERIES[i]}"></i>${esc(s.nome)} · ${s.n}</span>`).join("")}
-        ${serie.series.length > CORES_SERIES.length ? `<span><i style="background:var(--steel-l)"></i>outros ${serie.series.length - CORES_SERIES.length} em cinza</span>` : ""}</div>
+      <div class="card-head"><div><h3>Evolução por CT-e</h3><p class="hint">Cada ponto é um CT-e, na data de emissão. A cor vai do azul (frete mais barato do recorte) ao rosa (mais caro)${comMediana ? "; a linha tracejada é a mediana do mês" : ""}. Clique num ponto para abrir o CT-e. Ponto com contorno na borda: fora da escala; o valor real aparece ao passar o mouse.</p></div>
+        <div class="modes light" role="group" aria-label="Mediana do mês"><span class="modes-rot">Mediana do mês</span>
+          <button type="button" data-mediana="1" aria-pressed="${comMediana}">ligada</button>
+          <button type="button" data-mediana="0" aria-pressed="${!comMediana}">desligada</button></div></div>
+      <div class="grafico">${pontosCtes(pontos, { medianas, formatar })}</div>
+      ${vals.length ? `<div class="legenda-gradiente"><span>mais barato <b>${formatar(lo)}</b></span><i style="background:linear-gradient(90deg, ${corGradiente(0)}, ${corGradiente(0.5)}, ${corGradiente(1)})"></i><span>mais caro <b>${formatar(hi)}</b></span></div>` : ""}
     </div>
     <div class="kpis">
       <div class="kpi"><b>${fmtNum(r.nCtes)}</b><u>CT-e no recorte</u></div>
@@ -160,16 +165,16 @@ export function renderEvolucao(raiz, App) {
     b.closest(".exc").querySelector("tbody.resto").hidden = false; b.remove();
   }));
 
-  const graf = $(".grafico", raiz);
+  $$("[data-mediana]", raiz).forEach(b => b.addEventListener("click", () => App.mudarFiltros({ mediana: b.dataset.mediana === "0" ? "0" : "" })));
+  const graf = $(".grafico", raiz), porChave = new Map(comValor.map(c => [c.chave, c]));
   graf.addEventListener("mousemove", ev => {
-    const p = ev.target.closest("circle.ponto");
-    if (!p) return dica(null);
-    const ds = p.dataset;
-    dica(`<b>${esc(ds.nome)}</b>${esc(fmtMesLongo(ds.mes))}<br>mediana ${formatar(+ds.mediana)}<br><span>${formatar(+ds.min)} a ${formatar(+ds.max)} · ${ds.n} CT-e</span>`, ev);
+    const c = porChave.get(ev.target.closest("circle.cte")?.dataset.chave);
+    if (!c) return dica(null);
+    dica(`<b>CT-e ${esc(c.numero)}</b>${fmtData(c.emissao)} · ${esc(grupoDoCnpj(d, c.cnpjTransportador).nome)}<br>${esc(rotaDe(c))}${c.produto ? " · " + esc(produtoDe(d, c.produto)?.nome || c.produto) : ""}<br><span>${esc(formatar(valorMetrica(c, metrica)))}</span>`, ev);
   });
   graf.addEventListener("mouseleave", () => dica(null));
-  $$(".legenda [data-raiz]", raiz).forEach(l => {
-    l.addEventListener("mouseenter", () => $$(".grupo-serie", graf).forEach(g => g.classList.toggle("apagado", g.dataset.raiz !== l.dataset.raiz)));
-    l.addEventListener("mouseleave", () => $$(".grupo-serie", graf).forEach(g => g.classList.remove("apagado")));
+  graf.addEventListener("click", ev => {
+    const p = ev.target.closest("circle.cte");
+    if (p) { dica(null); App.abrirCte(p.dataset.chave); }
   });
 }

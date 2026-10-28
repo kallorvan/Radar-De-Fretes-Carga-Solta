@@ -14,3 +14,8 @@ test("hash vazio ou desconhecido cai na evolução com métrica tonelada", () =>
   assert.equal(escreverHash("rotas", { metrica: "saca", produto: "CAFE" }), "#rotas?produto=CAFE&metrica=saca");
   assert.deepEqual(lerHash("#rotas?metrica=saca&produto=CAFE"), { aba: "rotas", filtros: { metrica: "saca", produto: "CAFE" } });
 });
+test("mediana desligada fica no endereço; ligada é o padrão", () => {
+  assert.equal(lerHash("#evolucao?mediana=0").filtros.mediana, "0");
+  assert.match(escreverHash("evolucao", { metrica: "tonelada", mediana: "0" }), /mediana=0/);
+  assert.equal(lerHash("#evolucao?mediana=1").filtros.mediana, undefined);
+});

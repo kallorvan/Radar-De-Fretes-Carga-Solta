@@ -54,7 +54,7 @@ function porMes(ctes, metrica) {
   }
   return m;
 }
-const medianasPorMes = (ctes, metrica) =>
+export const medianasPorMes = (ctes, metrica) =>
   Object.fromEntries(Object.entries(porMes(ctes, metrica)).map(([k, v]) => [k, mediana(v)]));
 
 /* último mês com dados, o anterior com dados e a variação entre eles */
