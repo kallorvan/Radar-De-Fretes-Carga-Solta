@@ -162,6 +162,8 @@ export function corrigir(d, chave, campos, quem, agora) {
   if (!atual) return { ok: false, erros: { chave: "CT-e não encontrado na base." } };
   const v = validarCampos(d, { ...campos, chave });
   if (!v.ok) return { ok: false, erros: v.erros };
+  // mesma rota e a regra sem código (homônima, base antiga): o itinerário guardado continua valendo
+  if (!v.campos.itinerario && v.campos.origem === atual.origem && v.campos.destino === atual.destino) v.campos.itinerario = atual.itinerario || "";
   Object.assign(atual, v.campos, calcular(d, v.campos), { alteradoPor: quem, alteradoEm: agora });
   delete atual.divergencia;   // o número agora é o calculado
   registrar(d, "corrigir", quem, agora, chave, resumoCte(atual));

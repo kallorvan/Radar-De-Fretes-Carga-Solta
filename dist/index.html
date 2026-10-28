@@ -1151,6 +1151,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     if (!atual) return { ok: false, erros: { chave: "CT-e não encontrado na base." } };
     const v = validarCampos(d, { ...campos, chave });
     if (!v.ok) return { ok: false, erros: v.erros };
+    if (!v.campos.itinerario && v.campos.origem === atual.origem && v.campos.destino === atual.destino) v.campos.itinerario = atual.itinerario || "";
     Object.assign(atual, v.campos, calcular(d, v.campos), { alteradoPor: quem, alteradoEm: agora });
     delete atual.divergencia;
     registrar(d, "corrigir", quem, agora, chave, resumoCte(atual));
@@ -2496,7 +2497,10 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   function atualizarForm(form, App2) {
     const chave = estado.editando || form.querySelector("[name=chave]").value;
     form.querySelector("[name=cnpjTransportador]").value = fmtCnpj(cnpjDaChave(chave)) || "";
-    form.querySelector("[name=itinerario]").value = codigoItinerario(form.querySelector("[name=origem]").value, form.querySelector("[name=destino]").value);
+    const origem = form.querySelector("[name=origem]").value, destino = form.querySelector("[name=destino]").value;
+    const atual = estado.editando && App2.dados.ctes.find((c2) => c2.chave === estado.editando);
+    const mesmaRota = atual && normalizarCidade(origem) === atual.origem && normalizarCidade(destino) === atual.destino;
+    form.querySelector("[name=itinerario]").value = codigoItinerario(origem, destino) || (mesmaRota ? atual.itinerario || "" : "");
     const cliente = form.querySelector("[name=cnpjCliente]"), prod = form.querySelector("[name=produto]");
     const padrao = App2.dados.cnpjs.find((x) => x.cnpj === normalizarCnpj(cliente.value))?.produtoPadrao;
     if (!prod.value && padrao && produtoDe(App2.dados, padrao)) prod.value = padrao;

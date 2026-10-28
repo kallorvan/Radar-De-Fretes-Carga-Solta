@@ -264,3 +264,16 @@ test("migrar v2 → v3 preenche o itinerário vazio e mantém o preenchido", () 
   assert.equal(r.ctes[0].itinerario, "ARRSAN");
   assert.equal(r.ctes[1].itinerario, "OUTRO");
 });
+
+test("corrigir não apaga o itinerário guardado quando a rota não muda e a regra dá em branco", () => {
+  const d = novaBase();
+  const { cte } = incluir(d, campos({ origem: "Boa Esperança", destino: "Santos" }), "Ana", AGORA);
+  assert.equal(cte.itinerario, "", "homônima: a regra não escolhe");
+  cte.itinerario = "BLOSAN";   // código que veio da base antiga
+  corrigir(d, cte.chave, campos({ origem: "Boa Esperança", destino: "Santos", quantidade: 60 }), "Ana", AGORA);
+  assert.equal(d.ctes[0].itinerario, "BLOSAN");
+  corrigir(d, cte.chave, campos({ origem: "Araras", destino: "Santos" }), "Ana", AGORA);
+  assert.equal(d.ctes[0].itinerario, "ARRSAN", "rota mudou: vale a regra");
+  corrigir(d, cte.chave, campos({ origem: "Boa Esperança", destino: "Santos" }), "Ana", AGORA);
+  assert.equal(d.ctes[0].itinerario, "", "rota mudou para cidade sem código");
+});

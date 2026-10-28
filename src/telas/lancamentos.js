@@ -1,7 +1,7 @@
 // Lançamentos: o formulário do CT-e (taxa do seguro, tarifa, peso, R$/t e R$/saca calculados e travados) e a base.
 
 import { validarCampos, nomeDoCnpj, grupoDoCnpj, unidadeDe, produtoDe, noCorte } from "../base.js";
-import { calcularCte, numeroDaChave, cnpjDaChave, codigoItinerario, normalizarCnpj, numeroBR, rotaDe, soDigitos } from "../calculos.js";
+import { calcularCte, numeroDaChave, cnpjDaChave, codigoItinerario, normalizarCidade, normalizarCnpj, numeroBR, rotaDe, soDigitos } from "../calculos.js";
 import { filtrar } from "../agregacao.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
 import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
@@ -87,7 +87,10 @@ function formHtml(App, cte) {
 function atualizarForm(form, App) {
   const chave = estado.editando || form.querySelector("[name=chave]").value;
   form.querySelector("[name=cnpjTransportador]").value = fmtCnpj(cnpjDaChave(chave)) || "";
-  form.querySelector("[name=itinerario]").value = codigoItinerario(form.querySelector("[name=origem]").value, form.querySelector("[name=destino]").value);
+  const origem = form.querySelector("[name=origem]").value, destino = form.querySelector("[name=destino]").value;
+  const atual = estado.editando && App.dados.ctes.find(c => c.chave === estado.editando);
+  const mesmaRota = atual && normalizarCidade(origem) === atual.origem && normalizarCidade(destino) === atual.destino;
+  form.querySelector("[name=itinerario]").value = codigoItinerario(origem, destino) || (mesmaRota ? atual.itinerario || "" : "");
   const cliente = form.querySelector("[name=cnpjCliente]"), prod = form.querySelector("[name=produto]");
   const padrao = App.dados.cnpjs.find(x => x.cnpj === normalizarCnpj(cliente.value))?.produtoPadrao;
   if (!prod.value && padrao && produtoDe(App.dados, padrao)) prod.value = padrao;   // o produto de costume do cliente
