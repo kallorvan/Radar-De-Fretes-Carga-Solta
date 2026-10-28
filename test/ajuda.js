@@ -2,10 +2,16 @@
 export const CHAVE = "35260105780969000146570010000106001000120718";
 export const chaveN = n => "352601057809690001465700100" + String(n).padStart(8, "0") + "100012071";
 
-export const campos = (extra = {}) => ({
+/* O CNPJ do transportador mora nas posições 7 a 20 da chave: o fictício segue a mesma regra. */
+export const comCnpj = (chave, cnpj) => chave.slice(0, 6) + String(cnpj).replace(/\D/g, "").padStart(14, "0") + chave.slice(20);
+
+export const campos = (extra = {}) => {
+  const c = {
   chave: CHAVE, numero: 10600, emissao: "2026-01-10",
   cnpjTransportador: "05780969000146", cnpjCliente: "44209336003583",
   origem: "São Joaquim da Barra", destino: "Santos", itinerario: "",
   valorAssegurado: 119322.29, valorSeguro: 0, valorFrete: 8750, adicionais: 0,
   produto: "ACUCAR", unidade: "TON", quantidade: 50, vpo: false, observacoes: "", ...extra,
-});
+  };
+  return { ...c, chave: comCnpj(c.chave, c.cnpjTransportador) };
+};

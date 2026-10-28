@@ -32,8 +32,14 @@ const TITULOS_EXC = {
   "preco-fora": ["R$/t fora da faixa da rota", "Acima de 3× ou abaixo de ⅓ da mediana da rota para o mesmo produto. Confira quantidade, unidade e frete no CT-e."],
   "a-classificar": ["CT-e a classificar", "Sem produto, unidade ou peso: fica fora do R$/t e conta só na tarifa. Classifique em Dados → Classificar CT-e."],
   "sem-cadastro": ["CNPJ sem nome no cadastro", "O painel mostra o CNPJ no lugar do nome. Cadastre o nome na aba Cadastro."],
-  "diverge-planilha": ["Cálculo diferente da planilha", "Na importação, seguro, tarifa ou preço por saca não bateram com a conta. Vale o número da planilha."],
+  "diverge-planilha": ["Diferente da planilha", "Na importação, o CNPJ do transportador, o itinerário ou a tarifa não bateram; vale o CNPJ da chave e o itinerário do cadastro do Rodopar, e a tarifa da planilha."],
 };
+
+const NOMES_DIVERGENCIA = { tarifa: "Tarifa", precoSaca: "R$/saca", cnpjTransportador: "CNPJ", itinerario: "Itinerário" };
+const fmtDivergente = (k, v) => k === "cnpjTransportador" ? fmtCnpj(v) : k === "itinerario" ? (v || "em branco") : fmtMoeda(v);
+/* "CNPJ: planilha 11.111.111/0001-00 · painel 05.780.969/0001-46" */
+const oQueDivergiu = div => Object.keys(div?.planilha || {}).map(k =>
+  `${NOMES_DIVERGENCIA[k] || k}: planilha ${fmtDivergente(k, div.planilha[k])}${k in (div.calculado || {}) ? " · painel " + fmtDivergente(k, div.calculado[k]) : ""}`).join("<br>");
 
 function excecoesHtml(d) {
   const ex = excecoes(d);
@@ -41,10 +47,11 @@ function excecoesHtml(d) {
   const porTipo = Object.keys(TITULOS_EXC).map(t => [t, ex.filter(e => e.tipo === t)]).filter(([, l]) => l.length);
   return `<p class="hint">Todas entram nos totais do painel; ficam aqui para que a correção volte ao lançamento.</p>` + porTipo.map(([tipo, lista]) => {
     const [titulo, acao] = TITULOS_EXC[tipo];
+    const diverge = tipo === "diverge-planilha";
     const linhas = lista.map(e => e.cte
-      ? `<tr><td class="mono">${esc(e.cte.numero)}</td><td>${fmtData(e.cte.emissao)}</td><td>${esc(grupoDoCnpj(d, e.cte.cnpjTransportador).nome)}</td><td>${esc(rotaDe(e.cte))}</td><td>${esc(produtoDe(d, e.cte.produto)?.nome || "—")}</td><td class="num">${fmtMoeda(e.cte.precoTonelada)}</td></tr>`
+      ? `<tr><td class="mono">${esc(e.cte.numero)}</td><td>${fmtData(e.cte.emissao)}</td><td>${esc(grupoDoCnpj(d, e.cte.cnpjTransportador).nome)}</td><td>${esc(rotaDe(e.cte))}</td><td>${esc(produtoDe(d, e.cte.produto)?.nome || "—")}</td><td class="num">${fmtMoeda(e.cte.precoTonelada)}</td>${diverge ? `<td class="sub">${esc(oQueDivergiu(e.cte.divergencia)).replace(/&lt;br&gt;/g, "<br>")}</td>` : ""}</tr>`
       : `<tr><td class="mono" colspan="2">${fmtCnpj(e.cnpj)}</td><td colspan="4">${d.ctes.filter(c => c.cnpjTransportador === e.cnpj || c.cnpjCliente === e.cnpj).length} CT-e usam este CNPJ</td></tr>`);
-    const cab = lista[0].cte ? `<tr><th>CT-e</th><th>Emissão</th><th>Transportador</th><th>Rota</th><th>Produto</th><th class="num">R$/t</th></tr>` : `<tr><th colspan="2">CNPJ</th><th colspan="4">Uso</th></tr>`;
+    const cab = lista[0].cte ? `<tr><th>CT-e</th><th>Emissão</th><th>Transportador</th><th>Rota</th><th>Produto</th><th class="num">R$/t</th>${diverge ? "<th>O que divergiu</th>" : ""}</tr>` : `<tr><th colspan="2">CNPJ</th><th colspan="4">Uso</th></tr>`;
     return `<div class="exc" data-tipo="${tipo}"><span class="pill">${lista.length} ${lista.length === 1 ? "registro" : "registros"}</span><h4>${esc(titulo)}</h4>
       <p class="exc-act">${esc(acao)}</p><div class="tabela"><table><thead>${cab}</thead><tbody>${linhas.slice(0, 20).join("")}</tbody>
       <tbody class="resto" hidden>${linhas.slice(20).join("")}</tbody></table></div>

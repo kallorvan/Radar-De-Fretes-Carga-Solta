@@ -49,7 +49,7 @@ test("fluxo completo com pasta simulada", async () => {
   // lançar, corrigir, excluir, restaurar
   await page.click("#abas button[data-aba=lancamentos]");
   await page.waitForSelector("#form-cte");
-  const v = { chave: "35260105780969000146570010000999991000120718", emissao: "2026-05-04", cnpjTransportador: "11.111.111/0001-00",
+  const v = { chave: "35260511111111000100570010000999991000120718", emissao: "2026-05-04",
     cnpjCliente: "44.209.336/0035-83", origem: "A", destino: "B", valorFrete: "8.750,00", quantidade: "50" };
   for (const [k, x] of Object.entries(v)) await page.fill(`#form-cte [name=${k}]`, x);
   await page.selectOption("#form-cte [name=produto]", "ACUCAR");

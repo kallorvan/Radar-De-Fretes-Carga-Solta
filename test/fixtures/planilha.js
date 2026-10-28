@@ -7,7 +7,8 @@ export const CABECALHO = ["CHAVE DE ACESSO", "N° CT-e", "EMISSÃO CT-e", "CNPJ 
   "TARIFA DO FRETE", "VPO", "OBSERVAÇÕES"];
 
 /* linha: objeto com as chaves do CABECALHO (as ausentes ficam vazias) */
-export const linhaPadrao = (n, extra = {}) => ({
+export const linhaPadrao = (n, extra = {}) => {
+  const l = {
   "CHAVE DE ACESSO": "352601057809690001465700100" + String(n).padStart(8, "0") + "100012071",
   "N° CT-e": n, "EMISSÃO CT-e": new Date(Date.UTC(2026, 0, 10)),
   "CNPJ DO TRANSPORTADOR": "05.780.969/0001-46", "TRANSPORTADOR": "JF PEREIRA TRANSPORTES",
@@ -16,7 +17,12 @@ export const linhaPadrao = (n, extra = {}) => ({
   "VALOR ASSEGURADO": 119322.29, "TAXA DO SEGURO": 0, "VALOR DO SEGURO": 0, "VALOR DO FRETE": 8750,
   "ADICIONAIS": 0, "QT. SACAS": 50, "PREÇO POR SACAS": 175, "TARIFA DO FRETE": 8750, "VPO": null, "OBSERVAÇÕES": null,
   ...extra,
-});
+  };
+  // a chave leva o CNPJ do transportador (posições 7 a 20), salvo quando o teste traz a sua
+  if (!("CHAVE DE ACESSO" in extra) && l["CNPJ DO TRANSPORTADOR"])
+    l["CHAVE DE ACESSO"] = l["CHAVE DE ACESSO"].slice(0, 6) + String(l["CNPJ DO TRANSPORTADOR"]).replace(/\D/g, "").padStart(14, "0") + l["CHAVE DE ACESSO"].slice(20);
+  return l;
+};
 
 export function gerarPlanilha(linhas, cnpjs = [[5780969000146, "JF PEREIRA TRANSPORTES E SERVIÇOS LTDA"]], { semAbaBase = false } = {}) {
   const wb = XLSX.utils.book_new();

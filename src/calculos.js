@@ -1,5 +1,7 @@
 // Regras do CT-e de carga solta: fórmulas da planilha, CNPJ, chave de acesso e chaves de agrupamento.
 
+import { CODIGOS_CIDADE } from "./dados-itinerarios.js";
+
 export const arred2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
 
 export const soDigitos = v => String(v ?? "").replace(/\D/g, "");
@@ -47,9 +49,25 @@ export function numeroDaChave(chave) {
   return d.length === 44 ? Number(d.slice(25, 34)) : null;
 }
 
+/* CNPJ do emitente (o transportador): posições 7–20 da chave. */
+export function cnpjDaChave(chave) {
+  const d = soDigitos(chave);
+  return d.length === 44 ? d.slice(6, 20) : "";
+}
+
 export const normalizarCidade = s => String(s ?? "")
   .normalize("NFD").replace(/[̀-ͯ]/g, "")
   .toUpperCase().trim().replace(/\s+/g, " ");
 
 export const rotaDe = c => `${normalizarCidade(c.origem)} → ${normalizarCidade(c.destino)}`;
 export const mesDe = iso => String(iso ?? "").slice(0, 7);
+
+/* Cód. itinerário do cadastro do Rodopar: código da cidade + código do porto (ou o contrário).
+   Cidade fora das abas LINHA SANTOS / LINHA GUARUJÁ é itinerário que a Tóliman não faz: fica em branco. */
+export const PORTOS = { SANTOS: "SAN", GUARUJA: "GJA" };
+export function codigoItinerario(origem, destino) {
+  const o = normalizarCidade(origem), d = normalizarCidade(destino);
+  if (PORTOS[d] && CODIGOS_CIDADE[o]) return CODIGOS_CIDADE[o] + PORTOS[d];
+  if (PORTOS[o] && CODIGOS_CIDADE[d]) return PORTOS[o] + CODIGOS_CIDADE[d];
+  return "";
+}

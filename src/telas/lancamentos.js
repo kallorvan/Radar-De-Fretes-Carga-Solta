@@ -1,7 +1,7 @@
 // Lançamentos: o formulário do CT-e (taxa do seguro, tarifa, peso, R$/t e R$/saca calculados e travados) e a base.
 
 import { validarCampos, nomeDoCnpj, grupoDoCnpj, unidadeDe, produtoDe } from "../base.js";
-import { calcularCte, numeroDaChave, normalizarCnpj, numeroBR, rotaDe, soDigitos } from "../calculos.js";
+import { calcularCte, numeroDaChave, cnpjDaChave, codigoItinerario, normalizarCnpj, numeroBR, rotaDe, soDigitos } from "../calculos.js";
 import { filtrar } from "../agregacao.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
 import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
@@ -13,16 +13,17 @@ const CAMPOS = [
   ["chave", "Chave de acesso", true, "w2", "text", "44 dígitos"],
   ["numero", "Nº CT-e", true, "", "text", ""],
   ["emissao", "Emissão", true, "", "date", ""],
-  ["cnpjTransportador", "CNPJ do transportador", true, "", "text", "00.000.000/0000-00"],
+  ["cnpjTransportador", "CNPJ do transportador", true, "", "text", "sai da chave de acesso"],
   ["cnpjCliente", "CNPJ do cliente", true, "", "text", "00.000.000/0000-00"],
   ["origem", "Cidade origem", true, "", "text", ""],
   ["destino", "Cidade destino", true, "", "text", ""],
-  ["itinerario", "Cód. itinerário", false, "", "text", ""],
+  ["itinerario", "Cód. itinerário", false, "", "text", "cadastro do Rodopar"],
   ["valorAssegurado", "Valor assegurado", false, "", "text", ""],
   ["valorSeguro", "Valor do seguro", false, "", "text", ""],
   ["valorFrete", "Valor do frete", true, "", "text", ""],
   ["adicionais", "Adicionais", false, "", "text", ""],
 ];
+const TRAVADOS = new Set(["cnpjTransportador", "itinerario"]);   // saem da chave e da rota
 const NUM = new Set(["valorAssegurado", "valorSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
 const fmtCampo = (k, v) => v == null || v === "" ? "" :
   k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) :
@@ -56,7 +57,7 @@ function formHtml(App, cte) {
     <div class="form-grid">
       ${CAMPOS.map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
         <input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
-          value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${k === "origem" || k === "destino" ? 'list="cidades"' : ""} autocomplete="off">
+          value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? 'list="cidades"' : ""} autocomplete="off">
         ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("")}
       <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App.dados.produtos, v.produto)}</select><span class="erro" data-erro="produto"></span></label>
       <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App.dados.unidades, v.unidade)}</select><span class="erro" data-erro="unidade"></span></label>
@@ -79,6 +80,9 @@ function formHtml(App, cte) {
 
 /* Recalcula os campos travados e mostra o nome de cada CNPJ (ou pede um, se for novo). */
 function atualizarForm(form, App) {
+  const chave = estado.editando || form.querySelector("[name=chave]").value;
+  form.querySelector("[name=cnpjTransportador]").value = fmtCnpj(cnpjDaChave(chave)) || "";
+  form.querySelector("[name=itinerario]").value = codigoItinerario(form.querySelector("[name=origem]").value, form.querySelector("[name=destino]").value);
   const cliente = form.querySelector("[name=cnpjCliente]"), prod = form.querySelector("[name=produto]");
   const padrao = App.dados.cnpjs.find(x => x.cnpj === normalizarCnpj(cliente.value))?.produtoPadrao;
   if (!prod.value && padrao && produtoDe(App.dados, padrao)) prod.value = padrao;   // o produto de costume do cliente

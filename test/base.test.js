@@ -5,7 +5,7 @@ import {
   cadastrarCnpj, nomeDoCnpj, grupoDoCnpj, registrar, migrarBase, classificar,
   cadastrarProduto, cadastrarUnidade, definirProdutoPadrao, unidadeDe, produtoDe,
 } from "../src/base.js";
-import { CHAVE, campos } from "./ajuda.js";
+import { CHAVE, campos, chaveN } from "./ajuda.js";
 
 const AGORA = "2026-10-28T12:00:00.000Z";
 
@@ -240,4 +240,27 @@ test("migrar v2 → v3 mantém o seguro e recalcula a taxa a partir dele", () =>
   assert.equal(r.ctes[0].valorSeguro, 458.61);
   assert.equal(r.ctes[0].taxaSeguro, 0.0005);
   assert.equal(r.ctes[1].taxaSeguro, null);
+});
+
+test("o CNPJ do transportador sai da chave; diferente da chave é erro", () => {
+  const d = novaBase(), c = campos();
+  const sem = validarCampos(d, { ...c, cnpjTransportador: "" });
+  assert.equal(sem.ok, true);
+  assert.equal(sem.campos.cnpjTransportador, "05780969000146");
+  const outro = validarCampos(d, { ...c, cnpjTransportador: "11111111000100" });
+  assert.equal(outro.erros.cnpjTransportador, "O CNPJ do transportador não bate com a chave de acesso.");
+});
+
+test("o itinerário é sempre o do cadastro do Rodopar", () => {
+  const d = novaBase();
+  assert.equal(incluir(d, campos({ origem: "Araras", destino: "Santos", itinerario: "XYZ" }), "Ana", AGORA).cte.itinerario, "ARRSAN");
+  assert.equal(incluir(d, campos({ chave: chaveN(2), numero: 2, itinerario: "XYZ" }), "Ana", AGORA).cte.itinerario, "", "São Joaquim da Barra não está nas abas");
+});
+
+test("migrar v2 → v3 preenche o itinerário vazio e mantém o preenchido", () => {
+  const cte = { chave: "a", numero: 1, emissao: "2026-08-02", origem: "ARARAS", destino: "SANTOS", itinerario: "", valorAssegurado: 0, valorSeguro: 0,
+    valorFrete: 1000, adicionais: 0, tarifa: 1000, quantidade: 1, produto: null, unidade: null, pesoKg: null, pesoInformado: false };
+  const r = migrarBase({ versao: 2, ctes: [cte, { ...cte, chave: "b", itinerario: "OUTRO" }], cnpjs: [], lixeira: [], log: [] });
+  assert.equal(r.ctes[0].itinerario, "ARRSAN");
+  assert.equal(r.ctes[1].itinerario, "OUTRO");
 });

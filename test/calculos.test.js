@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   calcularCte, normalizarCnpj, raizCnpj, ehMatriz, numeroDaChave, chaveValida,
-  normalizarCidade, rotaDe, mesDe, numeroBR, arred2,
+  normalizarCidade, rotaDe, mesDe, numeroBR, arred2, cnpjDaChave, codigoItinerario,
 } from "../src/calculos.js";
 
 const SC60 = { kg: 60, saca: true }, TON = { kg: 1000, saca: false }, BAG = { kg: null, saca: false };
@@ -77,4 +77,20 @@ test("numeroBR", () => {
   assert.equal(numeroBR("1.234.567"), 1234567);
   assert.equal(numeroBR("0.0005"), 0.0005);
   assert.equal(numeroBR("12.5"), 12.5);
+});
+
+test("codigoItinerario: cidade das abas do Rodopar + porto", () => {
+  assert.equal(codigoItinerario("Araras", "Santos"), "ARRSAN");
+  assert.equal(codigoItinerario("SANTOS", "ALFENAS"), "SANALF");
+  assert.equal(codigoItinerario("Alfenas", "Guarujá"), "ALFGJA");
+  assert.equal(codigoItinerario("São Joaquim da Barra", "Santos"), "", "fora das abas: itinerário que a Tóliman não faz");
+  assert.equal(codigoItinerario("Araras", "Alfenas"), "", "sem porto não há código");
+  assert.equal(codigoItinerario("Itapeva", "Santos"), "", "homônima com dois códigos fica em branco");
+  assert.equal(codigoItinerario("", "Santos"), "");
+});
+
+test("cnpjDaChave: posições 7 a 20", () => {
+  assert.equal(cnpjDaChave("35260105780969000146570010000106001000120718"), "05780969000146");
+  assert.equal(cnpjDaChave("3526 0105.7809 6900 0146 5700 1000 0106 0010 0012 0718"), "05780969000146");
+  assert.equal(cnpjDaChave("3526010578096900014657001000010600100012071"), "", "43 dígitos");
 });

@@ -174,3 +174,37 @@ test("seguro da planilha diferente de assegurado × taxa não é divergência", 
   assert.equal(d.ctes[0].valorSeguro, 193);
   assert.equal(d.ctes[0].taxaSeguro, 0.0005);
 });
+
+test("CNPJ da planilha diferente do da chave: vale o da chave e fica divergente", () => {
+  const d = novaBase();
+  const buf = gerarPlanilha([linhaPadrao(1, { "CHAVE DE ACESSO": "35260105780969000146570010000000011000120718", "CNPJ DO TRANSPORTADOR": "11.111.111/0001-00" })]);
+  const r = aplicarImportacao(d, lerPlanilha(XLSX, buf), "Ana", AGORA);
+  assert.equal(r.incluidos, 1);
+  assert.equal(r.divergentes, 1);
+  assert.equal(d.ctes[0].cnpjTransportador, "05780969000146");
+  assert.equal(d.ctes[0].divergencia.planilha.cnpjTransportador, "11111111000100");
+  assert.equal(d.ctes[0].tarifa, 8750);
+});
+
+test("itinerário da planilha: vale o do Rodopar; código diferente é divergência, em branco não", () => {
+  const d = novaBase();
+  const buf = gerarPlanilha([
+    linhaPadrao(1, { "CIDADE ORIGEM": "ARARAS", "COD. ITINERÁRIO": "XYZSAN" }),
+    linhaPadrao(2, { "CIDADE ORIGEM": "ARARAS", "COD. ITINERÁRIO": null }),
+    linhaPadrao(3, { "CIDADE ORIGEM": "ARARAS", "COD. ITINERÁRIO": "ARRSAN" })]);
+  const r = aplicarImportacao(d, lerPlanilha(XLSX, buf), "Ana", AGORA);
+  assert.equal(r.divergentes, 1);
+  assert.deepEqual(d.ctes.map(c => c.itinerario), ["ARRSAN", "ARRSAN", "ARRSAN"]);
+  assert.equal(d.ctes[0].divergencia.planilha.itinerario, "XYZSAN");
+});
+
+test("classificar CT-e divergente só no CNPJ recalcula a tarifa pela conta", () => {
+  const d = novaBase();
+  const buf = gerarPlanilha([linhaPadrao(1, { "CHAVE DE ACESSO": "35260105780969000146570010000000011000120718", "CNPJ DO TRANSPORTADOR": "11.111.111/0001-00",
+    "QT. SACAS": 1080, "VALOR DO FRETE": 9612, "TARIFA DO FRETE": 9612, "PREÇO POR SACAS": 8.9 })]);
+  aplicarImportacao(d, lerPlanilha(XLSX, buf), "Ana", AGORA);
+  d.ctes[0].tarifa = 1;   // se a classificação restaurasse a "tarifa da planilha", viria 9612 da marca
+  classificar(d, d.ctes[0].chave, { produto: "ACUCAR", unidade: "SC50" }, "Ana", AGORA);
+  assert.equal(d.ctes[0].tarifa, 9612);
+  assert.equal(d.ctes[0].precoSaca, 8.9);
+});

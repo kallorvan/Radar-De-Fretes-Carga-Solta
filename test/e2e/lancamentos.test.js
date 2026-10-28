@@ -7,13 +7,15 @@ let browser;
 before(async () => { browser = await chromium.launch(); });
 after(async () => { await browser?.close(); });
 
-const CHAVE_NOVA = "35260105780969000146570010000999991000120718";
+const CHAVE_NOVA = "35260511111111000100570010000999991000120718";   // transportador 11.111.111/0001-00
 async function preencher(page, extra = {}) {
   const v = {
-    chave: CHAVE_NOVA, emissao: "2026-05-04", cnpjTransportador: "11.111.111/0001-00", cnpjCliente: "44.209.336/0035-83",
+    chave: CHAVE_NOVA, emissao: "2026-05-04", cnpjCliente: "44.209.336/0035-83",
     origem: "A", destino: "B", valorAssegurado: "100.000,00", valorSeguro: "0", valorFrete: "8.750,00", adicionais: "0",
     produto: "ACUCAR", unidade: "TON", quantidade: "50", ...extra,
   };
+  // o CNPJ do transportador sai da chave: um CNPJ pedido no teste vai para dentro dela
+  if (v.cnpjTransportador) { v.chave = v.chave.slice(0, 6) + v.cnpjTransportador.replace(/\D/g, "") + v.chave.slice(20); delete v.cnpjTransportador; }
   for (const [k, x] of Object.entries(v)) {
     const el = page.locator(`#form-cte [name=${k}]`);
     if (await el.evaluate(e => e.tagName === "SELECT")) await el.selectOption(x); else await el.fill(x);
@@ -127,7 +129,7 @@ test("lança café em sacas de 60 kg e açúcar em toneladas", async () => {
   assert.equal(await page.locator("#form-cte output[name=precoSaca]").textContent(), "R$ 32,14");
   await page.click("#form-cte button[type=submit]");
   await page.waitForFunction(() => window.RADAR_APP.dados.ctes.some(c => c.numero === 99999 && c.produto === "CAFE"));
-  await preencher(page, { chave: "35260105780969000146570010000888881000120718", produto: "ACUCAR", unidade: "TON", quantidade: "50", valorFrete: "8.750,00" });
+  await preencher(page, { chave: "35260511111111000100570010000888881000120718", produto: "ACUCAR", unidade: "TON", quantidade: "50", valorFrete: "8.750,00" });
   assert.equal(await page.locator("#form-cte output[name=precoTonelada]").textContent(), "R$ 175,00");
   await page.fill("#busca", "99999");
   await page.waitForFunction(() => document.querySelector("#tab-base tbody").textContent.includes("Café"));
@@ -184,6 +186,21 @@ test("o seguro informado calcula a taxa, travada", async () => {
   await preencher(page, { valorAssegurado: "917.213,08", valorSeguro: "458,61", valorFrete: "9.208,61" });
   assert.equal(await page.locator("#form-cte output[name=taxaSeguro]").textContent(), "0,0500%");
   assert.equal(await page.locator("#form-cte output[name=tarifa]").textContent(), "R$ 8.750,00");
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});
+
+test("a chave preenche e trava o CNPJ do transportador; origem e destino montam o itinerário", async () => {
+  const { page, ctx, erros } = await abrirLanc();
+  await page.waitForSelector("#form-cte");
+  await preencher(page, { origem: "Araras", destino: "Santos" });
+  const cnpj = page.locator("#form-cte [name=cnpjTransportador]");
+  assert.equal(await cnpj.inputValue(), "11.111.111/0001-00");
+  assert.equal(await cnpj.evaluate(e => e.readOnly), true);
+  const itin = page.locator("#form-cte [name=itinerario]");
+  assert.equal(await itin.inputValue(), "ARRSAN");
+  assert.equal(await itin.evaluate(e => e.readOnly), true);
+  assert.match(await page.locator("#form-cte [data-nome=cnpjTransportador]").textContent(), /TRANSPORTES UM/);
   assert.deepEqual(erros, []);
   await ctx.close();
 });

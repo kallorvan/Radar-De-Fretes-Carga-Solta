@@ -1,7 +1,7 @@
 // A base em memória: CT-e, cadastro de CNPJ, lixeira e histórico.
 // Toda alteração passa por aqui e deixa registro de quem fez e quando.
 
-import { calcularCte, arred6, normalizarCnpj, chaveValida, normalizarCidade, raizCnpj, ehMatriz, soDigitos, numeroBR } from "./calculos.js";
+import { calcularCte, arred6, cnpjDaChave, codigoItinerario, normalizarCnpj, chaveValida, normalizarCidade, raizCnpj, ehMatriz, soDigitos, numeroBR } from "./calculos.js";
 import { fmtCnpj } from "./formato.js";
 import { sugerirProdutoCliente } from "./produtos-clientes.js";
 
@@ -54,7 +54,8 @@ export function migrarBase(d) {
   if ((r.versao || 1) < 3) {
     if (r.corte === undefined) r.corte = CORTE_PADRAO;
     // o seguro passa a ser o informado no CT-e; a taxa vira conferência
-    const v3 = c => ({ ...c, taxaSeguro: c.valorAssegurado > 0 ? arred6((c.valorSeguro || 0) / c.valorAssegurado) : null });
+    const v3 = c => ({ ...c, taxaSeguro: c.valorAssegurado > 0 ? arred6((c.valorSeguro || 0) / c.valorAssegurado) : null,
+      itinerario: c.itinerario || codigoItinerario(c.origem, c.destino) });
     r.ctes = r.ctes.map(v3);
     r.lixeira = r.lixeira.map(l => ({ ...l, cte: v3(l.cte) }));
     r.versao = 3;
@@ -81,15 +82,16 @@ const NUMERICOS = ["valorAssegurado", "valorSeguro", "valorFrete", "adicionais",
 
 /* Campos como chegam do formulário ou da planilha → tipos da base. */
 function normalizar(c) {
+  const chave = soDigitos(c.chave);
   const n = {
-    chave: soDigitos(c.chave),
+    chave,
     numero: c.numero === "" || c.numero == null ? null : Number(soDigitos(c.numero)) || null,
     emissao: String(c.emissao ?? "").slice(0, 10),
-    cnpjTransportador: normalizarCnpj(c.cnpjTransportador),
+    cnpjTransportador: normalizarCnpj(c.cnpjTransportador) || cnpjDaChave(chave),   // o transportador é o emitente da chave
     cnpjCliente: normalizarCnpj(c.cnpjCliente),
     origem: normalizarCidade(c.origem),
     destino: normalizarCidade(c.destino),
-    itinerario: String(c.itinerario ?? "").trim().toUpperCase(),
+    itinerario: codigoItinerario(c.origem, c.destino),
     produto: c.produto ? String(c.produto) : null,
     unidade: c.unidade ? String(c.unidade) : null,
     pesoInformado: Boolean(c.pesoInformado),
@@ -120,6 +122,7 @@ export function validarCampos(d, campos, { exigirClassificacao = true } = {}) {
   if (!c.numero) erros.numero = "Informe o número do CT-e.";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(c.emissao)) erros.emissao = "Informe a data de emissão.";
   if (c.cnpjTransportador.length !== 14) erros.cnpjTransportador = "CNPJ do transportador precisa ter 14 dígitos.";
+  else if (chaveValida(c.chave) && c.cnpjTransportador !== cnpjDaChave(c.chave)) erros.cnpjTransportador = "O CNPJ do transportador não bate com a chave de acesso.";
   if (c.cnpjCliente.length !== 14) erros.cnpjCliente = "CNPJ do cliente precisa ter 14 dígitos.";
   if (!c.origem) erros.origem = "Informe a cidade de origem.";
   if (!c.destino) erros.destino = "Informe a cidade de destino.";
@@ -218,7 +221,8 @@ export function classificar(d, chave, { produto, unidade, pesoKg = null, pesoInf
   if (Object.keys(erros).length) return { ok: false, erros };
   const antes = { valorSeguro: cte.valorSeguro, tarifa: cte.tarifa };
   Object.assign(cte, { produto, unidade, pesoInformado: c.pesoInformado, pesoKg: c.pesoKg }, calcular(d, c), { alteradoPor: quem, alteradoEm: agora });
-  if (cte.divergencia) { Object.assign(cte, antes); precosDaTarifa(d, cte); }   // na divergência vale o número da planilha
+  // na divergência de tarifa vale o número da planilha (CNPJ ou itinerário divergente não mexem na conta)
+  if (cte.divergencia?.planilha && "tarifa" in cte.divergencia.planilha) { Object.assign(cte, antes); precosDaTarifa(d, cte); }
   registrar(d, "classificar", quem, agora, chave, `${resumoCte(cte)} · ${produtoDe(d, produto).nome} · ${unidadeDe(d, unidade).nome}`);
   return { ok: true, cte };
 }
