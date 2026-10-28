@@ -7,13 +7,17 @@ import { fmtQuando } from "./formato.js";
 export const ARQ_DADOS = "radar-carga-solta-dados.js";
 export const PASTA_BKP = "backups";
 export const MAX_BKP = 60;
-export const MARCA = "window.RADAR_CS=";
+/* A marca mudou na base v2: um painel antigo ainda aberto (que procura a marca antiga) recusa gravar
+   — "ilegível, nada foi gravado" — em vez de apagar produto, unidade e peso que ele não conhece. */
+export const MARCA = "window.RADAR_CS2=";
+const MARCA_ANTIGA = "window.RADAR_CS=";
 const PREFIXO_BKP = "radar-carga-solta-dados ";
 
 export function lerDadosJs(texto) {
-  const i = String(texto ?? "").indexOf(MARCA);
+  const t = String(texto ?? "");
+  const marca = t.includes(MARCA) ? MARCA : MARCA_ANTIGA, i = t.indexOf(marca);
   if (i < 0) return null;
-  const corpo = texto.slice(i + MARCA.length).trim().replace(/;\s*$/, "");
+  const corpo = t.slice(i + marca.length).trim().replace(/;\s*$/, "");
   try {
     const d = JSON.parse(corpo);
     if (!d || !Array.isArray(d.ctes)) return null;
@@ -59,7 +63,7 @@ export function juntar(arquivo, tela, sessao) {
   }
   const cad = new Map((r.cnpjs || []).map(c => [c.cnpj, c]));
   for (const [cnpj, reg] of sessao.cadastro)
-    cad.set(cnpj, typeof reg === "string" ? { ...cad.get(cnpj), cnpj, nome: reg } : structuredClone(reg));
+    cad.set(cnpj, { ...cad.get(cnpj), cnpj, ...(typeof reg === "string" ? { nome: reg } : structuredClone(reg)) });
   r.cnpjs = [...cad.values()];
   for (const [k, item] of sessao.listas || []) {
     const lista = k.startsWith("produto:") ? r.produtos : r.unidades;

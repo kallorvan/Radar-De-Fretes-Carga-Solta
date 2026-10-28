@@ -58,3 +58,10 @@ test("pendentes são os sem produto ou unidade", () => {
   d.ctes[0].produto = "ACUCAR"; d.ctes[0].unidade = "TON";
   assert.equal(pendentesDeClassificacao(d).length, 4);
 });
+
+test("produto padrão limpo de propósito não volta", () => {
+  const d = baseV1();
+  d.cnpjs.find(c => c.cnpj === USINA).produtoPadrao = null;
+  semeiaProdutosPadrao(d);
+  assert.equal(d.cnpjs.find(c => c.cnpj === USINA).produtoPadrao, null);
+});

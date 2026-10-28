@@ -147,6 +147,11 @@ test("peso do CT-e sobrescreve o calculado", async () => {
   assert.equal(await page.locator("#form-cte output[name=precoTonelada]").textContent(), "R$ 400,00");
   await page.click("#form-cte button[type=submit]");
   await page.waitForFunction(() => window.RADAR_APP.dados.ctes.find(c => c.numero === 99999)?.pesoInformado === true);
+  // peso com decimais sobrevive à correção
+  await page.evaluate(() => { const c = window.RADAR_APP.dados.ctes.find(x => x.numero === 99999); c.pesoKg = 1234.56; });
+  await page.fill("#busca", "99999");
+  await page.click("#tab-base [data-corrigir]");
+  assert.equal(await page.locator("#form-cte [name=pesoKg]").inputValue(), "1.234,56");
   await ctx.close();
 });
 

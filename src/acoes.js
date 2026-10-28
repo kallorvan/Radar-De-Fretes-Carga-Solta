@@ -36,16 +36,17 @@ export function restaurar(d, s, chave, quem, agora) {
   if (r.ok) { s.excluidos.delete(chave); s.restaurados.add(chave); tocar(s, chave); }
   return r;
 }
-const anotarCnpj = (d, s, cnpj) => s.cadastro.set(cnpj, structuredClone(d.cnpjs.find(c => c.cnpj === cnpj)));
+/* Só os campos mexidos: na junção, o nome de um lado e o produto padrão do outro convivem. */
+const anotarCnpj = (s, cnpj, campos) => s.cadastro.set(cnpj, { ...(s.cadastro.get(cnpj) || {}), ...campos });
 
 export function cadastrar(d, s, cnpj, nome, quem, agora) {
   const r = comLog(d, s, () => B.cadastrarCnpj(d, cnpj, nome, quem, agora));
-  if (r.ok) anotarCnpj(d, s, r.cnpj);
+  if (r.ok) anotarCnpj(s, r.cnpj, { nome: r.nome });
   return r;
 }
 export function definirProdutoPadrao(d, s, cnpj, produto, quem, agora) {
   const r = comLog(d, s, () => B.definirProdutoPadrao(d, cnpj, produto, quem, agora));
-  if (r.ok) anotarCnpj(d, s, r.cnpj);
+  if (r.ok) anotarCnpj(s, r.cnpj, { produtoPadrao: r.produtoPadrao });
   return r;
 }
 export function classificar(d, s, chave, classe, quem, agora) {
@@ -53,21 +54,25 @@ export function classificar(d, s, chave, classe, quem, agora) {
   if (r.ok) { s.alterados.add(chave); tocar(s, chave); }
   return r;
 }
-export function cadastrarProduto(d, s, produto, quem, agora) {
-  const r = comLog(d, s, () => B.cadastrarProduto(d, produto, quem, agora));
+export function cadastrarProduto(d, s, produto, quem, agora, opcoes) {
+  const r = comLog(d, s, () => B.cadastrarProduto(d, produto, quem, agora, opcoes));
   if (r.ok) s.listas.set("produto:" + r.id, structuredClone(r.produto));
   return r;
 }
-export function cadastrarUnidade(d, s, unidade, quem, agora) {
-  const r = comLog(d, s, () => B.cadastrarUnidade(d, unidade, quem, agora));
+export function cadastrarUnidade(d, s, unidade, quem, agora, opcoes) {
+  const r = comLog(d, s, () => B.cadastrarUnidade(d, unidade, quem, agora, opcoes));
   if (r.ok) s.listas.set("unidade:" + r.id, structuredClone(r.unidade));
   return r;
 }
 export function importar(d, s, resultado, quem, agora) {
   const chaves = new Set(d.ctes.map(c => c.chave));
-  const cnpjs = new Map(d.cnpjs.map(c => [c.cnpj, JSON.stringify(c)]));
+  const cnpjs = new Map(d.cnpjs.map(c => [c.cnpj, { ...c }]));
   const r = comLog(d, s, () => aplicarImportacao(d, resultado, quem, agora));
   for (const c of d.ctes) if (!chaves.has(c.chave)) { s.alterados.add(c.chave); tocar(s, c.chave); }
-  for (const c of d.cnpjs) if (cnpjs.get(c.cnpj) !== JSON.stringify(c)) anotarCnpj(d, s, c.cnpj);
+  for (const c of d.cnpjs) {
+    const antes = cnpjs.get(c.cnpj) || {}, mudou = {};
+    for (const k of ["nome", "produtoPadrao"]) if (k in c && c[k] !== antes[k]) mudou[k] = c[k];
+    if (Object.keys(mudou).length) anotarCnpj(s, c.cnpj, mudou);
+  }
   return r;
 }

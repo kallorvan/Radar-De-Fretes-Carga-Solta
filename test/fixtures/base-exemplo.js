@@ -39,7 +39,8 @@ export function baseV1ParaClassificar() {
     valorFrete, tarifa: valorFrete, sacas: quantidade, precoSaca: valorFrete / quantidade, vpo: false, observacoes: "",
     criadoPor: "Ana", criadoEm: AGORA, origemLancamento: "importacao" });
   return { versao: 1, salvoEm: "2026-10-28T09:00:00.000Z", salvoPor: "Ana", log: [], lixeira: [],
-    cnpjs: [{ cnpj: "44209336003583", nome: "USINA ALTA MOGIANA S/A", produtoPadrao: "ACUCAR" }, { cnpj: "55555555000100", nome: "EISA", produtoPadrao: "CAFE" },
+    // base v1 real: nenhum CNPJ tem produto padrão; a migração semeia pelo nome
+    cnpjs: [{ cnpj: "44209336003583", nome: "USINA ALTA MOGIANA S/A" }, { cnpj: "55555555000100", nome: "EISA" },
       { cnpj: "66666666000100", nome: "COLOMBARI SERVIÇOS DE TRANSPORTES LTDA" }, { cnpj: T1, nome: "TRANSPORTES UM" }],
     ctes: [cte(1, "44209336003583", 50, 8750), cte(2, "44209336003583", 1080, 9612), cte(3, "55555555000100", 540, 17353.56), cte(4, "66666666000100", 50, 6900)] };
 }

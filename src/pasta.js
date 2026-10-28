@@ -25,7 +25,7 @@ export function idbNavegador(nome = "radar-carga-solta") {
 const serSessao = s => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], cadastro: [...s.cadastro], listas: [...(s.listas || [])], log: [...s.log], toques: [...(s.toques || [])] });
 const desSessao = s => ({ alterados: new Set(s.alterados), excluidos: new Set(s.excluidos), restaurados: new Set(s.restaurados), 
   // sessões antigas guardavam só o nome do CNPJ
-  cadastro: new Map((s.cadastro || []).map(([k, v]) => [k, typeof v === "string" ? { cnpj: k, nome: v } : v])),
+  cadastro: new Map((s.cadastro || []).map(([k, v]) => [k, typeof v === "string" ? { nome: v } : v])),
   listas: new Map(s.listas || []), log: s.log, toques: new Map(s.toques || []) });
 
 export function criarGravador({ obterTela, obterSessao, obterQuem, aoSalvar, aoMudar = () => {}, idb, env = globalThis, atraso = 1000 }) {

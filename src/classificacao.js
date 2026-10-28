@@ -3,26 +3,19 @@
 
 import { calcularCte, normalizarCnpj } from "./calculos.js";
 import { unidadeDe, nomeDoCnpj } from "./base.js";
+import { sugerirProdutoCliente } from "./produtos-clientes.js";
+
+export { sugerirProdutoCliente };
 
 export const LIMITE_TONELADA = 100;
 const SACA_DO_PRODUTO = { CAFE: "SC60", ACUCAR: "SC50" };
-const CLIENTES = {
-  CAFE: ["EISA", "STONEX", "OLAM", "LOUIS DREYFUS", "SUCAFINA", "EXPOCACER", "UNICAFE", "COFCO", "RS TRADE", "NOVO RUMO", "ALTO CAFEZAL"],
-  ACUCAR: ["USINA", "ACUCAR", "COPLASA", "CENTRAL ENERGETICA", "BIOENERGETICA", "COLOMBO AGROINDUSTRIA", "NARDINI"],
-};
-const semAcento = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
 
-export function sugerirProdutoCliente(nome) {
-  const n = semAcento(nome);
-  for (const [produto, chaves] of Object.entries(CLIENTES)) if (chaves.some(k => n.includes(k))) return produto;
-  return null;
-}
-
-/* Preenche o produto padrão dos CNPJ que ainda não têm (sem registrar no histórico: é uma sugestão inicial). */
+/* Preenche o produto padrão dos CNPJ que nunca tiveram um (sem registrar no histórico: é uma sugestão inicial).
+   null é "nenhum" escolhido pela pessoa e fica como está. */
 export function semeiaProdutosPadrao(d) {
   let n = 0;
   for (const c of d.cnpjs) {
-    if (c.produtoPadrao !== undefined && c.produtoPadrao !== null) continue;
+    if (c.produtoPadrao !== undefined) continue;
     const p = sugerirProdutoCliente(c.nome);
     if (p) { c.produtoPadrao = p; n++; }
   }

@@ -31,7 +31,7 @@ function listas(d) {
 const TITULOS_EXC = {
   "preco-fora": ["R$/t fora da faixa da rota", "Acima de 3× ou abaixo de ⅓ da mediana da rota para o mesmo produto. Confira quantidade, unidade e frete no CT-e."],
   "a-classificar": ["CT-e a classificar", "Sem produto, unidade ou peso: fica fora do R$/t e conta só na tarifa. Classifique em Dados → Classificar CT-e."],
-  "sem-cadastro": ["CNPJ sem nome no cadastro", "O painel mostra o CNPJ no lugar do nome. Cadastre o nome na aba Cadastro CNPJ."],
+  "sem-cadastro": ["CNPJ sem nome no cadastro", "O painel mostra o CNPJ no lugar do nome. Cadastre o nome na aba Cadastro."],
   "diverge-planilha": ["Cálculo diferente da planilha", "Na importação, seguro, tarifa ou preço por saca não bateram com a conta. Vale o número da planilha."],
 };
 

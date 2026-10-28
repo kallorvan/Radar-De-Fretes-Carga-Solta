@@ -87,13 +87,13 @@ export function renderCadastro(raiz, App) {
     ev.preventDefault();
     const nome = new FormData(ev.target).get("nome");
     if (!String(nome || "").trim()) return aviso("Informe o nome do produto.", true);
-    alterar((dd, s, quem, agora) => App.acoes.cadastrarProduto(dd, s, { nome }, quem, agora), r => `Produto ${r.produto.nome} incluído.`);
+    alterar((dd, s, quem, agora) => App.acoes.cadastrarProduto(dd, s, { nome }, quem, agora, { novo: true }), r => `Produto ${r.produto.nome} incluído.`);
   });
   $("#form-unidade", raiz)?.addEventListener("submit", ev => {
     ev.preventDefault();
     const f = new FormData(ev.target), nome = String(f.get("nome") || "").trim();
     if (!nome) return aviso("Informe o nome da unidade.", true);
-    alterar((dd, s, quem, agora) => App.acoes.cadastrarUnidade(dd, s, { nome, kg: f.get("kg"), saca: f.get("saca") === "on" }, quem, agora), r => `Unidade ${r.unidade.nome} incluída.`);
+    alterar((dd, s, quem, agora) => App.acoes.cadastrarUnidade(dd, s, { nome, kg: f.get("kg"), saca: f.get("saca") === "on" }, quem, agora, { novo: true }), r => `Unidade ${r.unidade.nome} incluída.`);
   });
   $("#form-cnpj", raiz)?.addEventListener("submit", ev => {
     ev.preventDefault();

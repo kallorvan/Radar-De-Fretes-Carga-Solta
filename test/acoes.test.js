@@ -24,9 +24,9 @@ test("acoes registram a sessão e o log da sessão", () => {
   A.corrigir(d, s, CHAVE, campos({ quantidade: 70 }), "Ana", AGORA);
   assert.ok(s.alterados.has(CHAVE));
   A.cadastrar(d, s, "07668709000109", "Atma", "Ana", AGORA);
-  assert.equal(s.cadastro.get("07668709000109").nome, "ATMA");
+  assert.deepEqual(s.cadastro.get("07668709000109"), { nome: "ATMA" });
   A.definirProdutoPadrao(d, s, "07668709000109", "CAFE", "Ana", AGORA);
-  assert.equal(s.cadastro.get("07668709000109").produtoPadrao, "CAFE");
+  assert.deepEqual(s.cadastro.get("07668709000109"), { nome: "ATMA", produtoPadrao: "CAFE" }, "só os campos mexidos");
   assert.equal(s.log.length, 6);
 });
 

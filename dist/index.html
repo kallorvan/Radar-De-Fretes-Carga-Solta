@@ -621,6 +621,18 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   }
   var esc = (s) => String(s ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
 
+  // src/produtos-clientes.js
+  var CLIENTES = {
+    CAFE: ["EISA", "STONEX", "OLAM", "LOUIS DREYFUS", "SUCAFINA", "EXPOCACER", "UNICAFE", "COFCO", "RS TRADE", "NOVO RUMO", "ALTO CAFEZAL"],
+    ACUCAR: ["USINA", "ACUCAR", "COPLASA", "CENTRAL ENERGETICA", "BIOENERGETICA", "COLOMBO AGROINDUSTRIA", "NARDINI"]
+  };
+  var semAcento = (s) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  function sugerirProdutoCliente(nome) {
+    const n = semAcento(nome);
+    for (const [produto, chaves] of Object.entries(CLIENTES)) if (chaves.some((k) => n.includes(k))) return produto;
+    return null;
+  }
+
   // src/base.js
   var MAX_LOG = 500;
   var UNIDADES_INICIAIS = [
@@ -649,23 +661,37 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     r.lixeira || (r.lixeira = []);
     r.log || (r.log = []);
     r.ctes || (r.ctes = []);
-    if ((d.versao || 1) >= 2) return r;
-    const migra = (c) => {
-      const { sacas, ...resto } = c;
-      return {
-        ...resto,
-        quantidade: sacas ?? resto.quantidade ?? null,
-        produto: null,
-        unidade: null,
-        pesoKg: null,
-        pesoInformado: false,
-        precoTonelada: null,
-        precoSaca: null
+    if ((d.versao || 1) < 2) {
+      const migra = (c) => {
+        const { sacas, ...resto } = c;
+        return {
+          ...resto,
+          quantidade: sacas ?? resto.quantidade ?? null,
+          produto: null,
+          unidade: null,
+          pesoKg: null,
+          pesoInformado: false,
+          precoTonelada: null,
+          precoSaca: null
+        };
       };
+      r.ctes = r.ctes.map(migra);
+      r.lixeira = r.lixeira.map((l) => ({ ...l, cte: migra(l.cte) }));
+      for (const c of r.cnpjs) if (c.produtoPadrao === void 0) {
+        const p = sugerirProdutoCliente(c.nome);
+        if (p) c.produtoPadrao = p;
+      }
+      r.versao = 2;
+    }
+    const normaliza = (c) => {
+      if (!("sacas" in c)) return c;
+      const { sacas, ...resto } = c, u = unidadeDe(r, resto.unidade);
+      const n = { produto: null, unidade: null, pesoKg: null, pesoInformado: false, precoTonelada: null, ...resto, quantidade: sacas ?? resto.quantidade ?? null };
+      if (!n.pesoInformado) n.pesoKg = u?.kg > 0 && n.quantidade > 0 ? Math.round(n.quantidade * u.kg * 100) / 100 : null;
+      return precosDaTarifa(r, n);
     };
-    r.ctes = r.ctes.map(migra);
-    r.lixeira = r.lixeira.map((l) => ({ ...l, cte: migra(l.cte) }));
-    r.versao = 2;
+    r.ctes = r.ctes.map(normaliza);
+    r.lixeira = r.lixeira.map((l) => ({ ...l, cte: normaliza(l.cte) }));
     return r;
   }
   var unidadeDe = (d, id) => (d.unidades || []).find((u) => u.id === id) || null;
@@ -697,6 +723,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     if (!produtoDe(d, c.produto)) erros.produto = "Escolha o produto.";
     if (!u) erros.unidade = "Escolha a unidade.";
     else if ((c.pesoInformado || !(u.kg > 0)) && !(c.pesoKg > 0)) erros.pesoKg = ERRO_PESO;
+    else if (!c.pesoInformado && u.kg > 0 && !(c.quantidade > 0)) erros.quantidade = "Informe a quantidade.";
     return erros;
   }
   var calcular = (d, c) => calcularCte({ ...c, unidade: unidadeDe(d, c.unidade), pesoInformado: c.pesoInformado || !(unidadeDe(d, c.unidade)?.kg > 0) });
@@ -806,21 +833,24 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     return { ok: true, cte };
   }
   var idDoNome = (nome) => String(nome).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  function cadastrarProduto(d, { id, nome }, quem, agora) {
+  var jaExiste = (lista, id, nome) => lista.some((x) => x.id === id || idDoNome(x.nome) === idDoNome(nome));
+  function cadastrarProduto(d, { id, nome }, quem, agora, { novo = false } = {}) {
     const limpo = String(nome ?? "").trim().replace(/\s+/g, " ");
     const pid = id || idDoNome(limpo);
     if (!limpo || !pid) return { ok: false, erro: "Informe o nome do produto." };
+    if (novo && jaExiste(d.produtos, pid, limpo)) return { ok: false, erro: "Já existe um produto com esse nome." };
     const atual = produtoDe(d, pid);
     if (atual) atual.nome = limpo;
     else d.produtos.push({ id: pid, nome: limpo });
     registrar(d, "produto", quem, agora, "", `${pid} = ${limpo}`);
     return { ok: true, id: pid, produto: produtoDe(d, pid) };
   }
-  function cadastrarUnidade(d, { id, nome, kg, saca }, quem, agora) {
+  function cadastrarUnidade(d, { id, nome, kg, saca }, quem, agora, { novo = false } = {}) {
     const limpo = String(nome ?? "").trim().replace(/\s+/g, " ");
     const uid = id || idDoNome(limpo);
     const peso = kg === "" || kg == null ? null : numeroBR(kg);
     if (!limpo || !uid) return { ok: false, erro: "Informe o nome da unidade." };
+    if (novo && jaExiste(d.unidades, uid, limpo)) return { ok: false, erro: "Já existe uma unidade com esse nome." };
     if (peso != null && !(peso > 0)) return { ok: false, erro: "O peso da unidade precisa ser maior que zero." };
     const atual = unidadeDe(d, uid);
     const emUso = [...d.ctes, ...d.lixeira.map((l) => l.cte)].some((c) => c.unidade === uid);
@@ -848,12 +878,14 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   var ARQ_DADOS = "radar-carga-solta-dados.js";
   var PASTA_BKP = "backups";
   var MAX_BKP = 60;
-  var MARCA = "window.RADAR_CS=";
+  var MARCA = "window.RADAR_CS2=";
+  var MARCA_ANTIGA = "window.RADAR_CS=";
   var PREFIXO_BKP = "radar-carga-solta-dados ";
   function lerDadosJs(texto) {
-    const i = String(texto ?? "").indexOf(MARCA);
+    const t = String(texto ?? "");
+    const marca = t.includes(MARCA) ? MARCA : MARCA_ANTIGA, i = t.indexOf(marca);
     if (i < 0) return null;
-    const corpo = texto.slice(i + MARCA.length).trim().replace(/;\s*$/, "");
+    const corpo = t.slice(i + marca.length).trim().replace(/;\s*$/, "");
     try {
       const d = JSON.parse(corpo);
       if (!d || !Array.isArray(d.ctes)) return null;
@@ -891,7 +923,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     }
     const cad = new Map((r.cnpjs || []).map((c) => [c.cnpj, c]));
     for (const [cnpj, reg] of sessao.cadastro)
-      cad.set(cnpj, typeof reg === "string" ? { ...cad.get(cnpj), cnpj, nome: reg } : structuredClone(reg));
+      cad.set(cnpj, { ...cad.get(cnpj), cnpj, ...typeof reg === "string" ? { nome: reg } : structuredClone(reg) });
     r.cnpjs = [...cad.values()];
     for (const [k, item] of sessao.listas || []) {
       const lista = k.startsWith("produto:") ? r.produtos : r.unidades;
@@ -940,7 +972,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     excluidos: new Set(s.excluidos),
     restaurados: new Set(s.restaurados),
     // sessões antigas guardavam só o nome do CNPJ
-    cadastro: new Map((s.cadastro || []).map(([k, v]) => [k, typeof v === "string" ? { cnpj: k, nome: v } : v])),
+    cadastro: new Map((s.cadastro || []).map(([k, v]) => [k, typeof v === "string" ? { nome: v } : v])),
     listas: new Map(s.listas || []),
     log: s.log,
     toques: new Map(s.toques || [])
@@ -1173,20 +1205,10 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   // src/classificacao.js
   var LIMITE_TONELADA = 100;
   var SACA_DO_PRODUTO = { CAFE: "SC60", ACUCAR: "SC50" };
-  var CLIENTES = {
-    CAFE: ["EISA", "STONEX", "OLAM", "LOUIS DREYFUS", "SUCAFINA", "EXPOCACER", "UNICAFE", "COFCO", "RS TRADE", "NOVO RUMO", "ALTO CAFEZAL"],
-    ACUCAR: ["USINA", "ACUCAR", "COPLASA", "CENTRAL ENERGETICA", "BIOENERGETICA", "COLOMBO AGROINDUSTRIA", "NARDINI"]
-  };
-  var semAcento = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
-  function sugerirProdutoCliente(nome) {
-    const n = semAcento(nome);
-    for (const [produto, chaves] of Object.entries(CLIENTES)) if (chaves.some((k) => n.includes(k))) return produto;
-    return null;
-  }
   function semeiaProdutosPadrao(d) {
     let n = 0;
     for (const c of d.cnpjs) {
-      if (c.produtoPadrao !== void 0 && c.produtoPadrao !== null) continue;
+      if (c.produtoPadrao !== void 0) continue;
       const p = sugerirProdutoCliente(c.nome);
       if (p) {
         c.produtoPadrao = p;
@@ -1456,15 +1478,15 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     }
     return r;
   }
-  var anotarCnpj = (d, s, cnpj) => s.cadastro.set(cnpj, structuredClone(d.cnpjs.find((c) => c.cnpj === cnpj)));
+  var anotarCnpj = (s, cnpj, campos) => s.cadastro.set(cnpj, { ...s.cadastro.get(cnpj) || {}, ...campos });
   function cadastrar(d, s, cnpj, nome, quem, agora) {
     const r = comLog(d, s, () => cadastrarCnpj(d, cnpj, nome, quem, agora));
-    if (r.ok) anotarCnpj(d, s, r.cnpj);
+    if (r.ok) anotarCnpj(s, r.cnpj, { nome: r.nome });
     return r;
   }
   function definirProdutoPadrao2(d, s, cnpj, produto, quem, agora) {
     const r = comLog(d, s, () => definirProdutoPadrao(d, cnpj, produto, quem, agora));
-    if (r.ok) anotarCnpj(d, s, r.cnpj);
+    if (r.ok) anotarCnpj(s, r.cnpj, { produtoPadrao: r.produtoPadrao });
     return r;
   }
   function classificar2(d, s, chave, classe, quem, agora) {
@@ -1475,25 +1497,29 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     }
     return r;
   }
-  function cadastrarProduto2(d, s, produto, quem, agora) {
-    const r = comLog(d, s, () => cadastrarProduto(d, produto, quem, agora));
+  function cadastrarProduto2(d, s, produto, quem, agora, opcoes2) {
+    const r = comLog(d, s, () => cadastrarProduto(d, produto, quem, agora, opcoes2));
     if (r.ok) s.listas.set("produto:" + r.id, structuredClone(r.produto));
     return r;
   }
-  function cadastrarUnidade2(d, s, unidade, quem, agora) {
-    const r = comLog(d, s, () => cadastrarUnidade(d, unidade, quem, agora));
+  function cadastrarUnidade2(d, s, unidade, quem, agora, opcoes2) {
+    const r = comLog(d, s, () => cadastrarUnidade(d, unidade, quem, agora, opcoes2));
     if (r.ok) s.listas.set("unidade:" + r.id, structuredClone(r.unidade));
     return r;
   }
   function importar(d, s, resultado, quem, agora) {
     const chaves = new Set(d.ctes.map((c) => c.chave));
-    const cnpjs = new Map(d.cnpjs.map((c) => [c.cnpj, JSON.stringify(c)]));
+    const cnpjs = new Map(d.cnpjs.map((c) => [c.cnpj, { ...c }]));
     const r = comLog(d, s, () => aplicarImportacao(d, resultado, quem, agora));
     for (const c of d.ctes) if (!chaves.has(c.chave)) {
       s.alterados.add(c.chave);
       tocar(s, c.chave);
     }
-    for (const c of d.cnpjs) if (cnpjs.get(c.cnpj) !== JSON.stringify(c)) anotarCnpj(d, s, c.cnpj);
+    for (const c of d.cnpjs) {
+      const antes = cnpjs.get(c.cnpj) || {}, mudou = {};
+      for (const k of ["nome", "produtoPadrao"]) if (k in c && c[k] !== antes[k]) mudou[k] = c[k];
+      if (Object.keys(mudou).length) anotarCnpj(s, c.cnpj, mudou);
+    }
     return r;
   }
 
@@ -1836,7 +1862,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   var TITULOS_EXC = {
     "preco-fora": ["R$/t fora da faixa da rota", "Acima de 3× ou abaixo de ⅓ da mediana da rota para o mesmo produto. Confira quantidade, unidade e frete no CT-e."],
     "a-classificar": ["CT-e a classificar", "Sem produto, unidade ou peso: fica fora do R$/t e conta só na tarifa. Classifique em Dados → Classificar CT-e."],
-    "sem-cadastro": ["CNPJ sem nome no cadastro", "O painel mostra o CNPJ no lugar do nome. Cadastre o nome na aba Cadastro CNPJ."],
+    "sem-cadastro": ["CNPJ sem nome no cadastro", "O painel mostra o CNPJ no lugar do nome. Cadastre o nome na aba Cadastro."],
     "diverge-planilha": ["Cálculo diferente da planilha", "Na importação, seguro, tarifa ou preço por saca não bateram com a conta. Vale o número da planilha."]
   };
   function excecoesHtml(d) {
@@ -2003,7 +2029,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     ["adicionais", "Adicionais", false, "", "text", ""]
   ];
   var NUM = /* @__PURE__ */ new Set(["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
-  var fmtCampo = (k, v) => v == null || v === "" ? "" : k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) : k === "pesoKg" ? fmtNum(v) : NUM.has(k) ? String(v).replace(".", ",") : String(v);
+  var fmtCampo = (k, v) => v == null || v === "" ? "" : k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) : k === "pesoKg" ? fmtNum(v, Number.isInteger(v) ? 0 : 2) : NUM.has(k) ? String(v).replace(".", ",") : String(v);
   var opcoesLista = (lista, atual) => `<option value="">Escolha</option>` + lista.map((x) => `<option value="${esc(x.id)}"${x.id === atual ? " selected" : ""}>${esc(x.nome)}</option>`).join("");
   function lerForm(form) {
     const fd = new FormData(form), c = {};
@@ -2295,13 +2321,13 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       ev.preventDefault();
       const nome = new FormData(ev.target).get("nome");
       if (!String(nome || "").trim()) return aviso("Informe o nome do produto.", true);
-      alterar((dd, s, quem, agora) => App2.acoes.cadastrarProduto(dd, s, { nome }, quem, agora), (r) => `Produto ${r.produto.nome} incluído.`);
+      alterar((dd, s, quem, agora) => App2.acoes.cadastrarProduto(dd, s, { nome }, quem, agora, { novo: true }), (r) => `Produto ${r.produto.nome} incluído.`);
     });
     $("#form-unidade", raiz)?.addEventListener("submit", (ev) => {
       ev.preventDefault();
       const f = new FormData(ev.target), nome = String(f.get("nome") || "").trim();
       if (!nome) return aviso("Informe o nome da unidade.", true);
-      alterar((dd, s, quem, agora) => App2.acoes.cadastrarUnidade(dd, s, { nome, kg: f.get("kg"), saca: f.get("saca") === "on" }, quem, agora), (r) => `Unidade ${r.unidade.nome} incluída.`);
+      alterar((dd, s, quem, agora) => App2.acoes.cadastrarUnidade(dd, s, { nome, kg: f.get("kg"), saca: f.get("saca") === "on" }, quem, agora, { novo: true }), (r) => `Unidade ${r.unidade.nome} incluída.`);
     });
     $("#form-cnpj", raiz)?.addEventListener("submit", (ev) => {
       ev.preventDefault();
@@ -2634,7 +2660,8 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     }
   }
   async function iniciar() {
-    const arquivo = window.RADAR_CS ? migrarBase({ versao: 1, cnpjs: [], lixeira: [], log: [], ...window.RADAR_CS }) : novaBase();
+    const lido = window.RADAR_CS2 || window.RADAR_CS;
+    const arquivo = lido ? migrarBase({ versao: 1, cnpjs: [], lixeira: [], log: [], ...lido }) : novaBase();
     App.dados = arquivo;
     App.gravador = criarGravador({
       obterTela: () => App.dados,

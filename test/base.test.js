@@ -185,3 +185,42 @@ test("produto padrão do CNPJ", () => {
   definirProdutoPadrao(d, "07668709000109", null, "Ana", AGORA);
   assert.equal(d.cnpjs[0].produtoPadrao, null);
 });
+
+test("migração v1 semeia o produto padrão pelo nome do cliente", () => {
+  const d = migrarBase({ versao: 1, ctes: [], lixeira: [], log: [], cnpjs: [{ cnpj: "1", nome: "USINA ALTA MOGIANA S/A" }, { cnpj: "2", nome: "EISA" }, { cnpj: "3", nome: "COLOMBARI" }] });
+  assert.deepEqual(d.cnpjs.map(c => c.produtoPadrao ?? null), ["ACUCAR", "CAFE", null]);
+});
+
+test("CT-e com sacas dentro de base v2 (gravado pelo painel antigo) é normalizado", () => {
+  const d = novaBase();
+  incluir(d, campos({ quantidade: 50 }), "Ana", AGORA);            // açúcar em tonelada, R$ 175/t
+  const c = d.ctes[0];
+  // o painel antigo corrigiu: gravou sacas e recalculou a tarifa, sem saber de quantidade/peso
+  Object.assign(c, { sacas: 40, valorFrete: 8000, tarifa: 8000, precoSaca: 200 });
+  const v1novo = { chave: "9".repeat(44), numero: 9, sacas: 30, tarifa: 900, valorFrete: 900, precoSaca: 30 };   // lançado no painel antigo
+  d.ctes.push(v1novo);
+  const m = migrarBase(d);
+  const [a, b] = m.ctes;
+  assert.equal("sacas" in a, false);
+  assert.deepEqual([a.quantidade, a.pesoKg, a.precoTonelada, a.precoSaca], [40, 40000, 200, null]);
+  assert.deepEqual([b.quantidade, b.produto, b.unidade, b.precoTonelada], [30, null, null, null]);
+  assert.equal("sacas" in b, false);
+});
+
+test("classificar exige quantidade quando o peso sai da unidade", () => {
+  const d = migrarBase({ versao: 2, ctes: [{ chave: "a", numero: 1, tarifa: 100, valorFrete: 100, quantidade: null }], cnpjs: [], lixeira: [], log: [] });
+  const r = classificar(d, "a", { produto: "CAFE", unidade: "SC60" }, "Ana", AGORA);
+  assert.equal(r.ok, false);
+  assert.equal(r.erros.quantidade, "Informe a quantidade.");
+});
+
+test("incluir produto ou unidade com nome existente é recusado", () => {
+  const d = novaBase();
+  assert.equal(cadastrarProduto(d, { nome: "cafe" }, "Ana", AGORA, { novo: true }).ok, false);
+  assert.equal(produtoDe(d, "CAFE").nome, "Café");
+  const r = cadastrarUnidade(d, { nome: "BAG", kg: 800, saca: false }, "Ana", AGORA, { novo: true });
+  assert.equal(r.ok, false);
+  assert.match(r.erro, /Já existe/);
+  assert.equal(unidadeDe(d, "BAG").kg, null);
+  assert.equal(cadastrarUnidade(d, { nome: "big bag" }, "Ana", AGORA, { novo: true }).ok, false, "mesmo nome sem acento/caixa");
+});

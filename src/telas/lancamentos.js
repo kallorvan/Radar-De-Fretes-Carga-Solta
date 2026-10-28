@@ -26,7 +26,7 @@ const CAMPOS = [
 const NUM = new Set(["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
 const fmtCampo = (k, v) => v == null || v === "" ? "" :
   k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) :
-  k === "pesoKg" ? fmtNum(v) :
+  k === "pesoKg" ? fmtNum(v, Number.isInteger(v) ? 0 : 2) :
   NUM.has(k) ? String(v).replace(".", ",") : String(v);
 const opcoesLista = (lista, atual) => `<option value="">Escolha</option>` +
   lista.map(x => `<option value="${esc(x.id)}"${x.id === atual ? " selected" : ""}>${esc(x.nome)}</option>`).join("");

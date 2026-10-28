@@ -3,6 +3,7 @@
 
 import { calcularCte, normalizarCnpj, chaveValida, normalizarCidade, raizCnpj, ehMatriz, soDigitos, numeroBR } from "./calculos.js";
 import { fmtCnpj } from "./formato.js";
+import { sugerirProdutoCliente } from "./produtos-clientes.js";
 
 export const MAX_LOG = 500;
 
@@ -19,21 +20,35 @@ export const novaBase = () => ({
   produtos: structuredClone(PRODUTOS_INICIAIS), unidades: structuredClone(UNIDADES_INICIAIS),
 });
 
-/* Base gravada pelo painel antigo (v1, só "sacas") → v2. Pura: devolve uma cópia; v2 volta igual. */
+/* Base gravada pelo painel antigo (v1, só "sacas") → v2. Pura: devolve uma cópia; v2 sem pendências volta igual. */
 export function migrarBase(d) {
   const r = structuredClone(d);
   r.produtos ||= structuredClone(PRODUTOS_INICIAIS);
   r.unidades ||= structuredClone(UNIDADES_INICIAIS);
   r.cnpjs ||= []; r.lixeira ||= []; r.log ||= []; r.ctes ||= [];
-  if ((d.versao || 1) >= 2) return r;
-  const migra = c => {
-    const { sacas, ...resto } = c;
-    return { ...resto, quantidade: sacas ?? resto.quantidade ?? null, produto: null, unidade: null, pesoKg: null,
-      pesoInformado: false, precoTonelada: null, precoSaca: null };
+  if ((d.versao || 1) < 2) {
+    const migra = c => {
+      const { sacas, ...resto } = c;
+      return { ...resto, quantidade: sacas ?? resto.quantidade ?? null, produto: null, unidade: null, pesoKg: null,
+        pesoInformado: false, precoTonelada: null, precoSaca: null };
+    };
+    r.ctes = r.ctes.map(migra);
+    r.lixeira = r.lixeira.map(l => ({ ...l, cte: migra(l.cte) }));
+    // sem produto padrão a classificação começaria vazia: a sugestão pelo nome é a mesma da importação
+    for (const c of r.cnpjs) if (c.produtoPadrao === undefined) { const p = sugerirProdutoCliente(c.nome); if (p) c.produtoPadrao = p; }
+    r.versao = 2;
+  }
+  /* CT-e com "sacas" numa base v2: lançado ou corrigido por um painel antigo ainda aberto. A quantidade
+     mais nova é a de "sacas"; peso e preços são refeitos a partir da tarifa que ele gravou. */
+  const normaliza = c => {
+    if (!("sacas" in c)) return c;
+    const { sacas, ...resto } = c, u = unidadeDe(r, resto.unidade);
+    const n = { produto: null, unidade: null, pesoKg: null, pesoInformado: false, precoTonelada: null, ...resto, quantidade: sacas ?? resto.quantidade ?? null };
+    if (!n.pesoInformado) n.pesoKg = u?.kg > 0 && n.quantidade > 0 ? Math.round(n.quantidade * u.kg * 100) / 100 : null;
+    return precosDaTarifa(r, n);
   };
-  r.ctes = r.ctes.map(migra);
-  r.lixeira = r.lixeira.map(l => ({ ...l, cte: migra(l.cte) }));
-  r.versao = 2;
+  r.ctes = r.ctes.map(normaliza);
+  r.lixeira = r.lixeira.map(l => ({ ...l, cte: normaliza(l.cte) }));
   return r;
 }
 
@@ -71,6 +86,7 @@ function errosClassificacao(d, c) {
   if (!produtoDe(d, c.produto)) erros.produto = "Escolha o produto.";
   if (!u) erros.unidade = "Escolha a unidade.";
   else if ((c.pesoInformado || !(u.kg > 0)) && !(c.pesoKg > 0)) erros.pesoKg = ERRO_PESO;
+  else if (!c.pesoInformado && u.kg > 0 && !(c.quantidade > 0)) erros.quantidade = "Informe a quantidade.";
   return erros;
 }
 const calcular = (d, c) => calcularCte({ ...c, unidade: unidadeDe(d, c.unidade), pesoInformado: c.pesoInformado || !(unidadeDe(d, c.unidade)?.kg > 0) });
@@ -187,21 +203,26 @@ export function classificar(d, chave, { produto, unidade, pesoKg = null, pesoInf
 
 const idDoNome = nome => String(nome).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 
-export function cadastrarProduto(d, { id, nome }, quem, agora) {
+/* novo: inclusão pelo formulário; recusa id ou nome que já existe (senão "BAG" viraria outro Big bag). */
+const jaExiste = (lista, id, nome) => lista.some(x => x.id === id || idDoNome(x.nome) === idDoNome(nome));
+
+export function cadastrarProduto(d, { id, nome }, quem, agora, { novo = false } = {}) {
   const limpo = String(nome ?? "").trim().replace(/\s+/g, " ");
   const pid = id || idDoNome(limpo);
   if (!limpo || !pid) return { ok: false, erro: "Informe o nome do produto." };
+  if (novo && jaExiste(d.produtos, pid, limpo)) return { ok: false, erro: "Já existe um produto com esse nome." };
   const atual = produtoDe(d, pid);
   if (atual) atual.nome = limpo; else d.produtos.push({ id: pid, nome: limpo });
   registrar(d, "produto", quem, agora, "", `${pid} = ${limpo}`);
   return { ok: true, id: pid, produto: produtoDe(d, pid) };
 }
 
-export function cadastrarUnidade(d, { id, nome, kg, saca }, quem, agora) {
+export function cadastrarUnidade(d, { id, nome, kg, saca }, quem, agora, { novo = false } = {}) {
   const limpo = String(nome ?? "").trim().replace(/\s+/g, " ");
   const uid = id || idDoNome(limpo);
   const peso = kg === "" || kg == null ? null : numeroBR(kg);
   if (!limpo || !uid) return { ok: false, erro: "Informe o nome da unidade." };
+  if (novo && jaExiste(d.unidades, uid, limpo)) return { ok: false, erro: "Já existe uma unidade com esse nome." };
   if (peso != null && !(peso > 0)) return { ok: false, erro: "O peso da unidade precisa ser maior que zero." };
   const atual = unidadeDe(d, uid);
   const emUso = [...d.ctes, ...d.lixeira.map(l => l.cte)].some(c => c.unidade === uid);

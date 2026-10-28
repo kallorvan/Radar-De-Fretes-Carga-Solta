@@ -36,6 +36,8 @@ O painel é um arquivo HTML só. Ele fica numa pasta compartilhada do SharePoint
 
 Troque só o HTML na pasta pela versão nova de `dist/index.html`. Os dados ficam no `radar-carga-solta-dados.js` e não mudam.
 
+Depois de trocar, todos devem **fechar as abas do painel antigo e abrir o HTML de novo**. A partir da versão com produto e unidade, o arquivo de dados é gravado num formato que o painel antigo não lê: uma aba antiga esquecida aberta mostra "ilegível, nada foi gravado" em vez de apagar os campos novos.
+
 ## Restaurar um backup
 
 A cada gravação, a versão anterior do arquivo de dados vai para `backups/`, com data e hora no nome. O painel guarda as 60 mais recentes. Para voltar a uma delas:

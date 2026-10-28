@@ -128,3 +128,22 @@ test("juntar preserva o produto padrão do arquivo e aplica o da tela", () => {
   assert.equal(r.cnpjs.find(c => c.cnpj === "11111111000100").produtoPadrao, "CAFE");
   assert.equal(r.cnpjs.find(c => c.cnpj === "22222222000100").produtoPadrao, "ACUCAR");
 });
+
+test("juntar funde o cadastro por campo: nome de um lado, produto padrão do outro", () => {
+  const base = novaBase();
+  cadastrarCnpj(base, "11111111000100", "EISA", "Ana", AGORA);
+  const arquivo = structuredClone(base);
+  definirProdutoPadrao(arquivo, "11111111000100", "CAFE", "Ana", AGORA);   // A gravou o produto padrão
+  const tela = structuredClone(base), s = novaSessao();                       // B abriu antes e renomeou
+  cadastrarCnpj(tela, "11111111000100", "EISA COMERCIO", "Bia", AGORA); s.cadastro.set("11111111000100", { nome: "EISA COMERCIO" });
+  const r = juntar(arquivo, tela, s);
+  assert.deepEqual(r.cnpjs.find(c => c.cnpj === "11111111000100"), { cnpj: "11111111000100", nome: "EISA COMERCIO", produtoPadrao: "CAFE" });
+});
+
+test("arquivo novo usa marca que o painel antigo não lê", () => {
+  const txt = montarDadosJs(novaBase());
+  assert.ok(!txt.includes("window.RADAR_CS="), "o painel antigo procura window.RADAR_CS= e deve recusar");
+  assert.ok(txt.includes("window.RADAR_CS2="));
+  assert.equal(lerDadosJs(txt).versao, 2);
+  assert.equal(lerDadosJs('window.RADAR_CS={"versao":1,"ctes":[]};').versao, 2, "lê a marca antiga e migra");
+});
