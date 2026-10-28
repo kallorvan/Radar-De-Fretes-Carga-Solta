@@ -1,0 +1,14 @@
+{
+  "name": "radar-fretes-carga-solta",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:e2e": "node --test --test-concurrency=1 test/e2e/*.test.js",
+    "montar": "node scripts/tokens-css.mjs && node scripts/montar.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.0",
+    "xlsx": "0.18.5"
+  }
+}
