@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radar de Fretes · Carga Solta</title>
+<style>
+/*CSS*/
+</style>
+</head>
+<body>
+<div class="stickytop" id="topo">
+  <header class="top"><div class="wrap top-in">
+    <span class="logos-cor">
+      <img src="{{LOGO_DINAMO_COR}}" alt="Grupo Dínamo">
+      <img src="{{LOGO_TOLIMAN_COR}}" alt="Tóliman Transportes">
+    </span>
+    <div class="rule"></div>
+    <div class="who">Radar de fretes<b>Carga solta</b></div>
+    <nav class="abas" id="abas" aria-label="Telas do painel">
+      <button type="button" data-aba="evolucao">Evolução</button>
+      <button type="button" data-aba="rotas">Rotas</button>
+      <button type="button" data-aba="lancamentos">Lançamentos</button>
+      <button type="button" data-aba="cadastro">Cadastro CNPJ</button>
+      <button type="button" data-aba="dados">Dados</button>
+    </nav>
+  </div></header>
+  <div class="perbar"><div class="wrap perbar-in estado-gravacao" id="estado-gravacao"></div></div>
+</div>
+<div class="aviso-fixo" id="aviso-fixo" hidden></div>
+<main id="conteudo"></main>
+<footer><div class="wrap foot">
+  <span class="logos-branco">
+    <img src="{{LOGO_DINAMO}}" alt="Grupo Dínamo">
+    <img src="{{LOGO_TOLIMAN}}" alt="Tóliman Transportes">
+  </span>
+  <p>Radar de Fretes · Carga Solta. Preços de frete de concorrentes, lançados CT-e a CT-e pela equipe.
+    <span class="src">Origem dos números</span>
+    <span class="rel"><b>Lançamentos do Radar de Fretes · Carga Solta</b>; histórico importado de <b>Radar_Fretes_Concorrentes_v2.10.xlsm</b> (aba Base Carga Solta 2026).</span>
+  </p>
+</div></footer>
+<div id="tip" role="tooltip"></div>
+<dialog id="dlg-nome" class="dlg">
+  <form method="dialog">
+    <h3>Quem está lançando</h3>
+    <p class="hint">O nome fica guardado neste navegador e vai junto com cada lançamento, correção e exclusão.</p>
+    <label class="campo"><span>Seu nome</span><input name="nome" required maxlength="60" autocomplete="name"></label>
+    <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok">Continuar</button></div>
+  </form>
+</dialog>
+<dialog id="dlg-confirma" class="dlg">
+  <form method="dialog">
+    <h3 id="dlg-confirma-titulo"></h3>
+    <p id="dlg-confirma-texto"></p>
+    <div class="botoes"><button class="btn" value="cancelar">Cancelar</button><button class="btn primario" value="ok" id="dlg-confirma-ok">Confirmar</button></div>
+  </form>
+</dialog>
+<script src="radar-carga-solta-dados.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script id="app">
+/*JS*/
+</script>
+</body>
+</html>

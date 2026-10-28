@@ -1,0 +1,49 @@
+// As alterações feitas pela tela: aplicam a regra da base e anotam na sessão o que esta página mudou,
+// que é o que vai por cima do arquivo quando for preciso juntar.
+
+import * as B from "./base.js";
+import { aplicarImportacao } from "./importacao.js";
+
+function comLog(d, s, fn) {
+  const antes = d.log.slice();
+  const r = fn();
+  // o log pode ter sido cortado no início (máximo de 500): conta o que é novo pelo fim
+  let novos = 0;
+  while (novos < d.log.length && !antes.includes(d.log[d.log.length - 1 - novos])) novos++;
+  if (novos) s.log.push(...d.log.slice(-novos));
+  return r;
+}
+
+export function incluir(d, s, campos, quem, agora) {
+  const r = comLog(d, s, () => B.incluir(d, campos, quem, agora));
+  if (r.ok) s.alterados.add(r.cte.chave);
+  return r;
+}
+export function corrigir(d, s, chave, campos, quem, agora) {
+  const r = comLog(d, s, () => B.corrigir(d, chave, campos, quem, agora));
+  if (r.ok) s.alterados.add(chave);
+  return r;
+}
+export function excluir(d, s, chave, quem, agora) {
+  const r = comLog(d, s, () => B.excluir(d, chave, quem, agora));
+  if (r.ok) { s.alterados.delete(chave); s.restaurados.delete(chave); s.excluidos.add(chave); }
+  return r;
+}
+export function restaurar(d, s, chave, quem, agora) {
+  const r = comLog(d, s, () => B.restaurar(d, chave, quem, agora));
+  if (r.ok) { s.excluidos.delete(chave); s.restaurados.add(chave); }
+  return r;
+}
+export function cadastrar(d, s, cnpj, nome, quem, agora) {
+  const r = comLog(d, s, () => B.cadastrarCnpj(d, cnpj, nome, quem, agora));
+  if (r.ok) s.cadastro.set(r.cnpj, r.nome);
+  return r;
+}
+export function importar(d, s, resultado, quem, agora) {
+  const chaves = new Set(d.ctes.map(c => c.chave));
+  const cnpjs = new Map(d.cnpjs.map(c => [c.cnpj, c.nome]));
+  const r = comLog(d, s, () => aplicarImportacao(d, resultado, quem, agora));
+  for (const c of d.ctes) if (!chaves.has(c.chave)) s.alterados.add(c.chave);
+  for (const c of d.cnpjs) if (cnpjs.get(c.cnpj) !== c.nome) s.cadastro.set(c.cnpj, c.nome);
+  return r;
+}
