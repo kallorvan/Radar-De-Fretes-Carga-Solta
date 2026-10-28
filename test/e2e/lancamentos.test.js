@@ -11,7 +11,7 @@ const CHAVE_NOVA = "35260105780969000146570010000999991000120718";
 async function preencher(page, extra = {}) {
   const v = {
     chave: CHAVE_NOVA, emissao: "2026-05-04", cnpjTransportador: "11.111.111/0001-00", cnpjCliente: "44.209.336/0035-83",
-    origem: "A", destino: "B", valorAssegurado: "100.000,00", taxaSeguro: "0", valorFrete: "8.750,00", adicionais: "0",
+    origem: "A", destino: "B", valorAssegurado: "100.000,00", valorSeguro: "0", valorFrete: "8.750,00", adicionais: "0",
     produto: "ACUCAR", unidade: "TON", quantidade: "50", ...extra,
   };
   for (const [k, x] of Object.entries(v)) {
@@ -175,5 +175,15 @@ test("produto padrão do cliente preenche o produto", async () => {
   await page.fill("#form-cte [name=cnpjCliente]", "44.209.336/0035-83");
   await page.locator("#form-cte [name=cnpjCliente]").dispatchEvent("change");
   assert.equal(await page.locator("#form-cte [name=produto]").inputValue(), "ACUCAR");
+  await ctx.close();
+});
+
+test("o seguro informado calcula a taxa, travada", async () => {
+  const { page, ctx, erros } = await abrirLanc();
+  await page.waitForSelector("#form-cte");
+  await preencher(page, { valorAssegurado: "917.213,08", valorSeguro: "458,61", valorFrete: "9.208,61" });
+  assert.equal(await page.locator("#form-cte output[name=taxaSeguro]").textContent(), "0,0500%");
+  assert.equal(await page.locator("#form-cte output[name=tarifa]").textContent(), "R$ 8.750,00");
+  assert.deepEqual(erros, []);
   await ctx.close();
 });

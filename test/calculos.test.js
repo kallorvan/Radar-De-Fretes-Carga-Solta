@@ -7,15 +7,21 @@ import {
 
 const SC60 = { kg: 60, saca: true }, TON = { kg: 1000, saca: false }, BAG = { kg: null, saca: false };
 
-test("calcularCte reproduz a planilha", () => {
-  assert.deepEqual(calcularCte({ valorAssegurado: 917213.08, taxaSeguro: 0.0005, valorFrete: 29141.78, adicionais: 0, quantidade: 666, unidade: SC60 }),
-    { valorSeguro: 458.61, tarifa: 28683.17, pesoKg: 39960, precoTonelada: 717.8, precoSaca: 43.07 });
+test("calcularCte reproduz a planilha, com o seguro informado e a taxa calculada", () => {
+  assert.deepEqual(calcularCte({ valorAssegurado: 917213.08, valorSeguro: 458.61, valorFrete: 29141.78, adicionais: 0, quantidade: 666, unidade: SC60 }),
+    { taxaSeguro: 0.0005, valorSeguro: 458.61, tarifa: 28683.17, pesoKg: 39960, precoTonelada: 717.8, precoSaca: 43.07 });
 });
 test("calcularCte por tonelada e por saca", () => {
-  assert.deepEqual(calcularCte({ valorAssegurado: 0, taxaSeguro: 0, valorFrete: 17353.56, adicionais: 0, quantidade: 540, unidade: SC60 }),
-    { valorSeguro: 0, tarifa: 17353.56, pesoKg: 32400, precoTonelada: 535.6, precoSaca: 32.14 });
-  assert.deepEqual(calcularCte({ valorAssegurado: 119322.29, taxaSeguro: 0, valorFrete: 8750, adicionais: 0, quantidade: 50, unidade: TON }),
-    { valorSeguro: 0, tarifa: 8750, pesoKg: 50000, precoTonelada: 175, precoSaca: null });
+  assert.deepEqual(calcularCte({ valorAssegurado: 0, valorSeguro: 0, valorFrete: 17353.56, adicionais: 0, quantidade: 540, unidade: SC60 }),
+    { taxaSeguro: null, valorSeguro: 0, tarifa: 17353.56, pesoKg: 32400, precoTonelada: 535.6, precoSaca: 32.14 });
+  assert.deepEqual(calcularCte({ valorAssegurado: 119322.29, valorSeguro: 0, valorFrete: 8750, adicionais: 0, quantidade: 50, unidade: TON }),
+    { taxaSeguro: 0, valorSeguro: 0, tarifa: 8750, pesoKg: 50000, precoTonelada: 175, precoSaca: null });
+});
+test("seguro sem valor assegurado: taxa vazia e tarifa sem o seguro", () => {
+  const r = calcularCte({ valorAssegurado: 0, valorSeguro: 100, valorFrete: 1000, adicionais: 0, quantidade: 1, unidade: TON });
+  assert.equal(r.taxaSeguro, null);
+  assert.equal(r.tarifa, 900);
+  assert.equal(calcularCte({ valorFrete: 1000, quantidade: 1, unidade: TON }).valorSeguro, 0, "seguro vazio = 0");
 });
 test("peso informado vale sobre a unidade", () => {
   const r = calcularCte({ valorFrete: 10000, quantidade: 20, unidade: TON, pesoKg: 25000, pesoInformado: true });

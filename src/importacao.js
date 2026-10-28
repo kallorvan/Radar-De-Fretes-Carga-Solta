@@ -1,7 +1,7 @@
 // Importação da planilha Radar_Fretes_Concorrentes (abas BASE CARGA SOLTA 2026 e BASE DE DADOS CNPJ)
 // e exportação no mesmo layout. O SheetJS (XLSX) é recebido como argumento.
 
-import { normalizarCnpj, numeroBR } from "./calculos.js";
+import { normalizarCnpj, numeroBR, arred2 } from "./calculos.js";
 import { validarCampos, incluir, cadastrarCnpj, nomeDoCnpj, registrar, unidadeDe, produtoDe, precosDaTarifa } from "./base.js";
 import { semeiaProdutosPadrao } from "./classificacao.js";
 
@@ -61,6 +61,9 @@ export function normalizarLinha(d, linhaBruta, numLinha) {
   const l = Object.fromEntries(Object.entries(linhaBruta).map(([k, v]) => [chaveCab(k), v]));
   const g = k => k === "quantidade" ? l["QUANTIDADE"] ?? l["QT. SACAS"] : l[COL[k] ?? COL_NOVAS[k]];
   const produto = acharNaLista(d.produtos, g("produto")), unidade = acharNaLista(d.unidades, g("unidade"));
+  // o seguro vem do CT-e; planilha antiga sem o valor: assegurado × taxa
+  const assegurado = numeroBR(g("valorAssegurado")), taxa = numeroBR(g("taxaSeguro"));
+  const valorSeguro = numeroBR(g("valorSeguro")) ?? (assegurado && taxa ? arred2(assegurado * taxa) : 0);
   const quantidade = numeroBR(g("quantidade")), pesoLido = numeroBR(g("pesoKg")), u = unidadeDe(d, unidade);
   // o peso da planilha só conta como "do CT-e" quando difere do calculado pela unidade
   const pesoInformado = pesoLido > 0 && !(u?.kg > 0 && quantidade > 0 && Math.abs(pesoLido - quantidade * u.kg) < 0.5);
@@ -68,7 +71,7 @@ export function normalizarLinha(d, linhaBruta, numLinha) {
     chave: String(g("chave") ?? "").replace(/\D/g, ""), numero: g("numero"), emissao: dataISO(g("emissao")),
     cnpjTransportador: normalizarCnpj(g("cnpjTransportador")), cnpjCliente: normalizarCnpj(g("cnpjCliente")),
     origem: g("origem") ?? "", destino: g("destino") ?? "", itinerario: g("itinerario") ?? "",
-    valorAssegurado: numeroBR(g("valorAssegurado")), taxaSeguro: numeroBR(g("taxaSeguro")),
+    valorAssegurado: assegurado, valorSeguro,
     valorFrete: numeroBR(g("valorFrete")), adicionais: numeroBR(g("adicionais")), quantidade,
     produto, unidade, pesoKg: pesoInformado ? pesoLido : null, pesoInformado,
     vpo: String(g("vpo") ?? "").trim().toUpperCase() === "SIM",
@@ -78,7 +81,7 @@ export function normalizarLinha(d, linhaBruta, numLinha) {
   if (!v.ok) return { ok: false, numLinha, motivo: Object.values(v.erros).join(" ") };
   return {
     ok: true, numLinha, campos: v.campos,
-    planilha: { valorSeguro: numeroBR(g("valorSeguro")), tarifa: numeroBR(g("tarifa")), precoSaca: numeroBR(g("precoSaca")) },
+    planilha: { tarifa: numeroBR(g("tarifa")), precoSaca: numeroBR(g("precoSaca")) },
     nomes: { transportador: String(g("transportador") ?? "").trim(), cliente: String(g("cliente") ?? "").trim() },
   };
 }
@@ -105,14 +108,14 @@ export function aplicarImportacao(d, resultado, quem, agora) {
       Object.assign(inc.cte, { unidade: null, pesoKg: null, pesoInformado: false, precoTonelada: null, precoSaca: null });
       r.aClassificar++;
     }
-    const calc = { valorSeguro: inc.cte.valorSeguro, tarifa: inc.cte.tarifa };
+    const calc = { tarifa: inc.cte.tarifa };   // o seguro é o da planilha: não há o que conferir
     const ehSaca = unidadeDe(d, inc.cte.unidade)?.saca;
     const conferir = { ...calc, ...(ehSaca ? { precoSaca: inc.cte.precoSaca } : {}) };
     const difere = Object.keys(conferir).some(k => n.planilha[k] != null && conferir[k] != null &&
       Math.abs(conferir[k] - n.planilha[k]) > TOLERANCIA);
     if (difere) {
       const planilha = {};
-      for (const k of ["valorSeguro", "tarifa"]) if (n.planilha[k] != null) { planilha[k] = n.planilha[k]; inc.cte[k] = n.planilha[k]; }
+      for (const k of ["tarifa"]) if (n.planilha[k] != null) { planilha[k] = n.planilha[k]; inc.cte[k] = n.planilha[k]; }
       if (n.planilha.precoSaca != null) planilha.precoSaca = n.planilha.precoSaca;
       inc.cte.divergencia = { calculado: { ...calc, precoSaca: inc.cte.precoSaca }, planilha };
       precosDaTarifa(d, inc.cte);

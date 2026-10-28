@@ -1,7 +1,7 @@
 // A base em memória: CT-e, cadastro de CNPJ, lixeira e histórico.
 // Toda alteração passa por aqui e deixa registro de quem fez e quando.
 
-import { calcularCte, normalizarCnpj, chaveValida, normalizarCidade, raizCnpj, ehMatriz, soDigitos, numeroBR } from "./calculos.js";
+import { calcularCte, arred6, normalizarCnpj, chaveValida, normalizarCidade, raizCnpj, ehMatriz, soDigitos, numeroBR } from "./calculos.js";
 import { fmtCnpj } from "./formato.js";
 import { sugerirProdutoCliente } from "./produtos-clientes.js";
 
@@ -53,6 +53,10 @@ export function migrarBase(d) {
   r.lixeira = r.lixeira.map(l => ({ ...l, cte: normaliza(l.cte) }));
   if ((r.versao || 1) < 3) {
     if (r.corte === undefined) r.corte = CORTE_PADRAO;
+    // o seguro passa a ser o informado no CT-e; a taxa vira conferência
+    const v3 = c => ({ ...c, taxaSeguro: c.valorAssegurado > 0 ? arred6((c.valorSeguro || 0) / c.valorAssegurado) : null });
+    r.ctes = r.ctes.map(v3);
+    r.lixeira = r.lixeira.map(l => ({ ...l, cte: v3(l.cte) }));
     r.versao = 3;
   }
   return r;
@@ -73,7 +77,7 @@ export function definirCorte(d, valor, quem, agora) {
 export const unidadeDe = (d, id) => (d.unidades || []).find(u => u.id === id) || null;
 export const produtoDe = (d, id) => (d.produtos || []).find(p => p.id === id) || null;
 
-const NUMERICOS = ["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"];
+const NUMERICOS = ["valorAssegurado", "valorSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"];
 
 /* Campos como chegam do formulário ou da planilha → tipos da base. */
 function normalizar(c) {
@@ -93,7 +97,7 @@ function normalizar(c) {
     observacoes: String(c.observacoes ?? "").trim(),
   };
   for (const k of NUMERICOS) n[k] = numeroBR(c[k]);
-  for (const k of ["valorAssegurado", "taxaSeguro", "adicionais"]) if (n[k] == null) n[k] = 0;
+  for (const k of ["valorAssegurado", "valorSeguro", "adicionais"]) if (n[k] == null) n[k] = 0;
   return n;
 }
 

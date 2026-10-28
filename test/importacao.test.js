@@ -49,13 +49,13 @@ test("rejeita linha sem chave e sem sacas com o motivo", () => {
 test("normalizarLinha aceita texto pt-BR e CNPJ numérico", () => {
   const r = normalizarLinha(novaBase(), linhaPadrao(1, {
     "VALOR DO FRETE": "8.750,00", "CNPJ DO CLIENTE": 44209336003583, "EMISSÃO CT-e": "13/01/2026",
-    "TAXA DO SEGURO": "0,0005", "VPO": "SIM",
+    "VALOR ASSEGURADO": 917213.08, "VALOR DO SEGURO": "458,61", "TAXA DO SEGURO": "0,0001", "VPO": "SIM",
   }), 2);
   assert.equal(r.ok, true);
   assert.equal(r.campos.valorFrete, 8750);
   assert.equal(r.campos.cnpjCliente, "44209336003583");
   assert.equal(r.campos.emissao, "2026-01-13");
-  assert.equal(r.campos.taxaSeguro, 0.0005);
+  assert.equal(r.campos.valorSeguro, 458.61, "vale o seguro da planilha, não a taxa");
   assert.equal(r.campos.vpo, true);
   assert.deepEqual(r.nomes, { transportador: "JF PEREIRA TRANSPORTES", cliente: "USINA ALTA MOGIANA" });
 });
@@ -158,4 +158,19 @@ test("exportar e reimportar preserva produto, unidade e peso", async () => {
   const d2 = novaBase();
   aplicarImportacao(d2, lerPlanilha(XLSX, exportarXlsx(d, XLSX)), "Ana", AGORA);
   assert.deepEqual(d2.ctes.map(c => [c.produto, c.unidade, c.pesoKg, c.precoTonelada]), d.ctes.map(c => [c.produto, c.unidade, c.pesoKg, c.precoTonelada]));
+});
+
+test("seguro vazio na planilha sai da taxa sobre o assegurado", () => {
+  const r = normalizarLinha(novaBase(), linhaPadrao(1, { "VALOR ASSEGURADO": 917213.08, "TAXA DO SEGURO": 0.0005, "VALOR DO SEGURO": null }), 2);
+  assert.equal(r.campos.valorSeguro, 458.61);
+});
+
+test("seguro da planilha diferente de assegurado × taxa não é divergência", () => {
+  const d = novaBase();
+  const buf = gerarPlanilha([linhaPadrao(1, { "VALOR ASSEGURADO": 386140, "TAXA DO SEGURO": 0.0005, "VALOR DO SEGURO": 193,
+    "VALOR DO FRETE": 8943, "TARIFA DO FRETE": 8750, "PREÇO POR SACAS": 175 })]);
+  const r = aplicarImportacao(d, lerPlanilha(XLSX, buf), "Ana", AGORA);
+  assert.equal(r.divergentes, 0);
+  assert.equal(d.ctes[0].valorSeguro, 193);
+  assert.equal(d.ctes[0].taxaSeguro, 0.0005);
 });

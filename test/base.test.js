@@ -224,3 +224,20 @@ test("incluir produto ou unidade com nome existente é recusado", () => {
   assert.equal(unidadeDe(d, "BAG").kg, null);
   assert.equal(cadastrarUnidade(d, { nome: "big bag" }, "Ana", AGORA, { novo: true }).ok, false, "mesmo nome sem acento/caixa");
 });
+
+test("incluir grava o seguro informado e a taxa calculada", () => {
+  const d = novaBase();
+  const r = incluir(d, campos({ valorAssegurado: "917.213,08", valorSeguro: "458,61", valorFrete: 9208.61 }), "Ana", AGORA);
+  assert.equal(r.cte.valorSeguro, 458.61);
+  assert.equal(r.cte.taxaSeguro, 0.0005);
+  assert.equal(r.cte.tarifa, 8750);
+});
+
+test("migrar v2 → v3 mantém o seguro e recalcula a taxa a partir dele", () => {
+  const cte = { chave: "a", numero: 1, emissao: "2026-08-02", valorAssegurado: 917213.08, taxaSeguro: 0.0007, valorSeguro: 458.61,
+    valorFrete: 1000, adicionais: 0, tarifa: 541.39, quantidade: 1, produto: null, unidade: null, pesoKg: null, pesoInformado: false };
+  const r = migrarBase({ versao: 2, ctes: [cte, { ...cte, chave: "b", valorAssegurado: 0, valorSeguro: 0 }], cnpjs: [], lixeira: [], log: [] });
+  assert.equal(r.ctes[0].valorSeguro, 458.61);
+  assert.equal(r.ctes[0].taxaSeguro, 0.0005);
+  assert.equal(r.ctes[1].taxaSeguro, null);
+});

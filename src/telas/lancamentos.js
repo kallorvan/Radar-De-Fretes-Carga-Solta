@@ -1,9 +1,9 @@
-// Lançamentos: o formulário do CT-e (seguro, tarifa, peso, R$/t e R$/saca calculados e travados) e a base.
+// Lançamentos: o formulário do CT-e (taxa do seguro, tarifa, peso, R$/t e R$/saca calculados e travados) e a base.
 
 import { validarCampos, nomeDoCnpj, grupoDoCnpj, unidadeDe, produtoDe } from "../base.js";
 import { calcularCte, numeroDaChave, normalizarCnpj, numeroBR, rotaDe, soDigitos } from "../calculos.js";
 import { filtrar } from "../agregacao.js";
-import { esc, fmtMoeda, fmtNum, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
+import { esc, fmtMoeda, fmtNum, fmtPct, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
 import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 
 const POR_PAGINA = 100;
@@ -19,11 +19,11 @@ const CAMPOS = [
   ["destino", "Cidade destino", true, "", "text", ""],
   ["itinerario", "Cód. itinerário", false, "", "text", ""],
   ["valorAssegurado", "Valor assegurado", false, "", "text", ""],
-  ["taxaSeguro", "Taxa do seguro", false, "", "text", "ex.: 0,0005"],
+  ["valorSeguro", "Valor do seguro", false, "", "text", ""],
   ["valorFrete", "Valor do frete", true, "", "text", ""],
   ["adicionais", "Adicionais", false, "", "text", ""],
 ];
-const NUM = new Set(["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
+const NUM = new Set(["valorAssegurado", "valorSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
 const fmtCampo = (k, v) => v == null || v === "" ? "" :
   k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) :
   k === "pesoKg" ? fmtNum(v, Number.isInteger(v) ? 0 : 2) :
@@ -52,7 +52,7 @@ function formHtml(App, cte) {
   return `<form id="form-cte" class="card${cte ? " editando" : ""}" novalidate data-escreve>
     <div class="card-head"><div><h3>${cte ? "Corrigir lançamento" : "Lançar CT-e"}</h3>
       <p class="hint">${cte ? `Corrigindo o CT-e Nº ${esc(cte.numero)}, lançado por ${esc(cte.criadoPor)} em ${fmtQuando(cte.criadoEm)}. A chave não muda.` :
-        "Campos com * são obrigatórios. Seguro, tarifa, peso, R$/t e R$/saca são calculados."}</p></div></div>
+        "Campos com * são obrigatórios. Taxa do seguro, tarifa, peso, R$/t e R$/saca são calculados."}</p></div></div>
     <div class="form-grid">
       ${CAMPOS.map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
         <input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
@@ -63,7 +63,7 @@ function formHtml(App, cte) {
       <label class="campo"><span>Quantidade <i class="obrig">*</i></span><input name="quantidade" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off"><span class="erro" data-erro="quantidade"></span></label>
       <div class="campo"><span>Peso total (kg)</span><input name="pesoKg" type="text" inputmode="decimal" value="${esc(fmtCampo("pesoKg", v.pesoKg))}" autocomplete="off" aria-label="Peso total (kg)">
         <label class="nota caixa"><input type="checkbox" name="pesoInformado" ${v.pesoInformado ? "checked" : ""}> Usar o peso do CT-e</label><span class="erro" data-erro="pesoKg"></span></div>
-      <label class="campo"><span>Valor do seguro</span><output name="valorSeguro">—</output></label>
+      <label class="campo"><span>Taxa do seguro</span><output name="taxaSeguro">—</output></label>
       <label class="campo"><span>Tarifa do frete</span><output name="tarifa">—</output></label>
       <label class="campo"><span>R$/t</span><output name="precoTonelada">—</output></label>
       <label class="campo"><span>R$/saca</span><output name="precoSaca">—</output></label>
@@ -92,7 +92,7 @@ function atualizarForm(form, App) {
   const r = calcularCte({ ...c, unidade: u, pesoInformado: caixa.checked });
   if (!caixa.checked) peso.value = r.pesoKg != null ? fmtNum(r.pesoKg) : "";
   const ok = c.valorFrete != null;
-  form.querySelector("output[name=valorSeguro]").textContent = ok ? fmtMoeda(r.valorSeguro) : "—";
+  form.querySelector("output[name=taxaSeguro]").textContent = r.taxaSeguro != null ? fmtPct(r.taxaSeguro, 4) : "—";
   form.querySelector("output[name=tarifa]").textContent = ok ? fmtMoeda(r.tarifa) : "—";
   form.querySelector("output[name=precoTonelada]").textContent = ok && r.precoTonelada != null ? fmtMoeda(r.precoTonelada) : "—";
   form.querySelector("output[name=precoSaca]").textContent = ok && r.precoSaca != null ? fmtMoeda(r.precoSaca) : "—";
