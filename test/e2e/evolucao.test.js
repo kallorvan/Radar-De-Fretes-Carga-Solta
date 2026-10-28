@@ -73,8 +73,8 @@ test("mediana do mês desliga e clicar num ponto abre o CT-e", async () => {
   const { page, ctx, erros } = await abrir(browser, { dados: baseExemplo(), hash: "#evolucao?rota=A%20%E2%86%92%20B", gravavel: true, quem: "Ana" });
   await page.waitForSelector(".grafico path.mediana");
   await page.click("[data-mediana='0']");
-  await page.waitForFunction(() => location.hash.includes("mediana=0"));
-  assert.equal(await page.locator(".grafico path.mediana").count(), 0);
+  await page.waitForFunction(() => location.hash.includes("mediana=0") && !document.querySelector(".grafico path.mediana"));
+  assert.equal(await page.locator("[data-mediana='0']").getAttribute("aria-pressed"), "true");
   const chave = await page.locator(".grafico circle.cte").last().getAttribute("data-chave");
   await page.locator(".grafico circle.cte").last().click();
   await page.waitForSelector("#form-cte.editando");

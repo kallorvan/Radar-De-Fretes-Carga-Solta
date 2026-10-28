@@ -50,8 +50,8 @@ test("cadastro renomeia e o nome muda na Evolução", async () => {
   await inp.press("Tab");
   await page.waitForFunction(() => window.RADAR_APP.dados.cnpjs.find(c => c.cnpj === "11111111000100").nome === "TRANSPORTES UM RENOMEADA");
   await page.click("#abas button[data-aba=evolucao]");
-  await page.waitForSelector(".legenda");
-  assert.match(await page.locator(".legenda").textContent(), /TRANSPORTES UM RENOMEADA/);
+  await page.waitForSelector("select[data-f=transportador]");
+  assert.match(await page.locator("select[data-f=transportador]").textContent(), /TRANSPORTES UM RENOMEADA/);
   await ctx.close();
 });
 
