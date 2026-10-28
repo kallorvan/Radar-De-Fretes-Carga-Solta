@@ -16,6 +16,7 @@ export async function abrir(browser, { dados = null, hash = "", largura = 1280, 
   copyFileSync(DIST, join(dir, "index.html"));
   if (dados) writeFileSync(join(dir, "radar-carga-solta-dados.js"), montarDadosJs(dados));
   const ctx = await browser.newContext({ viewport: { width: largura, height: altura }, colorScheme: tema, locale: "pt-BR", timezoneId: "America/Sao_Paulo" });
+  ctx.setDefaultTimeout(5000);
   const page = await ctx.newPage();
   const erros = [];
   page.on("pageerror", e => erros.push(String(e)));

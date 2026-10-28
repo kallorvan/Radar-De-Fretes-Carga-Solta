@@ -451,6 +451,18 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
 .toast.erro{background:var(--erro);}
 .somente-leitura [data-escreve]{display:none!important}
 
+/* evolução */
+.bignum{font-size:84px;white-space:nowrap}
+.bignum .un{font-size:.36em;letter-spacing:.02em}
+.bignum.longo{font-size:60px}
+@media (max-width:640px){.bignum{font-size:60px}.bignum.longo{font-size:44px}}
+.hero .split span .sobe{color:#ffb3c0}.hero .split span .desce{color:#9be0b8}
+.hero-grid{grid-template-columns:minmax(0,340px) minmax(0,1fr)}
+@media (max-width:1000px){.hero-grid{grid-template-columns:minmax(0,1fr)}}
+.grafico svg{max-height:340px}
+.exc .tabela table{min-width:520px}
+@media (max-width:640px){.grafico{overflow-x:auto}.grafico svg{min-width:620px}}
+
 </style>
 </head>
 <body>
@@ -531,13 +543,43 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
     const d = soDigitos(v);
     return d ? d.padStart(14, "0") : "";
   }
+  var raizCnpj = (cnpj) => normalizarCnpj(cnpj).slice(0, 8);
+  var ehMatriz = (cnpj) => normalizarCnpj(cnpj).slice(8, 12) === "0001";
   var chaveValida = (chave) => /^\d{44}$/.test(String(chave ?? ""));
   var normalizarCidade = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().trim().replace(/\s+/g, " ");
+  var rotaDe = (c) => `${normalizarCidade(c.origem)} → ${normalizarCidade(c.destino)}`;
+  var mesDe = (iso) => String(iso ?? "").slice(0, 7);
 
   // src/formato.js
+  var NADA = "—";
+  var fmtCache = /* @__PURE__ */ new Map();
+  var nf = (min, max) => {
+    const k = min + ":" + max;
+    if (!fmtCache.has(k)) fmtCache.set(k, new Intl.NumberFormat("pt-BR", { minimumFractionDigits: min, maximumFractionDigits: max }));
+    return fmtCache.get(k);
+  };
+  var vazio = (n) => n == null || !Number.isFinite(n);
+  var fmtNum = (n, casas = 0) => vazio(n) ? NADA : nf(casas, casas).format(n);
+  var fmtMoeda = (n) => vazio(n) ? NADA : (n < 0 ? "-" : "") + "R$ " + nf(2, 2).format(Math.abs(n));
+  var fmtPct = (n, casas = 1) => vazio(n) ? NADA : nf(casas, casas).format(n * 100) + "%";
   function fmtCnpj(cnpj) {
     const d = String(cnpj ?? "").replace(/\D/g, "");
     return d.length === 14 ? `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}` : d;
+  }
+  function fmtData(iso) {
+    const [a, m, d] = String(iso ?? "").slice(0, 10).split("-");
+    return d ? `${d}/${m}/${a}` : NADA;
+  }
+  var MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  function fmtMes(aaaaMm) {
+    const [a, m] = String(aaaaMm ?? "").split("-");
+    return m ? `${MESES[+m - 1].slice(0, 3)}/${a.slice(2)}` : NADA;
+  }
+  function fmtMesLongo(aaaaMm) {
+    const [a, m] = String(aaaaMm ?? "").split("-");
+    if (!m) return NADA;
+    const nome = MESES[+m - 1];
+    return `${nome[0].toUpperCase()}${nome.slice(1)} de ${a}`;
   }
   var dois = (n) => String(n).padStart(2, "0");
   function fmtQuando(iso) {
@@ -650,6 +692,12 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
   function nomeDoCnpj(d, cnpj) {
     const n = normalizarCnpj(cnpj);
     return d.cnpjs.find((c) => c.cnpj === n)?.nome ?? null;
+  }
+  function grupoDoCnpj(d, cnpj) {
+    const raiz = raizCnpj(cnpj);
+    const doGrupo = d.cnpjs.filter((c) => c.cnpj.startsWith(raiz)).sort((a, b) => a.cnpj.localeCompare(b.cnpj));
+    const escolhido = doGrupo.find((c) => ehMatriz(c.cnpj)) || doGrupo[0];
+    return { raiz, nome: escolhido ? escolhido.nome : "CNPJ " + fmtCnpj(normalizarCnpj(cnpj)) };
   }
 
   // src/arquivo.js
@@ -871,7 +919,7 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
         return { ok: false, msg: g.mensagem };
       }
     };
-    g.gravarNaFila = (opcoes = {}) => fila = fila.catch(() => null).then(() => g.salvar(opcoes));
+    g.gravarNaFila = (opcoes2 = {}) => fila = fila.catch(() => null).then(() => g.salvar(opcoes2));
     async function guardarPendentes() {
       await idb?.put("pendentes", { tela: JSON.parse(JSON.stringify(obterTela())), sessao: serSessao(obterSessao()) });
     }
@@ -1097,6 +1145,20 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
   var $ = (sel, raiz = document) => raiz.querySelector(sel);
   var $$ = (sel, raiz = document) => [...raiz.querySelectorAll(sel)];
   var secHead = (titulo, descricao = "", etiqueta = "") => `<div class="sec-head"><h2>${esc(titulo)}</h2>${descricao ? `<p>${esc(descricao)}</p>` : ""}${etiqueta ? `<span class="tag">${esc(etiqueta)}</span>` : ""}</div>`;
+  function dica(html, ev) {
+    const t = $("#tip");
+    if (!t) return;
+    if (!html) {
+      t.style.opacity = 0;
+      return;
+    }
+    t.innerHTML = html;
+    t.style.opacity = 1;
+    const w = t.offsetWidth, h = t.offsetHeight;
+    const x = Math.min(ev.clientX + 14, innerWidth - w - 8), y = ev.clientY + 16 + h > innerHeight ? ev.clientY - h - 12 : ev.clientY + 16;
+    t.style.left = Math.max(8, x) + "px";
+    t.style.top = y + "px";
+  }
   var toastT;
   function aviso(msg, erro = false) {
     let t = $("#toast");
@@ -1113,10 +1175,383 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
       t.className = "toast" + (erro ? " erro" : "");
     }, erro ? 9e3 : 3500);
   }
+  function tabelaOrdenavel(raiz, colunas, linhas, { ordem = null, aoClicar = null, vazia: vazia2 = "Nada a mostrar." } = {}) {
+    let col = ordem?.col ?? null, desc = ordem?.desc ?? true;
+    const pintar = () => {
+      const ls = col == null ? linhas : [...linhas].sort((a, b) => {
+        const va = colunas[col].valor(a), vb = colunas[col].valor(b);
+        const r = va == null ? 1 : vb == null ? -1 : typeof va === "number" ? va - vb : String(va).localeCompare(String(vb), "pt-BR");
+        return desc ? -r : r;
+      });
+      raiz.innerHTML = `<div class="tabela"><table><thead><tr>${colunas.map((c, i) => `<th data-ordem="${i}" class="${c.num ? "num" : ""}"${col === i ? ` aria-sort="${desc ? "descending" : "ascending"}"` : ""}>${esc(c.titulo)}</th>`).join("")}</tr></thead>
+      <tbody>${ls.length ? ls.map((l, i) => `<tr data-i="${linhas.indexOf(l)}"${aoClicar ? ' class="clicavel" tabindex="0"' : ""}>${colunas.map((c) => `<td class="${c.num ? "num" : ""}">${c.html(l)}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${colunas.length}" class="vazio">${esc(vazia2)}</td></tr>`}</tbody></table></div>`;
+      $$("th[data-ordem]", raiz).forEach((th) => th.addEventListener("click", () => {
+        const i = +th.dataset.ordem;
+        desc = col === i ? !desc : true;
+        col = i;
+        pintar();
+      }));
+      if (aoClicar) $$("tbody tr[data-i]", raiz).forEach((tr) => {
+        const ir = () => aoClicar(linhas[+tr.dataset.i]);
+        tr.addEventListener("click", (ev) => {
+          if (!ev.target.closest("button,a,input")) ir();
+        });
+        tr.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter") ir();
+        });
+      });
+    };
+    pintar();
+  }
+  var opcoes = (pares, atual, vazio2 = "Todos") => `<option value="">${esc(vazio2)}</option>` + pares.map(([v, r]) => `<option value="${esc(v)}"${v === atual ? " selected" : ""}>${esc(r)}</option>`).join("");
+
+  // src/agregacao.js
+  var FAIXA_EXCECAO = 3;
+  var MIN_ROTA_EXCECAO = 3;
+  var valorMetrica = (c, metrica) => {
+    const v = metrica === "tarifa" ? c.tarifa : c.precoSaca;
+    return v == null || !Number.isFinite(v) ? null : v;
+  };
+  function mediana(nums) {
+    if (!nums.length) return null;
+    const s = [...nums].sort((a, b) => a - b), m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+  function mesesEntre(ini, fim) {
+    const out = [];
+    let [a, m] = ini.split("-").map(Number);
+    const [af, mf] = fim.split("-").map(Number);
+    while (a < af || a === af && m <= mf) {
+      out.push(`${a}-${String(m).padStart(2, "0")}`);
+      if (++m > 12) {
+        m = 1;
+        a++;
+      }
+    }
+    return out;
+  }
+  function filtrar(d, f = {}) {
+    return d.ctes.filter((c) => (!f.rota || rotaDe(c) === f.rota) && (!f.transportador || raizCnpj(c.cnpjTransportador) === f.transportador) && (!f.cliente || raizCnpj(c.cnpjCliente) === f.cliente) && (!f.itinerario || c.itinerario === f.itinerario) && (!f.mesIni || mesDe(c.emissao) >= f.mesIni) && (!f.mesFim || mesDe(c.emissao) <= f.mesFim));
+  }
+  function porMes(ctes, metrica) {
+    var _a;
+    const m = {};
+    for (const c of ctes) {
+      const v = valorMetrica(c, metrica);
+      if (v != null) (m[_a = mesDe(c.emissao)] || (m[_a] = [])).push(v);
+    }
+    return m;
+  }
+  var medianasPorMes = (ctes, metrica) => Object.fromEntries(Object.entries(porMes(ctes, metrica)).map(([k, v]) => [k, mediana(v)]));
+  function ultimoEAnterior(medianas) {
+    const meses = Object.keys(medianas).sort();
+    const ultimoMes = meses.at(-1) ?? null, mesAnterior = meses.at(-2) ?? null;
+    const valor = ultimoMes ? medianas[ultimoMes] : null;
+    const ant = mesAnterior ? medianas[mesAnterior] : null;
+    return { ultimoMes, valor, mesAnterior, variacao: ant ? valor / ant - 1 : null };
+  }
+  function serieMensal(d, ctes, metrica) {
+    var _a, _b;
+    const grupos = /* @__PURE__ */ new Map();
+    for (const c of ctes) {
+      const v = valorMetrica(c, metrica);
+      if (v == null) continue;
+      const g = grupoDoCnpj(d, c.cnpjTransportador);
+      if (!grupos.has(g.raiz)) grupos.set(g.raiz, { raiz: g.raiz, nome: g.nome, n: 0, vals: {} });
+      const s = grupos.get(g.raiz);
+      s.n++;
+      ((_a = s.vals)[_b = mesDe(c.emissao)] || (_a[_b] = [])).push(v);
+    }
+    const todos = [...grupos.values()].flatMap((s) => Object.keys(s.vals)).sort();
+    const meses = todos.length ? mesesEntre(todos[0], todos.at(-1)) : [];
+    const series = [...grupos.values()].sort((a, b) => b.n - a.n || a.nome.localeCompare(b.nome, "pt-BR")).map(({ raiz, nome, n, vals }) => ({
+      raiz,
+      nome,
+      n,
+      pontos: Object.fromEntries(Object.entries(vals).map(([m, v]) => [m, { mediana: mediana(v), min: Math.min(...v), max: Math.max(...v), n: v.length }]))
+    }));
+    return { meses, series };
+  }
+  function resumoGeral(ctes, metrica) {
+    return {
+      ...ultimoEAnterior(medianasPorMes(ctes, metrica)),
+      nCtes: ctes.length,
+      nSacas: ctes.reduce((s, c) => s + (c.sacas || 0), 0),
+      nTransportadores: new Set(ctes.map((c) => raizCnpj(c.cnpjTransportador))).size,
+      nRotas: new Set(ctes.map(rotaDe)).size
+    };
+  }
+  function resumoRotas(d, metrica) {
+    const rotas = /* @__PURE__ */ new Map();
+    for (const c of d.ctes) {
+      const r = rotaDe(c);
+      if (!rotas.has(r)) rotas.set(r, []);
+      rotas.get(r).push(c);
+    }
+    return [...rotas].map(([rota, ctes]) => {
+      const med = medianasPorMes(ctes, metrica);
+      const { ultimoMes, valor, variacao } = ultimoEAnterior(med);
+      return {
+        rota,
+        nCtes: ctes.length,
+        nTransportadores: new Set(ctes.map((c) => raizCnpj(c.cnpjTransportador))).size,
+        ultimoMes,
+        valor,
+        variacao,
+        porMes: med
+      };
+    }).sort((a, b) => b.nCtes - a.nCtes || a.rota.localeCompare(b.rota, "pt-BR"));
+  }
+  function transportadoresNaRota(d, ctes, metrica) {
+    const grupos = /* @__PURE__ */ new Map();
+    for (const c of ctes) {
+      const g = grupoDoCnpj(d, c.cnpjTransportador);
+      if (!grupos.has(g.raiz)) grupos.set(g.raiz, { ...g, ctes: [] });
+      grupos.get(g.raiz).ctes.push(c);
+    }
+    return [...grupos.values()].map(({ raiz, nome, ctes: cs }) => {
+      const comValor = cs.filter((c) => valorMetrica(c, metrica) != null).sort((a, b) => a.emissao.localeCompare(b.emissao));
+      const ult = comValor.at(-1);
+      const med = medianasPorMes(cs, metrica);
+      const meses = Object.keys(med).sort();
+      return {
+        raiz,
+        nome,
+        nCtes: cs.length,
+        ultimo: ult ? { valor: valorMetrica(ult, metrica), emissao: ult.emissao } : null,
+        mediana: mediana(comValor.map((c) => valorMetrica(c, metrica))),
+        variacao: meses.length > 1 ? med[meses.at(-1)] / med[meses[0]] - 1 : null
+      };
+    }).sort((a, b) => b.nCtes - a.nCtes || a.nome.localeCompare(b.nome, "pt-BR"));
+  }
+  function excecoes(d) {
+    const out = [];
+    const porRota = /* @__PURE__ */ new Map();
+    for (const c of d.ctes) {
+      if (c.precoSaca == null) {
+        out.push({ tipo: "sem-sacas", cte: c, detalhe: "Sem sacas: fica fora do preço por saca e conta na tarifa." });
+        continue;
+      }
+      const r = rotaDe(c);
+      if (!porRota.has(r)) porRota.set(r, []);
+      porRota.get(r).push(c);
+    }
+    for (const [, cs] of porRota) {
+      if (cs.length < MIN_ROTA_EXCECAO) continue;
+      const m = mediana(cs.map((c) => c.precoSaca));
+      for (const c of cs) if (c.precoSaca > m * FAIXA_EXCECAO || c.precoSaca < m / FAIXA_EXCECAO)
+        out.push({ tipo: "preco-fora", cte: c, detalhe: `Preço por saca fora da faixa da rota (mediana ${m.toFixed(2).replace(".", ",")}).` });
+    }
+    const semNome = /* @__PURE__ */ new Set();
+    for (const c of d.ctes) for (const cnpj of [c.cnpjTransportador, c.cnpjCliente])
+      if (!nomeDoCnpj(d, cnpj)) semNome.add(normalizarCnpj(cnpj));
+    for (const cnpj of semNome) out.push({ tipo: "sem-cadastro", cnpj, detalhe: "CNPJ sem nome no cadastro." });
+    for (const c of d.ctes) if (c.divergencia)
+      out.push({ tipo: "diverge-planilha", cte: c, detalhe: "Na importação, o cálculo não bateu com a planilha; vale o número da planilha." });
+    return out;
+  }
+
+  // src/graficos.js
+  var CORES_SERIES = ["var(--navy)", "var(--accent)", "var(--plum)", "var(--yard-20)", "var(--pie-6)", "var(--pie-5)"];
+  var COR_RESTO = "var(--steel-l)";
+  var r1 = (n) => Math.round(n * 10) / 10;
+  function marcas(min, max) {
+    if (min === max) {
+      min -= 1;
+      max += 1;
+    }
+    const bruto = (max - min) / 4, pot = 10 ** Math.floor(Math.log10(bruto));
+    const passo = [1, 2, 2.5, 5, 10].map((m) => m * pot).find((p) => p >= bruto);
+    const ini = Math.floor(min / passo) * passo, out = [];
+    for (let v = ini; v <= max + passo * 1e-9; v += passo) out.push(+v.toFixed(10));
+    if (out.at(-1) < max) out.push(+(out.at(-1) + passo).toFixed(10));
+    return out;
+  }
+  function linhasMensais({ meses, series }, { largura = 760, altura = 300, formatar = (v) => fmtNum(v, 2) } = {}) {
+    const esq = 64, dir = 14, topo = 12, base = 26;
+    const valores = series.flatMap((s) => Object.values(s.pontos).flatMap((p) => [p.min, p.max]));
+    if (!meses.length || !valores.length) return `<svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Sem dados no período"></svg>`;
+    let vmin = Math.min(...valores), vmax = Math.max(...valores);
+    const folga = (vmax - vmin || Math.abs(vmax) || 1) * 0.08;
+    const ticks = marcas(vmin - folga, vmax + folga);
+    vmin = ticks[0];
+    vmax = ticks.at(-1);
+    const w = largura - esq - dir, h = altura - topo - base;
+    const x = (i) => r1(esq + (meses.length === 1 ? w / 2 : i * w / (meses.length - 1)));
+    const y = (v) => r1(topo + h - (v - vmin) / (vmax - vmin) * h);
+    const partes = [`<svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Evolução mensal por transportador">`];
+    for (const t of ticks) partes.push(
+      `<line class="gl" x1="${esq}" x2="${largura - dir}" y1="${y(t)}" y2="${y(t)}"/>`,
+      `<text class="ax" x="${esq - 8}" y="${y(t) + 3}" text-anchor="end">${esc(formatar(t))}</text>`
+    );
+    const cada = Math.ceil(meses.length / 12);
+    meses.forEach((m, i) => {
+      if (i % cada === 0 || i === meses.length - 1) partes.push(`<text class="ax" x="${x(i)}" y="${altura - 8}" text-anchor="middle">${fmtMes(m)}</text>`);
+    });
+    const ordem = series.map((s, i) => [s, i]).reverse();
+    for (const [s, i] of ordem) {
+      const cor = i < CORES_SERIES.length ? CORES_SERIES[i] : COR_RESTO;
+      const classe = i < CORES_SERIES.length ? "serie" : "serie resto";
+      let d = "", aberto = false;
+      meses.forEach((m, j) => {
+        const p = s.pontos[m];
+        if (!p) {
+          aberto = false;
+          return;
+        }
+        d += `${aberto ? "L" : "M"}${x(j)} ${y(p.mediana)} `;
+        aberto = true;
+      });
+      partes.push(`<g class="grupo-serie" data-raiz="${esc(s.raiz)}"><title>${esc(s.nome)}</title>`);
+      meses.forEach((m, j) => {
+        const p = s.pontos[m];
+        if (p && p.max > p.min) partes.push(`<line class="faixa" x1="${x(j)}" x2="${x(j)}" y1="${y(p.min)}" y2="${y(p.max)}" stroke="${cor}" stroke-opacity=".35" stroke-width="5"/>`);
+      });
+      partes.push(`<path class="${classe}" data-raiz="${esc(s.raiz)}" d="${d.trim()}" stroke="${cor}" fill="none" stroke-width="${i < CORES_SERIES.length ? 2.2 : 1.4}"/>`);
+      meses.forEach((m, j) => {
+        const p = s.pontos[m];
+        if (p) partes.push(`<circle class="ponto" data-raiz="${esc(s.raiz)}" data-nome="${esc(s.nome)}" data-mes="${m}" data-mediana="${p.mediana}" data-min="${p.min}" data-max="${p.max}" data-n="${p.n}" cx="${x(j)}" cy="${y(p.mediana)}" r="3.6" fill="${cor}"/>`);
+      });
+      partes.push("</g>");
+    }
+    partes.push("</svg>");
+    return partes.join("");
+  }
 
   // src/telas/evolucao.js
+  var variacaoHtml = (v) => v == null ? "—" : `<span class="${v > 0 ? "sobe" : v < 0 ? "desce" : ""}">${v > 0 ? "+" : ""}${fmtPct(v)}</span>`;
+  function listas(d) {
+    const grupos = (campo) => {
+      const m = /* @__PURE__ */ new Map();
+      for (const c of d.ctes) {
+        const g = grupoDoCnpj(d, c[campo]);
+        m.set(g.raiz, g.nome);
+      }
+      return [...m].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+    };
+    const meses = [...new Set(d.ctes.map((c) => mesDe(c.emissao)))].sort().map((m) => [m, fmtMes(m)]);
+    return {
+      rotas: resumoRotas(d, "saca").map((r) => [r.rota, `${r.rota} · ${r.nCtes} CT-e`]),
+      transportadores: grupos("cnpjTransportador"),
+      clientes: grupos("cnpjCliente"),
+      itinerarios: [...new Set(d.ctes.map((c) => c.itinerario).filter(Boolean))].sort().map((i) => [i, i]),
+      meses
+    };
+  }
+  var TITULOS_EXC = {
+    "preco-fora": ["Preço por saca fora da faixa da rota", "Acima de 3× ou abaixo de ⅓ da mediana da rota. Confira sacas e frete no CT-e."],
+    "sem-cadastro": ["CNPJ sem nome no cadastro", "O painel mostra o CNPJ no lugar do nome. Cadastre o nome na aba Cadastro CNPJ."],
+    "sem-sacas": ["CT-e sem sacas", "Sem sacas não há preço por saca: o CT-e conta só na tarifa. Corrija a quantidade no lançamento."],
+    "diverge-planilha": ["Cálculo diferente da planilha", "Na importação, seguro, tarifa ou preço por saca não bateram com a conta. Vale o número da planilha."]
+  };
+  function excecoesHtml(d) {
+    const ex = excecoes(d);
+    if (!ex.length) return `<div class="card"><div class="limpo"><b>Nenhuma exceção</b><p>Todos os CT-e têm sacas, CNPJ cadastrado e preço dentro da faixa da rota.</p></div></div>`;
+    const porTipo = Object.keys(TITULOS_EXC).map((t) => [t, ex.filter((e) => e.tipo === t)]).filter(([, l]) => l.length);
+    return `<p class="hint">Todas entram nos totais do painel; ficam aqui para que a correção volte ao lançamento.</p>` + porTipo.map(([tipo, lista]) => {
+      const [titulo, acao] = TITULOS_EXC[tipo];
+      const linhas = lista.map((e) => e.cte ? `<tr><td class="mono">${esc(e.cte.numero)}</td><td>${fmtData(e.cte.emissao)}</td><td>${esc(grupoDoCnpj(d, e.cte.cnpjTransportador).nome)}</td><td>${esc(rotaDe(e.cte))}</td><td class="num">${fmtMoeda(e.cte.precoSaca)}</td></tr>` : `<tr><td class="mono" colspan="2">${fmtCnpj(e.cnpj)}</td><td colspan="3">${d.ctes.filter((c) => c.cnpjTransportador === e.cnpj || c.cnpjCliente === e.cnpj).length} CT-e usam este CNPJ</td></tr>`);
+      const cab = lista[0].cte ? `<tr><th>CT-e</th><th>Emissão</th><th>Transportador</th><th>Rota</th><th class="num">R$/saca</th></tr>` : `<tr><th colspan="2">CNPJ</th><th colspan="3">Uso</th></tr>`;
+      return `<div class="exc" data-tipo="${tipo}"><span class="pill">${lista.length} ${lista.length === 1 ? "registro" : "registros"}</span><h4>${esc(titulo)}</h4>
+      <p class="exc-act">${esc(acao)}</p><div class="tabela"><table><thead>${cab}</thead><tbody>${linhas.slice(0, 20).join("")}</tbody>
+      <tbody class="resto" hidden>${linhas.slice(20).join("")}</tbody></table></div>
+      ${linhas.length > 20 ? `<div class="botoes"><button class="btn mini" type="button" data-ver-todas>Ver todas (${linhas.length})</button></div>` : ""}</div>`;
+    }).join("");
+  }
   function renderEvolucao(raiz, App2) {
-    raiz.innerHTML = `<section class="secao"><div class="wrap">${secHead("Evolução")}</div></section>`;
+    const d = App2.dados, f = App2.filtros, metrica = f.metrica;
+    if (!d.ctes.length) {
+      raiz.innerHTML = `<section class="secao"><div class="wrap">${secHead("Evolução")}
+      <div class="card vazio"><b>Nenhum CT-e lançado ainda</b>Lance os CT-e de concorrentes ou importe o histórico da planilha.
+      <div class="botoes" style="justify-content:flex-start"><button class="btn primario" type="button" data-ir="lancamentos">Lançar CT-e</button>
+      <button class="btn" type="button" data-ir="dados">Importar planilha</button></div></div></div></section>`;
+      $$("[data-ir]", raiz).forEach((b) => b.addEventListener("click", () => App2.irPara(b.dataset.ir)));
+      return;
+    }
+    const ctes = filtrar(d, f);
+    const r = resumoGeral(ctes, metrica);
+    const serie = serieMensal(d, ctes, metrica);
+    const L = listas(d);
+    const nomeMetrica = metrica === "tarifa" ? "Tarifa do frete" : "Preço por saca";
+    const formatar = (v) => metrica === "tarifa" ? fmtMoeda(v).replace(/,\d\d$/, "") : fmtMoeda(v);
+    const valorTxt = fmtMoeda(r.valor);
+    raiz.innerHTML = `
+  <section class="hero"><div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow">${r.ultimoMes ? esc(fmtMesLongo(r.ultimoMes)) + " · último mês com dados" : "Sem CT-e no recorte"}</div>
+      <h1>${esc(nomeMetrica)}<em>${esc(f.rota || "todas as rotas")}</em></h1>
+      <p class="sub">Mediana dos CT-e de concorrentes no mês${metrica === "tarifa" ? ", sem seguro e adicionais" : ""}. ${f.rota ? "" : "Sem rota escolhida, o número mistura rotas diferentes."}</p>
+      <div class="bignum${valorTxt.length > 12 ? " longo" : ""}">${r.valor == null ? "—" : `<span class="un">R$ </span>${valorTxt.replace(/^R\$ /, "")}`}</div>
+      <div class="bigcap">Mediana do mês</div>
+      <div class="split">
+        <div><span>${variacaoHtml(r.variacao)}</span><small>${r.mesAnterior ? "vs " + fmtMes(r.mesAnterior) : "sem mês anterior"}</small></div>
+        <div><span>${fmtNum(r.nCtes)}</span><small>CT-e</small></div>
+        <div><span>${fmtNum(r.nTransportadores)}</span><small>transportadores</small></div>
+      </div>
+    </div>
+    <div class="on-navy">
+      <div class="yard-head"><h3>Recorte</h3><p>Escolha a rota para comparar transportadores no mesmo trajeto.</p>
+        <div class="modes" role="group" aria-label="Métrica">
+          <button type="button" data-metrica="saca" aria-pressed="${metrica === "saca"}">R$/saca</button>
+          <button type="button" data-metrica="tarifa" aria-pressed="${metrica === "tarifa"}">Tarifa R$</button>
+        </div></div>
+      <div class="filtros">
+        <label class="campo largo"><span>Rota</span><select id="f-rota" data-f="rota">${opcoes(L.rotas, f.rota, "Todas as rotas")}</select></label>
+        <label class="campo largo"><span>Transportador</span><select data-f="transportador">${opcoes(L.transportadores, f.transportador)}</select></label>
+        <label class="campo largo"><span>Cliente</span><select data-f="cliente">${opcoes(L.clientes, f.cliente)}</select></label>
+        <label class="campo"><span>Cód. itinerário</span><select data-f="itinerario">${opcoes(L.itinerarios, f.itinerario)}</select></label>
+        <label class="campo"><span>De</span><select data-f="mesIni">${opcoes(L.meses, f.mesIni, "Início")}</select></label>
+        <label class="campo"><span>Até</span><select data-f="mesFim">${opcoes(L.meses, f.mesFim, "Fim")}</select></label>
+        <div class="campo"><span>&nbsp;</span><button class="btn" type="button" data-limpar>Limpar recorte</button></div>
+      </div>
+    </div>
+  </div></section>
+  <section class="secao"><div class="wrap pilha">
+    <div class="card">
+      <div class="card-head"><div><h3>Evolução mensal</h3><p class="hint">Mediana do mês por transportador; o traço vertical vai do menor ao maior preço do mês. Passe o cursor para ver mínimo, máximo e número de CT-e.</p></div></div>
+      <div class="grafico">${linhasMensais(serie, { formatar })}</div>
+      <div class="legenda">${serie.series.slice(0, CORES_SERIES.length).map((s, i) => `<span data-raiz="${esc(s.raiz)}"><i style="background:${CORES_SERIES[i]}"></i>${esc(s.nome)} · ${s.n}</span>`).join("")}
+        ${serie.series.length > CORES_SERIES.length ? `<span><i style="background:var(--steel-l)"></i>outros ${serie.series.length - CORES_SERIES.length} em cinza</span>` : ""}</div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><b>${fmtNum(r.nCtes)}</b><u>CT-e no recorte</u></div>
+      <div class="kpi"><b>${fmtNum(r.nSacas)}</b><u>Sacas</u></div>
+      <div class="kpi"><b>${fmtNum(r.nTransportadores)}</b><u>Transportadores</u></div>
+      <div class="kpi"><b>${fmtNum(r.nRotas)}</b><u>Rotas</u></div>
+    </div>
+    <div class="card"><div class="card-head"><div><h3>Transportadores nesta rota</h3>
+      <p class="hint">${f.rota ? "Clique no título da coluna para ordenar. Variação = último mês contra o primeiro mês com dados." : ""}</p></div></div>
+      <div id="tab-transp"></div></div>
+  </div></section>
+  <section class="secao"><div class="wrap">${secHead("Exceções a tratar", "Registros que pedem conferência.")}<div id="excecoes">${excecoesHtml(d)}</div></div></section>`;
+    const tab = $("#tab-transp", raiz);
+    if (!f.rota) tab.innerHTML = `<p class="vazio">Escolha uma rota para comparar transportadores. Preço por saca de rotas diferentes não se compara.</p>`;
+    else tabelaOrdenavel(tab, [
+      { titulo: "Transportador", valor: (t) => t.nome, html: (t) => esc(t.nome) },
+      { titulo: "CT-e", valor: (t) => t.nCtes, html: (t) => fmtNum(t.nCtes), num: true },
+      { titulo: "Último preço", valor: (t) => t.ultimo?.valor, html: (t) => t.ultimo ? `${fmtMoeda(t.ultimo.valor)}<span class="sub">${fmtData(t.ultimo.emissao)}</span>` : "—", num: true },
+      { titulo: "Mediana do período", valor: (t) => t.mediana, html: (t) => fmtMoeda(t.mediana), num: true },
+      { titulo: "Variação", valor: (t) => t.variacao, html: (t) => variacaoHtml(t.variacao), num: true }
+    ], transportadoresNaRota(d, ctes, metrica));
+    $$("[data-metrica]", raiz).forEach((b) => b.addEventListener("click", () => App2.mudarFiltros({ metrica: b.dataset.metrica })));
+    $$("select[data-f]", raiz).forEach((s) => s.addEventListener("change", () => App2.mudarFiltros({ [s.dataset.f]: s.value })));
+    $("[data-limpar]", raiz).addEventListener("click", () => App2.irPara("evolucao", { metrica }));
+    $$("[data-ver-todas]", raiz).forEach((b) => b.addEventListener("click", () => {
+      b.closest(".exc").querySelector("tbody.resto").hidden = false;
+      b.remove();
+    }));
+    const graf = $(".grafico", raiz);
+    graf.addEventListener("mousemove", (ev) => {
+      const p = ev.target.closest("circle.ponto");
+      if (!p) return dica(null);
+      const ds = p.dataset;
+      dica(`<b>${esc(ds.nome)}</b>${esc(fmtMesLongo(ds.mes))}<br>mediana ${formatar(+ds.mediana)}<br><span>${formatar(+ds.min)} a ${formatar(+ds.max)} · ${ds.n} CT-e</span>`, ev);
+    });
+    graf.addEventListener("mouseleave", () => dica(null));
+    $$(".legenda [data-raiz]", raiz).forEach((l) => {
+      l.addEventListener("mouseenter", () => $$(".grupo-serie", graf).forEach((g) => g.classList.toggle("apagado", g.dataset.raiz !== l.dataset.raiz)));
+      l.addEventListener("mouseleave", () => $$(".grupo-serie", graf).forEach((g) => g.classList.remove("apagado")));
+    });
   }
 
   // src/telas/rotas.js

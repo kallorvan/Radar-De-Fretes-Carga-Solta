@@ -111,3 +111,15 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
 .toast.on{opacity:1;transform:none}
 .toast.erro{background:var(--erro);}
 .somente-leitura [data-escreve]{display:none!important}
+
+/* evolução */
+.bignum{font-size:84px;white-space:nowrap}
+.bignum .un{font-size:.36em;letter-spacing:.02em}
+.bignum.longo{font-size:60px}
+@media (max-width:640px){.bignum{font-size:60px}.bignum.longo{font-size:44px}}
+.hero .split span .sobe{color:#ffb3c0}.hero .split span .desce{color:#9be0b8}
+.hero-grid{grid-template-columns:minmax(0,340px) minmax(0,1fr)}
+@media (max-width:1000px){.hero-grid{grid-template-columns:minmax(0,1fr)}}
+.grafico svg{max-height:340px}
+.exc .tabela table{min-width:520px}
+@media (max-width:640px){.grafico{overflow-x:auto}.grafico svg{min-width:620px}}
