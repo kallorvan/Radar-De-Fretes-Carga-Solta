@@ -124,8 +124,8 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 16px}
 .form-grid .w2{grid-column:span 2}.form-grid .w3{grid-column:span 3}
 #form-cte.editando{border-left:3px solid var(--accent)}
-#form-cte .nota input{margin-top:6px;width:100%;border:1px solid var(--accent);padding:7px 9px;font-size:13px;background:var(--card);color:var(--ink)}
-#form-cte .nota input[aria-invalid="true"]{background:var(--accent-wash)}
+#form-cte .nota input[name^="nome"]{margin-top:6px;width:100%;border:1px solid var(--accent);padding:7px 9px;font-size:13px;background:var(--card);color:var(--ink)}
+#form-cte .nota input[name^="nome"][aria-invalid="true"]{background:var(--accent-wash)}
 #form-cte .nota .erro{display:block}
 #form-msg .exc{margin:18px 0 0}
 .card-head .busca{margin-left:auto;min-width:260px}
@@ -133,3 +133,15 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
 .campo.check{padding-top:22px;justify-content:flex-start}
 .campo.check input{width:auto;accent-color:var(--hero-bg)}
 .campo.check span{order:0;font-size:12.5px;letter-spacing:.08em}
+.campo select{width:100%;background:var(--card);border:1px solid var(--line);border-radius:2px;padding:8px 10px;font-size:13px;color:var(--ink)}
+.campo .caixa{display:flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer}
+.campo .caixa input{width:auto;accent-color:var(--hero-bg)}
+.campo input[readonly]{background:var(--tint);color:var(--navy);font-family:var(--font-mono)}
+.form-linha{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-top:16px}
+.form-linha .campo{flex:1 1 180px}.form-linha .campo.curto{flex:0 1 150px}.form-linha .campo.check{flex:0 0 auto;padding-top:0;padding-bottom:9px}
+input.nome-lista,input.kg-lista,input.nome-cnpj,select.produto-padrao{width:100%;border:1px solid transparent;background:transparent;padding:5px 7px;font-size:13px;color:var(--ink)}
+input.nome-lista:hover,input.kg-lista:hover,input.nome-cnpj:hover,select.produto-padrao:hover{border-color:var(--line)}
+input.kg-lista{text-align:right;font-family:var(--font-mono);max-width:110px}
+input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
+.cols2>*{min-width:0}
+.cols2 .tabela table{min-width:0}

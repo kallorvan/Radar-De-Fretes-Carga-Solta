@@ -463,8 +463,8 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 16px}
 .form-grid .w2{grid-column:span 2}.form-grid .w3{grid-column:span 3}
 #form-cte.editando{border-left:3px solid var(--accent)}
-#form-cte .nota input{margin-top:6px;width:100%;border:1px solid var(--accent);padding:7px 9px;font-size:13px;background:var(--card);color:var(--ink)}
-#form-cte .nota input[aria-invalid="true"]{background:var(--accent-wash)}
+#form-cte .nota input[name^="nome"]{margin-top:6px;width:100%;border:1px solid var(--accent);padding:7px 9px;font-size:13px;background:var(--card);color:var(--ink)}
+#form-cte .nota input[name^="nome"][aria-invalid="true"]{background:var(--accent-wash)}
 #form-cte .nota .erro{display:block}
 #form-msg .exc{margin:18px 0 0}
 .card-head .busca{margin-left:auto;min-width:260px}
@@ -472,6 +472,18 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
 .campo.check{padding-top:22px;justify-content:flex-start}
 .campo.check input{width:auto;accent-color:var(--hero-bg)}
 .campo.check span{order:0;font-size:12.5px;letter-spacing:.08em}
+.campo select{width:100%;background:var(--card);border:1px solid var(--line);border-radius:2px;padding:8px 10px;font-size:13px;color:var(--ink)}
+.campo .caixa{display:flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer}
+.campo .caixa input{width:auto;accent-color:var(--hero-bg)}
+.campo input[readonly]{background:var(--tint);color:var(--navy);font-family:var(--font-mono)}
+.form-linha{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-top:16px}
+.form-linha .campo{flex:1 1 180px}.form-linha .campo.curto{flex:0 1 150px}.form-linha .campo.check{flex:0 0 auto;padding-top:0;padding-bottom:9px}
+input.nome-lista,input.kg-lista,input.nome-cnpj,select.produto-padrao{width:100%;border:1px solid transparent;background:transparent;padding:5px 7px;font-size:13px;color:var(--ink)}
+input.nome-lista:hover,input.kg-lista:hover,input.nome-cnpj:hover,select.produto-padrao:hover{border-color:var(--line)}
+input.kg-lista{text-align:right;font-family:var(--font-mono);max-width:110px}
+input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
+.cols2>*{min-width:0}
+.cols2 .tabela table{min-width:0}
 
 </style>
 </head>
@@ -488,7 +500,7 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
       <button type="button" data-aba="evolucao">Evolução</button>
       <button type="button" data-aba="rotas">Rotas</button>
       <button type="button" data-aba="lancamentos">Lançamentos</button>
-      <button type="button" data-aba="cadastro">Cadastro CNPJ</button>
+      <button type="button" data-aba="cadastro">Cadastro</button>
       <button type="button" data-aba="dados">Dados</button>
     </nav>
   </div></header>
@@ -1946,15 +1958,17 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     ["valorAssegurado", "Valor assegurado", false, "", "text", ""],
     ["taxaSeguro", "Taxa do seguro", false, "", "text", "ex.: 0,0005"],
     ["valorFrete", "Valor do frete", true, "", "text", ""],
-    ["adicionais", "Adicionais", false, "", "text", ""],
-    ["sacas", "Qt. sacas", true, "", "text", ""]
+    ["adicionais", "Adicionais", false, "", "text", ""]
   ];
-  var NUM = /* @__PURE__ */ new Set(["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "sacas"]);
-  var fmtCampo = (k, v) => v == null || v === "" ? "" : k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) : NUM.has(k) ? String(v).replace(".", ",") : String(v);
+  var NUM = /* @__PURE__ */ new Set(["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
+  var fmtCampo = (k, v) => v == null || v === "" ? "" : k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) : k === "pesoKg" ? fmtNum(v) : NUM.has(k) ? String(v).replace(".", ",") : String(v);
+  var opcoesLista = (lista, atual) => `<option value="">Escolha</option>` + lista.map((x) => `<option value="${esc(x.id)}"${x.id === atual ? " selected" : ""}>${esc(x.nome)}</option>`).join("");
   function lerForm(form) {
     const fd = new FormData(form), c = {};
     for (const [k] of CAMPOS) c[k] = fd.get(k) ?? "";
     if (estado.editando) c.chave = estado.editando;
+    for (const k of ["produto", "unidade", "quantidade", "pesoKg"]) c[k] = fd.get(k) ?? "";
+    c.pesoInformado = form.querySelector("[name=pesoInformado]").checked;
     c.vpo = fd.get("vpo") === "on";
     c.observacoes = fd.get("observacoes") ?? "";
     for (const k of NUM) c[k] = numeroBR(c[k]);
@@ -1967,15 +1981,21 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     const cidades = [...new Set(App2.dados.ctes.flatMap((c) => [c.origem, c.destino]))].sort();
     return `<form id="form-cte" class="card${cte ? " editando" : ""}" novalidate data-escreve>
     <div class="card-head"><div><h3>${cte ? "Corrigir lançamento" : "Lançar CT-e"}</h3>
-      <p class="hint">${cte ? `Corrigindo o CT-e Nº ${esc(cte.numero)}, lançado por ${esc(cte.criadoPor)} em ${fmtQuando(cte.criadoEm)}. A chave não muda.` : "Campos com * são obrigatórios. Seguro, tarifa e preço por saca saem das fórmulas da planilha."}</p></div></div>
+      <p class="hint">${cte ? `Corrigindo o CT-e Nº ${esc(cte.numero)}, lançado por ${esc(cte.criadoPor)} em ${fmtQuando(cte.criadoEm)}. A chave não muda.` : "Campos com * são obrigatórios. Seguro, tarifa, peso, R$/t e R$/saca são calculados."}</p></div></div>
     <div class="form-grid">
       ${CAMPOS.map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
         <input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
           value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${k === "origem" || k === "destino" ? 'list="cidades"' : ""} autocomplete="off">
         ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("")}
+      <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App2.dados.produtos, v.produto)}</select><span class="erro" data-erro="produto"></span></label>
+      <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App2.dados.unidades, v.unidade)}</select><span class="erro" data-erro="unidade"></span></label>
+      <label class="campo"><span>Quantidade <i class="obrig">*</i></span><input name="quantidade" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off"><span class="erro" data-erro="quantidade"></span></label>
+      <div class="campo"><span>Peso total (kg)</span><input name="pesoKg" type="text" inputmode="decimal" value="${esc(fmtCampo("pesoKg", v.pesoKg))}" autocomplete="off" aria-label="Peso total (kg)">
+        <label class="nota caixa"><input type="checkbox" name="pesoInformado" ${v.pesoInformado ? "checked" : ""}> Usar o peso do CT-e</label><span class="erro" data-erro="pesoKg"></span></div>
       <label class="campo"><span>Valor do seguro</span><output name="valorSeguro">—</output></label>
       <label class="campo"><span>Tarifa do frete</span><output name="tarifa">—</output></label>
-      <label class="campo"><span>Preço por saca</span><output name="precoSaca">—</output></label>
+      <label class="campo"><span>R$/t</span><output name="precoTonelada">—</output></label>
+      <label class="campo"><span>R$/saca</span><output name="precoSaca">—</output></label>
       <label class="campo check"><input type="checkbox" name="vpo" ${v.vpo ? "checked" : ""}><span>VPO</span></label>
       <label class="campo w3"><span>Observações</span><input name="observacoes" value="${esc(v.observacoes || "")}" maxlength="300"></label>
     </div>
@@ -1986,11 +2006,22 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
   </form>`;
   }
   function atualizarForm(form, App2) {
+    const cliente = form.querySelector("[name=cnpjCliente]"), prod = form.querySelector("[name=produto]");
+    const padrao = App2.dados.cnpjs.find((x) => x.cnpj === normalizarCnpj(cliente.value))?.produtoPadrao;
+    if (!prod.value && padrao && produtoDe(App2.dados, padrao)) prod.value = padrao;
+    const u = unidadeDe(App2.dados, form.querySelector("[name=unidade]").value);
+    const caixa = form.querySelector("[name=pesoInformado]"), peso = form.querySelector("[name=pesoKg]");
+    const semPesoPadrao = Boolean(u) && !(u.kg > 0);
+    if (semPesoPadrao) caixa.checked = true;
+    caixa.disabled = semPesoPadrao;
+    peso.readOnly = !caixa.checked;
     const c = lerForm(form);
-    const r = calcularCte(c);
+    const r = calcularCte({ ...c, unidade: u, pesoInformado: caixa.checked });
+    if (!caixa.checked) peso.value = r.pesoKg != null ? fmtNum(r.pesoKg) : "";
     const ok = c.valorFrete != null;
     form.querySelector("output[name=valorSeguro]").textContent = ok ? fmtMoeda(r.valorSeguro) : "—";
     form.querySelector("output[name=tarifa]").textContent = ok ? fmtMoeda(r.tarifa) : "—";
+    form.querySelector("output[name=precoTonelada]").textContent = ok && r.precoTonelada != null ? fmtMoeda(r.precoTonelada) : "—";
     form.querySelector("output[name=precoSaca]").textContent = ok && r.precoSaca != null ? fmtMoeda(r.precoSaca) : "—";
     for (const [campo, nomeCampo] of [["cnpjTransportador", "nomeTransportador"], ["cnpjCliente", "nomeCliente"]]) {
       const cnpj = normalizarCnpj(c[campo]), alvo = form.querySelector(`[data-nome=${campo}]`);
@@ -2017,7 +2048,7 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
   async function enviar(form, App2) {
     const c = lerForm(form), msg = $("#form-msg", form);
     msg.innerHTML = "";
-    const v = validarCampos(c), erros = { ...v.erros };
+    const v = validarCampos(App2.dados, c), erros = { ...v.erros };
     if (!nomeDoCnpj(App2.dados, c.cnpjTransportador) && v.campos.cnpjTransportador.length === 14 && !c.nomeTransportador) erros.nomeTransportador = "Informe o nome do transportador para o cadastro.";
     if (!nomeDoCnpj(App2.dados, c.cnpjCliente) && v.campos.cnpjCliente.length === 14 && !c.nomeCliente) erros.nomeCliente = "Informe o nome do cliente para o cadastro.";
     if (Object.keys(erros).length) return mostrarErros(form, erros);
@@ -2061,8 +2092,10 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
       { titulo: "Transportador", valor: (c) => grupoDoCnpj(d, c.cnpjTransportador).nome, html: (c) => esc(nomeDoCnpj(d, c.cnpjTransportador) || fmtCnpj(c.cnpjTransportador)) },
       { titulo: "Cliente", valor: (c) => grupoDoCnpj(d, c.cnpjCliente).nome, html: (c) => esc(nomeDoCnpj(d, c.cnpjCliente) || fmtCnpj(c.cnpjCliente)) },
       { titulo: "Rota", valor: (c) => rotaDe(c), html: (c) => esc(rotaDe(c)) },
-      { titulo: "Sacas", valor: (c) => c.sacas, html: (c) => fmtNum(c.sacas), num: true },
+      { titulo: "Produto", valor: (c) => produtoDe(d, c.produto)?.nome || "", html: (c) => c.produto ? esc(produtoDe(d, c.produto)?.nome || c.produto) : '<span class="sub">a classificar</span>' },
+      { titulo: "Quantidade", valor: (c) => c.quantidade, html: (c) => `${fmtNum(c.quantidade, Number.isInteger(c.quantidade) ? 0 : 2)}<span class="sub">${esc(unidadeDe(d, c.unidade)?.nome || "—")}</span>`, num: true },
       { titulo: "Tarifa", valor: (c) => c.tarifa, html: (c) => fmtMoeda(c.tarifa), num: true },
+      { titulo: "R$/t", valor: (c) => c.precoTonelada, html: (c) => fmtMoeda(c.precoTonelada), num: true },
       { titulo: "R$/saca", valor: (c) => c.precoSaca, html: (c) => fmtMoeda(c.precoSaca), num: true },
       { titulo: "Lançado por", valor: (c) => c.criadoPor, html: (c) => `${esc(c.alteradoPor || c.criadoPor)}<span class="sub">${c.alteradoPor ? "corrigiu " : ""}${fmtQuando(c.alteradoEm || c.criadoEm).slice(0, 10)}</span>` },
       { titulo: "", valor: () => null, html: (c) => `<span data-escreve><button class="btn mini" type="button" data-corrigir="${c.chave}">Corrigir</button>
@@ -2141,25 +2174,53 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
 
   // src/telas/cadastro.js
   var estado2 = { busca: "" };
+  var opcoesProduto = (d, atual) => `<option value="">—</option>` + d.produtos.map((p) => `<option value="${esc(p.id)}"${p.id === atual ? " selected" : ""}>${esc(p.nome)}</option>`).join("");
   function renderCadastro(raiz, App2) {
-    const d = App2.dados;
-    const uso = /* @__PURE__ */ new Map();
+    const d = App2.dados, so = App2.somenteLeitura;
+    const uso = /* @__PURE__ */ new Map(), usoUnidade = /* @__PURE__ */ new Map(), usoProduto = /* @__PURE__ */ new Map();
+    for (const c of [...d.ctes, ...d.lixeira.map((l) => l.cte)]) {
+      usoUnidade.set(c.unidade, (usoUnidade.get(c.unidade) || 0) + 1);
+      usoProduto.set(c.produto, (usoProduto.get(c.produto) || 0) + 1);
+    }
     for (const c of d.ctes) for (const k of [c.cnpjTransportador, c.cnpjCliente]) uso.set(k, (uso.get(k) || 0) + 1);
     raiz.innerHTML = `<section class="secao"><div class="wrap pilha">
-    ${secHead("Cadastro CNPJ", "O nome que aparece no painel. CNPJ da mesma raiz (filiais) entram juntos; o grupo usa o nome da matriz.")}
+    ${secHead("Cadastro", "Nomes dos CNPJ, o produto de costume de cada cliente, e as listas de produtos e unidades de medida.")}
+    <div class="cols2">
+      <div class="card"><h3>Produtos</h3><p class="hint">O que é transportado. O nome pode mudar a qualquer momento.</p>
+        <div id="tab-produtos"></div>
+        <form id="form-produto" class="form-linha" data-escreve novalidate><label class="campo"><span>Novo produto</span><input name="nome" maxlength="60" autocomplete="off"></label>
+          <button class="btn primario" type="submit">Incluir</button></form></div>
+      <div class="card"><h3>Unidades de medida</h3><p class="hint">O peso de uma unidade em uso não muda: para outro peso, crie outra unidade. Sem peso, o lançamento pede o peso do CT-e.</p>
+        <div id="tab-unidades"></div>
+        <form id="form-unidade" class="form-linha" data-escreve novalidate><label class="campo"><span>Nova unidade</span><input name="nome" maxlength="60" autocomplete="off"></label>
+          <label class="campo curto"><span>kg por unidade</span><input name="kg" inputmode="decimal" autocomplete="off" placeholder="vazio = peso do CT-e"></label>
+          <label class="campo check"><input type="checkbox" name="saca"><span>É saca</span></label>
+          <button class="btn primario" type="submit">Incluir</button></form></div>
+    </div>
     <form class="card" id="form-cnpj" data-escreve novalidate><div class="card-head"><div><h3>Incluir CNPJ</h3></div></div>
       <div class="form-grid"><label class="campo"><span>CNPJ</span><input name="cnpj" placeholder="00.000.000/0000-00" autocomplete="off"></label>
       <label class="campo w2"><span>Nome</span><input name="nome" maxlength="120" autocomplete="off"></label>
       <div class="campo"><span>&nbsp;</span><button class="btn primario" type="submit">Incluir</button></div></div></form>
-    <div class="card"><div class="card-head"><div><h3>CNPJ cadastrados</h3><p class="hint">${fmtNum(d.cnpjs.length)} CNPJ. ${App2.somenteLeitura ? "" : "Altere o nome e saia do campo para salvar."}</p></div>
+    <div class="card"><div class="card-head"><div><h3>CNPJ cadastrados</h3><p class="hint">${fmtNum(d.cnpjs.length)} CNPJ. ${so ? "" : "Altere o nome e saia do campo para salvar. O produto padrão preenche o produto no lançamento e classifica o histórico."}</p></div>
       <label class="campo busca"><span>Buscar por nome ou CNPJ</span><input id="busca-cnpj" type="search" value="${esc(estado2.busca)}" autocomplete="off"></label></div>
       <div id="tab-cnpj"></div></div></div></section>`;
+    tabelaOrdenavel($("#tab-produtos", raiz), [
+      { titulo: "Produto", valor: (p) => p.nome, html: (p) => so ? esc(p.nome) : `<input class="nome-lista" data-produto="${esc(p.id)}" value="${esc(p.nome)}" aria-label="Nome do produto ${esc(p.nome)}">` },
+      { titulo: "CT-e", valor: (p) => usoProduto.get(p.id) || 0, html: (p) => fmtNum(usoProduto.get(p.id) || 0), num: true }
+    ], d.produtos);
+    tabelaOrdenavel($("#tab-unidades", raiz), [
+      { titulo: "Unidade", valor: (u) => u.nome, html: (u) => so ? esc(u.nome) : `<input class="nome-lista" data-unidade="${esc(u.id)}" value="${esc(u.nome)}" aria-label="Nome da unidade ${esc(u.nome)}">` },
+      { titulo: "kg", valor: (u) => u.kg, html: (u) => so ? u.kg ? fmtNum(u.kg) : "do CT-e" : `<input class="kg-lista" data-kg="${esc(u.id)}" value="${u.kg ?? ""}" placeholder="do CT-e" inputmode="decimal" ${usoUnidade.get(u.id) ? 'disabled title="Em uso: crie outra unidade para outro peso"' : ""} aria-label="kg da unidade ${esc(u.nome)}">`, num: true },
+      { titulo: "Saca", valor: (u) => u.saca, html: (u) => u.saca ? "sim" : "não" },
+      { titulo: "CT-e", valor: (u) => usoUnidade.get(u.id) || 0, html: (u) => fmtNum(usoUnidade.get(u.id) || 0), num: true }
+    ], d.unidades);
     const pintar = () => {
       const q = estado2.busca.trim().toUpperCase(), qd = soDigitos(q);
       const linhas = d.cnpjs.filter((c) => !q || c.nome.includes(q) || qd && c.cnpj.includes(qd));
       tabelaOrdenavel($("#tab-cnpj", raiz), [
         { titulo: "CNPJ", valor: (c) => c.cnpj, html: (c) => `<span class="mono">${fmtCnpj(c.cnpj)}</span>` },
-        { titulo: "Nome", valor: (c) => c.nome, html: (c) => App2.somenteLeitura ? esc(c.nome) : `<input class="nome-cnpj" data-cnpj="${c.cnpj}" value="${esc(c.nome)}" aria-label="Nome de ${fmtCnpj(c.cnpj)}">` },
+        { titulo: "Nome", valor: (c) => c.nome, html: (c) => so ? esc(c.nome) : `<input class="nome-cnpj" data-cnpj="${c.cnpj}" value="${esc(c.nome)}" aria-label="Nome de ${fmtCnpj(c.cnpj)}">` },
+        { titulo: "Produto padrão", valor: (c) => c.produtoPadrao || "", html: (c) => so ? esc(d.produtos.find((p) => p.id === c.produtoPadrao)?.nome || "—") : `<select class="produto-padrao" data-cnpj="${c.cnpj}" aria-label="Produto padrão de ${fmtCnpj(c.cnpj)}">${opcoesProduto(d, c.produtoPadrao)}</select>` },
         { titulo: "Grupo (raiz)", valor: (c) => grupoDoCnpj(d, c.cnpj).nome, html: (c) => `${esc(grupoDoCnpj(d, c.cnpj).nome)}<span class="sub">${raizCnpj(c.cnpj)}</span>` },
         { titulo: "CT-e", valor: (c) => uso.get(c.cnpj) || 0, html: (c) => fmtNum(uso.get(c.cnpj) || 0), num: true }
       ], linhas, { ordem: { col: 1, desc: false }, vazia: "Nenhum CNPJ encontrado." });
@@ -2169,21 +2230,45 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
       estado2.busca = ev.target.value;
       pintar();
     });
-    raiz.firstElementChild.addEventListener("change", async (ev) => {
-      const inp = ev.target.closest("input.nome-cnpj");
-      if (!inp) return;
-      const r = await App2.alterar((dd, s, quem, agora) => App2.acoes.cadastrar(dd, s, inp.dataset.cnpj, inp.value, quem, agora));
-      if (r?.ok) aviso(`Nome de ${fmtCnpj(r.cnpj)} salvo.`);
+    const alterar = async (fn, ok) => {
+      const r = await App2.alterar(fn);
+      if (r?.ok) aviso(ok(r));
+      else if (r?.erro) {
+        aviso(r.erro, true);
+        App2.render();
+      }
+    };
+    raiz.firstElementChild.addEventListener("change", (ev) => {
+      const t = ev.target;
+      if (t.matches("input.nome-cnpj")) alterar((dd, s, quem, agora) => App2.acoes.cadastrar(dd, s, t.dataset.cnpj, t.value, quem, agora), (r) => `Nome de ${fmtCnpj(r.cnpj)} salvo.`);
+      else if (t.matches("select.produto-padrao")) alterar((dd, s, quem, agora) => App2.acoes.definirProdutoPadrao(dd, s, t.dataset.cnpj, t.value || null, quem, agora), (r) => `Produto padrão de ${r.nome} salvo.`);
+      else if (t.matches("input[data-produto]")) alterar((dd, s, quem, agora) => App2.acoes.cadastrarProduto(dd, s, { id: t.dataset.produto, nome: t.value }, quem, agora), (r) => `Produto ${r.produto.nome} salvo.`);
+      else if (t.matches("input[data-unidade], input[data-kg]")) {
+        const id = t.dataset.unidade || t.dataset.kg, u = d.unidades.find((x) => x.id === id);
+        const nome = $(`input[data-unidade="${id}"]`, raiz).value, kg = $(`input[data-kg="${id}"]`, raiz).value;
+        alterar((dd, s, quem, agora) => App2.acoes.cadastrarUnidade(dd, s, { id, nome, kg, saca: u.saca }, quem, agora), (r) => `Unidade ${r.unidade.nome} salva.`);
+      }
     });
-    $("#form-cnpj", raiz)?.addEventListener("submit", async (ev) => {
+    $("#form-produto", raiz)?.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const nome = new FormData(ev.target).get("nome");
+      if (!String(nome || "").trim()) return aviso("Informe o nome do produto.", true);
+      alterar((dd, s, quem, agora) => App2.acoes.cadastrarProduto(dd, s, { nome }, quem, agora), (r) => `Produto ${r.produto.nome} incluído.`);
+    });
+    $("#form-unidade", raiz)?.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      const f = new FormData(ev.target), nome = String(f.get("nome") || "").trim();
+      if (!nome) return aviso("Informe o nome da unidade.", true);
+      alterar((dd, s, quem, agora) => App2.acoes.cadastrarUnidade(dd, s, { nome, kg: f.get("kg"), saca: f.get("saca") === "on" }, quem, agora), (r) => `Unidade ${r.unidade.nome} incluída.`);
+    });
+    $("#form-cnpj", raiz)?.addEventListener("submit", (ev) => {
       ev.preventDefault();
       const f = new FormData(ev.target), cnpj = normalizarCnpj(f.get("cnpj")), nome = String(f.get("nome") || "").trim();
       if (cnpj.length !== 14 || !nome) {
         aviso("Informe o CNPJ com 14 dígitos e o nome.", true);
         return;
       }
-      const r = await App2.alterar((dd, s, quem, agora) => App2.acoes.cadastrar(dd, s, cnpj, nome, quem, agora));
-      if (r?.ok) aviso(`${fmtCnpj(cnpj)} cadastrado.`);
+      alterar((dd, s, quem, agora) => App2.acoes.cadastrar(dd, s, cnpj, nome, quem, agora), () => `${fmtCnpj(cnpj)} cadastrado.`);
     });
   }
 
@@ -2324,7 +2409,7 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     dados: novaBase(),
     sessao: novaSessao(),
     aba: "evolucao",
-    filtros: { metrica: "saca" },
+    filtros: { metrica: "tonelada" },
     somenteLeitura: !podeGravar(),
     quem: lerLS(LS_QUEM),
     gravador: null,
@@ -2418,7 +2503,7 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     }
   }
   async function iniciar() {
-    const arquivo = window.RADAR_CS ? { ...novaBase(), ...window.RADAR_CS } : novaBase();
+    const arquivo = window.RADAR_CS ? migrarBase({ versao: 1, cnpjs: [], lixeira: [], log: [], ...window.RADAR_CS }) : novaBase();
     App.dados = arquivo;
     App.gravador = criarGravador({
       obterTela: () => App.dados,

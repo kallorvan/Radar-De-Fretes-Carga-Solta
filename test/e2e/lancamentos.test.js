@@ -11,9 +11,14 @@ const CHAVE_NOVA = "35260105780969000146570010000999991000120718";
 async function preencher(page, extra = {}) {
   const v = {
     chave: CHAVE_NOVA, emissao: "2026-05-04", cnpjTransportador: "11.111.111/0001-00", cnpjCliente: "44.209.336/0035-83",
-    origem: "A", destino: "B", valorAssegurado: "100.000,00", taxaSeguro: "0", valorFrete: "8.750,00", adicionais: "0", sacas: "50", ...extra,
+    origem: "A", destino: "B", valorAssegurado: "100.000,00", taxaSeguro: "0", valorFrete: "8.750,00", adicionais: "0",
+    produto: "ACUCAR", unidade: "TON", quantidade: "50", ...extra,
   };
-  for (const [k, x] of Object.entries(v)) { await page.fill(`#form-cte [name=${k}]`, x); await page.locator(`#form-cte [name=${k}]`).dispatchEvent("change"); }
+  for (const [k, x] of Object.entries(v)) {
+    const el = page.locator(`#form-cte [name=${k}]`);
+    if (await el.evaluate(e => e.tagName === "SELECT")) await el.selectOption(x); else await el.fill(x);
+    await el.dispatchEvent("change");
+  }
 }
 const abrirLanc = (extra = {}) => abrir(browser, { dados: baseExemplo(), hash: "#lancamentos", gravavel: true, quem: "Ana", ...extra });
 
@@ -21,7 +26,9 @@ test("lança CT-e e calcula preço por saca", async () => {
   const { page, ctx, erros } = await abrirLanc();
   await page.waitForSelector("#form-cte");
   await preencher(page);
-  assert.equal(await page.locator("#form-cte output[name=precoSaca]").textContent(), "R$ 175,00");
+  assert.equal(await page.locator("#form-cte output[name=precoTonelada]").textContent(), "R$ 175,00");
+  assert.equal(await page.locator("#form-cte output[name=precoSaca]").textContent(), "—");
+  assert.equal(await page.locator("#form-cte [name=pesoKg]").inputValue(), "50.000");
   assert.equal(await page.locator("#form-cte [name=numero]").inputValue(), "99999");
   await page.click("#form-cte button[type=submit]");
   await page.fill("#busca", "99999");
@@ -47,10 +54,10 @@ test("chave repetida é bloqueada e mostra o existente", async () => {
 test("campos obrigatórios marcam o erro", async () => {
   const { page, ctx } = await abrirLanc();
   await page.waitForSelector("#form-cte");
-  await preencher(page, { sacas: "" });
+  await preencher(page, { quantidade: "" });
   await page.click("#form-cte button[type=submit]");
-  await page.waitForSelector("#form-cte [name=sacas][aria-invalid=true]");
-  assert.match(await page.locator("#form-cte").textContent(), /Informe as sacas/);
+  await page.waitForSelector("#form-cte [name=quantidade][aria-invalid=true]");
+  assert.match(await page.locator("#form-cte").textContent(), /Informe a quantidade/);
   await ctx.close();
 });
 
@@ -76,10 +83,11 @@ test("corrigir muda o formulário e salva", async () => {
   await page.waitForSelector("#form-cte.editando");
   assert.match(await page.locator("#form-cte").textContent(), /Corrigindo o CT-e Nº 4/);
   assert.equal(await page.locator("#form-cte [name=chave]").isDisabled(), true);
-  await page.fill("#form-cte [name=sacas]", "60");
+  assert.equal(await page.locator("#form-cte [name=produto]").inputValue(), "ACUCAR");
+  await page.fill("#form-cte [name=quantidade]", "60");
   await page.click("#form-cte button[type=submit]");
   await page.waitForSelector("#form-cte:not(.editando)");
-  const preco = await page.evaluate(() => window.RADAR_APP.dados.ctes.find(c => c.numero === 4).precoSaca);
+  const preco = await page.evaluate(() => window.RADAR_APP.dados.ctes.find(c => c.numero === 4).precoTonelada);
   assert.equal(preco, 150);
   await ctx.close();
 });
@@ -108,5 +116,59 @@ test("aberto sem pasta gravável não mostra o formulário", async () => {
   await page.waitForSelector("#tab-base");
   const gravavel = await page.evaluate(() => !window.RADAR_APP.somenteLeitura);
   if (!gravavel) assert.equal(await page.locator("#form-cte").isVisible(), false);
+  await ctx.close();
+});
+
+test("lança café em sacas de 60 kg e açúcar em toneladas", async () => {
+  const { page, ctx, erros } = await abrirLanc();
+  await page.waitForSelector("#form-cte");
+  await preencher(page, { produto: "CAFE", unidade: "SC60", quantidade: "540", valorFrete: "17.353,56" });
+  assert.equal(await page.locator("#form-cte output[name=precoTonelada]").textContent(), "R$ 535,60");
+  assert.equal(await page.locator("#form-cte output[name=precoSaca]").textContent(), "R$ 32,14");
+  await page.click("#form-cte button[type=submit]");
+  await page.waitForFunction(() => window.RADAR_APP.dados.ctes.some(c => c.numero === 99999 && c.produto === "CAFE"));
+  await preencher(page, { chave: "35260105780969000146570010000888881000120718", produto: "ACUCAR", unidade: "TON", quantidade: "50", valorFrete: "8.750,00" });
+  assert.equal(await page.locator("#form-cte output[name=precoTonelada]").textContent(), "R$ 175,00");
+  await page.fill("#busca", "99999");
+  await page.waitForFunction(() => document.querySelector("#tab-base tbody").textContent.includes("Café"));
+  assert.match(await page.locator("#tab-base tbody").textContent(), /535,60/);
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});
+
+test("peso do CT-e sobrescreve o calculado", async () => {
+  const { page, ctx } = await abrirLanc();
+  await page.waitForSelector("#form-cte");
+  await preencher(page, { quantidade: "20", valorFrete: "10.000,00" });
+  assert.equal(await page.locator("#form-cte [name=pesoKg]").isEditable(), false);
+  await page.check("#form-cte [name=pesoInformado]");
+  await page.fill("#form-cte [name=pesoKg]", "25.000");
+  await page.locator("#form-cte [name=pesoKg]").dispatchEvent("change");
+  assert.equal(await page.locator("#form-cte output[name=precoTonelada]").textContent(), "R$ 400,00");
+  await page.click("#form-cte button[type=submit]");
+  await page.waitForFunction(() => window.RADAR_APP.dados.ctes.find(c => c.numero === 99999)?.pesoInformado === true);
+  await ctx.close();
+});
+
+test("big bag exige peso", async () => {
+  const { page, ctx } = await abrirLanc();
+  await page.waitForSelector("#form-cte");
+  await preencher(page, { unidade: "BAG", quantidade: "30" });
+  assert.equal(await page.locator("#form-cte [name=pesoInformado]").isChecked(), true);
+  assert.equal(await page.locator("#form-cte [name=pesoInformado]").isDisabled(), true);
+  await page.click("#form-cte button[type=submit]");
+  await page.waitForSelector("#form-cte [name=pesoKg][aria-invalid=true]");
+  assert.match(await page.locator("#form-cte").textContent(), /Informe o peso total do CT-e/);
+  await ctx.close();
+});
+
+test("produto padrão do cliente preenche o produto", async () => {
+  const d = baseExemplo();
+  d.cnpjs.find(c => c.cnpj === "44209336003583").produtoPadrao = "ACUCAR";
+  const { page, ctx } = await abrirLanc({ dados: d });
+  await page.waitForSelector("#form-cte");
+  await page.fill("#form-cte [name=cnpjCliente]", "44.209.336/0035-83");
+  await page.locator("#form-cte [name=cnpjCliente]").dispatchEvent("change");
+  assert.equal(await page.locator("#form-cte [name=produto]").inputValue(), "ACUCAR");
   await ctx.close();
 });

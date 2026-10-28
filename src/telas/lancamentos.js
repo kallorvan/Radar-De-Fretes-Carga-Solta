@@ -1,6 +1,6 @@
-// Lançamentos: o formulário do CT-e (com seguro, tarifa e preço por saca calculados e travados) e a base.
+// Lançamentos: o formulário do CT-e (seguro, tarifa, peso, R$/t e R$/saca calculados e travados) e a base.
 
-import { validarCampos, nomeDoCnpj, grupoDoCnpj } from "../base.js";
+import { validarCampos, nomeDoCnpj, grupoDoCnpj, unidadeDe, produtoDe } from "../base.js";
 import { calcularCte, numeroDaChave, normalizarCnpj, numeroBR, rotaDe, soDigitos } from "../calculos.js";
 import { filtrar } from "../agregacao.js";
 import { esc, fmtMoeda, fmtNum, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
@@ -22,17 +22,22 @@ const CAMPOS = [
   ["taxaSeguro", "Taxa do seguro", false, "", "text", "ex.: 0,0005"],
   ["valorFrete", "Valor do frete", true, "", "text", ""],
   ["adicionais", "Adicionais", false, "", "text", ""],
-  ["sacas", "Qt. sacas", true, "", "text", ""],
 ];
-const NUM = new Set(["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "sacas"]);
+const NUM = new Set(["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
 const fmtCampo = (k, v) => v == null || v === "" ? "" :
   k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) :
+  k === "pesoKg" ? fmtNum(v) :
   NUM.has(k) ? String(v).replace(".", ",") : String(v);
+const opcoesLista = (lista, atual) => `<option value="">Escolha</option>` +
+  lista.map(x => `<option value="${esc(x.id)}"${x.id === atual ? " selected" : ""}>${esc(x.nome)}</option>`).join("");
 
 function lerForm(form) {
   const fd = new FormData(form), c = {};
   for (const [k] of CAMPOS) c[k] = fd.get(k) ?? "";
   if (estado.editando) c.chave = estado.editando;
+  for (const k of ["produto", "unidade", "quantidade", "pesoKg"]) c[k] = fd.get(k) ?? "";
+  // a caixa fica desabilitada (e fora do FormData) quando a unidade não tem peso: aí o peso é sempre o do CT-e
+  c.pesoInformado = form.querySelector("[name=pesoInformado]").checked;
   c.vpo = fd.get("vpo") === "on";
   c.observacoes = fd.get("observacoes") ?? "";
   for (const k of NUM) c[k] = numeroBR(c[k]);
@@ -47,15 +52,21 @@ function formHtml(App, cte) {
   return `<form id="form-cte" class="card${cte ? " editando" : ""}" novalidate data-escreve>
     <div class="card-head"><div><h3>${cte ? "Corrigir lançamento" : "Lançar CT-e"}</h3>
       <p class="hint">${cte ? `Corrigindo o CT-e Nº ${esc(cte.numero)}, lançado por ${esc(cte.criadoPor)} em ${fmtQuando(cte.criadoEm)}. A chave não muda.` :
-        "Campos com * são obrigatórios. Seguro, tarifa e preço por saca saem das fórmulas da planilha."}</p></div></div>
+        "Campos com * são obrigatórios. Seguro, tarifa, peso, R$/t e R$/saca são calculados."}</p></div></div>
     <div class="form-grid">
       ${CAMPOS.map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
         <input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
           value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${k === "origem" || k === "destino" ? 'list="cidades"' : ""} autocomplete="off">
         ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("")}
+      <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App.dados.produtos, v.produto)}</select><span class="erro" data-erro="produto"></span></label>
+      <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App.dados.unidades, v.unidade)}</select><span class="erro" data-erro="unidade"></span></label>
+      <label class="campo"><span>Quantidade <i class="obrig">*</i></span><input name="quantidade" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off"><span class="erro" data-erro="quantidade"></span></label>
+      <div class="campo"><span>Peso total (kg)</span><input name="pesoKg" type="text" inputmode="decimal" value="${esc(fmtCampo("pesoKg", v.pesoKg))}" autocomplete="off" aria-label="Peso total (kg)">
+        <label class="nota caixa"><input type="checkbox" name="pesoInformado" ${v.pesoInformado ? "checked" : ""}> Usar o peso do CT-e</label><span class="erro" data-erro="pesoKg"></span></div>
       <label class="campo"><span>Valor do seguro</span><output name="valorSeguro">—</output></label>
       <label class="campo"><span>Tarifa do frete</span><output name="tarifa">—</output></label>
-      <label class="campo"><span>Preço por saca</span><output name="precoSaca">—</output></label>
+      <label class="campo"><span>R$/t</span><output name="precoTonelada">—</output></label>
+      <label class="campo"><span>R$/saca</span><output name="precoSaca">—</output></label>
       <label class="campo check"><input type="checkbox" name="vpo" ${v.vpo ? "checked" : ""}><span>VPO</span></label>
       <label class="campo w3"><span>Observações</span><input name="observacoes" value="${esc(v.observacoes || "")}" maxlength="300"></label>
     </div>
@@ -68,11 +79,22 @@ function formHtml(App, cte) {
 
 /* Recalcula os campos travados e mostra o nome de cada CNPJ (ou pede um, se for novo). */
 function atualizarForm(form, App) {
+  const cliente = form.querySelector("[name=cnpjCliente]"), prod = form.querySelector("[name=produto]");
+  const padrao = App.dados.cnpjs.find(x => x.cnpj === normalizarCnpj(cliente.value))?.produtoPadrao;
+  if (!prod.value && padrao && produtoDe(App.dados, padrao)) prod.value = padrao;   // o produto de costume do cliente
+  const u = unidadeDe(App.dados, form.querySelector("[name=unidade]").value);
+  const caixa = form.querySelector("[name=pesoInformado]"), peso = form.querySelector("[name=pesoKg]");
+  const semPesoPadrao = Boolean(u) && !(u.kg > 0);
+  if (semPesoPadrao) caixa.checked = true;
+  caixa.disabled = semPesoPadrao;
+  peso.readOnly = !caixa.checked;
   const c = lerForm(form);
-  const r = calcularCte(c);
+  const r = calcularCte({ ...c, unidade: u, pesoInformado: caixa.checked });
+  if (!caixa.checked) peso.value = r.pesoKg != null ? fmtNum(r.pesoKg) : "";
   const ok = c.valorFrete != null;
   form.querySelector("output[name=valorSeguro]").textContent = ok ? fmtMoeda(r.valorSeguro) : "—";
   form.querySelector("output[name=tarifa]").textContent = ok ? fmtMoeda(r.tarifa) : "—";
+  form.querySelector("output[name=precoTonelada]").textContent = ok && r.precoTonelada != null ? fmtMoeda(r.precoTonelada) : "—";
   form.querySelector("output[name=precoSaca]").textContent = ok && r.precoSaca != null ? fmtMoeda(r.precoSaca) : "—";
   for (const [campo, nomeCampo] of [["cnpjTransportador", "nomeTransportador"], ["cnpjCliente", "nomeCliente"]]) {
     const cnpj = normalizarCnpj(c[campo]), alvo = form.querySelector(`[data-nome=${campo}]`);
@@ -96,7 +118,7 @@ function mostrarErros(form, erros) {
 async function enviar(form, App) {
   const c = lerForm(form), msg = $("#form-msg", form);
   msg.innerHTML = "";
-  const v = validarCampos(c), erros = { ...v.erros };
+  const v = validarCampos(App.dados, c), erros = { ...v.erros };
   if (!nomeDoCnpj(App.dados, c.cnpjTransportador) && v.campos.cnpjTransportador.length === 14 && !c.nomeTransportador) erros.nomeTransportador = "Informe o nome do transportador para o cadastro.";
   if (!nomeDoCnpj(App.dados, c.cnpjCliente) && v.campos.cnpjCliente.length === 14 && !c.nomeCliente) erros.nomeCliente = "Informe o nome do cliente para o cadastro.";
   if (Object.keys(erros).length) return mostrarErros(form, erros);
@@ -144,8 +166,10 @@ function pintarBase(raiz, App) {
     { titulo: "Transportador", valor: c => grupoDoCnpj(d, c.cnpjTransportador).nome, html: c => esc(nomeDoCnpj(d, c.cnpjTransportador) || fmtCnpj(c.cnpjTransportador)) },
     { titulo: "Cliente", valor: c => grupoDoCnpj(d, c.cnpjCliente).nome, html: c => esc(nomeDoCnpj(d, c.cnpjCliente) || fmtCnpj(c.cnpjCliente)) },
     { titulo: "Rota", valor: c => rotaDe(c), html: c => esc(rotaDe(c)) },
-    { titulo: "Sacas", valor: c => c.sacas, html: c => fmtNum(c.sacas), num: true },
+    { titulo: "Produto", valor: c => produtoDe(d, c.produto)?.nome || "", html: c => c.produto ? esc(produtoDe(d, c.produto)?.nome || c.produto) : '<span class="sub">a classificar</span>' },
+    { titulo: "Quantidade", valor: c => c.quantidade, html: c => `${fmtNum(c.quantidade, Number.isInteger(c.quantidade) ? 0 : 2)}<span class="sub">${esc(unidadeDe(d, c.unidade)?.nome || "—")}</span>`, num: true },
     { titulo: "Tarifa", valor: c => c.tarifa, html: c => fmtMoeda(c.tarifa), num: true },
+    { titulo: "R$/t", valor: c => c.precoTonelada, html: c => fmtMoeda(c.precoTonelada), num: true },
     { titulo: "R$/saca", valor: c => c.precoSaca, html: c => fmtMoeda(c.precoSaca), num: true },
     { titulo: "Lançado por", valor: c => c.criadoPor, html: c => `${esc(c.alteradoPor || c.criadoPor)}<span class="sub">${c.alteradoPor ? "corrigiu " : ""}${fmtQuando(c.alteradoEm || c.criadoEm).slice(0, 10)}</span>` },
     { titulo: "", valor: () => null, html: c => `<span data-escreve><button class="btn mini" type="button" data-corrigir="${c.chave}">Corrigir</button>

@@ -41,13 +41,15 @@ test("fluxo completo com pasta simulada", async () => {
   await page.click("#abas button[data-aba=lancamentos]");
   await page.waitForSelector("#form-cte");
   const v = { chave: "35260105780969000146570010000999991000120718", emissao: "2026-05-04", cnpjTransportador: "11.111.111/0001-00",
-    cnpjCliente: "44.209.336/0035-83", origem: "A", destino: "B", valorFrete: "8.750,00", sacas: "50" };
+    cnpjCliente: "44.209.336/0035-83", origem: "A", destino: "B", valorFrete: "8.750,00", quantidade: "50" };
   for (const [k, x] of Object.entries(v)) await page.fill(`#form-cte [name=${k}]`, x);
+  await page.selectOption("#form-cte [name=produto]", "ACUCAR");
+  await page.selectOption("#form-cte [name=unidade]", "TON");
   await page.click("#form-cte button[type=submit]");
   await esperarGravado(page, () => window.__pasta.arquivos.get("radar-carga-solta-dados.js").includes('"numero":99999'));
   await page.fill("#busca", "99999");
   await page.click("#tab-base [data-corrigir]");
-  await page.fill("#form-cte [name=sacas]", "70");
+  await page.fill("#form-cte [name=quantidade]", "70");
   await page.click("#form-cte button[type=submit]");
   await page.fill("#busca", "99999");
   await page.click("#tab-base [data-excluir]");
@@ -60,7 +62,7 @@ test("fluxo completo com pasta simulada", async () => {
   });
   const p1 = await lerPasta(page);
   assert.equal(p1.dados.ctes.length, 11);
-  assert.equal(p1.dados.ctes.find(c => c.numero === 99999).precoSaca, 125);
+  assert.equal(p1.dados.ctes.find(c => c.numero === 99999).precoTonelada, 125);
   assert.deepEqual(p1.dados.log.slice(-5).map(l => l.acao), ["importar", "incluir", "corrigir", "excluir", "restaurar"]);
   assert.equal(p1.dados.salvoPor, "Ana");
   assert.ok(p1.backups >= 1);

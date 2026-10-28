@@ -22,7 +22,7 @@ test("importa planilha e mostra o resumo", async () => {
   const txt = await page.locator(".resumo-imp").textContent();
   assert.match(txt, /3 CT-e incluídos/);
   assert.match(txt, /1 rejeitados/);
-  assert.match(txt, /Informe as sacas/);
+  assert.match(txt, /Informe a quantidade/);
   assert.equal(await page.evaluate(() => window.RADAR_APP.dados.ctes.length), 10);
   assert.deepEqual(erros, []);
   await ctx.close();
@@ -72,4 +72,32 @@ test("aberto por http é somente leitura", async () => {
   assert.equal(await page.locator("#form-cte").count(), 0);
   assert.equal(await page.locator("#tab-base [data-excluir]").first().isVisible(), false);
   await ctx.close(); srv.close();
+});
+
+test("cadastra produto e unidade novos e eles aparecem no formulário", async () => {
+  const { page, ctx, erros } = await abrir(browser, { dados: baseExemplo(), hash: "#cadastro", ...opc });
+  await page.waitForSelector("#form-produto");
+  await page.fill("#form-produto [name=nome]", "Soja");
+  await page.click("#form-produto button[type=submit]");
+  await page.waitForFunction(() => window.RADAR_APP.dados.produtos.some(p => p.id === "SOJA"));
+  await page.fill("#form-unidade [name=nome]", "Fardo 200 kg");
+  await page.fill("#form-unidade [name=kg]", "200");
+  await page.click("#form-unidade button[type=submit]");
+  await page.waitForFunction(() => window.RADAR_APP.dados.unidades.some(u => u.id === "FARDO200KG"));
+  // kg de unidade em uso não se edita
+  assert.equal(await page.locator('#tab-unidades input[data-kg="TON"]').isDisabled(), true);
+  await page.click("#abas button[data-aba=lancamentos]");
+  await page.waitForSelector("#form-cte");
+  assert.match(await page.locator("#form-cte [name=produto]").textContent(), /Soja/);
+  assert.match(await page.locator("#form-cte [name=unidade]").textContent(), /Fardo 200 kg/);
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});
+
+test("produto padrão no cadastro de CNPJ", async () => {
+  const { page, ctx } = await abrir(browser, { dados: baseExemplo(), hash: "#cadastro", ...opc });
+  await page.waitForSelector('select.produto-padrao[data-cnpj="44209336003583"]');
+  await page.selectOption('select.produto-padrao[data-cnpj="44209336003583"]', "ACUCAR");
+  await page.waitForFunction(() => window.RADAR_APP.dados.cnpjs.find(c => c.cnpj === "44209336003583").produtoPadrao === "ACUCAR");
+  await ctx.close();
 });
