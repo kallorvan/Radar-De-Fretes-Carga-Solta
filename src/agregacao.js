@@ -98,9 +98,9 @@ export function resumoGeral(ctes, metrica) {
   };
 }
 
-export function resumoRotas(d, metrica) {
+export function resumoRotas(d, metrica, filtros = {}) {
   const rotas = new Map();
-  for (const c of d.ctes) {
+  for (const c of filtrar(d, { produto: filtros.produto })) {
     const r = rotaDe(c);
     if (!rotas.has(r)) rotas.set(r, []);
     rotas.get(r).push(c);
@@ -110,6 +110,7 @@ export function resumoRotas(d, metrica) {
     const { ultimoMes, valor, variacao } = ultimoEAnterior(med);
     return {
       rota, nCtes: ctes.length,
+      produtos: [...new Set(ctes.map(c => c.produto).filter(Boolean))].sort(),
       nTransportadores: new Set(ctes.map(c => raizCnpj(c.cnpjTransportador))).size,
       ultimoMes, valor, variacao, porMes: med,
     };

@@ -21,3 +21,25 @@ export function baseExemplo() {
   d.salvoEm = "2026-10-28T09:00:00.000Z"; d.salvoPor = "Ana";
   return d;
 }
+
+/* A mesma base com 3 CT-e de café em sacas de 60 kg na rota A → B (R$ ~536/t). */
+export function baseCafeEAcucar() {
+  const d = baseExemplo();
+  let n = 100;
+  for (const [f, dia] of [[17353.56, "05"], [17300, "12"], [17400, "20"]])
+    incluir(d, campos({ chave: chaveN(++n), numero: n, origem: "A", destino: "B", cnpjTransportador: T3, emissao: `2026-04-${dia}`,
+      valorFrete: f, quantidade: 540, unidade: "SC60", produto: "CAFE" }), "Ana", AGORA);
+  return d;
+}
+
+/* Base v1 (painel antigo) com 4 CT-e: 3 de clientes com produto conhecido e 1 de cliente transportador. */
+export function baseV1ParaClassificar() {
+  const cte = (n, cli, quantidade, valorFrete) => ({ chave: chaveN(200 + n), numero: 200 + n, emissao: "2026-07-01", cnpjCliente: cli,
+    cnpjTransportador: T1, origem: "A", destino: "B", itinerario: "", valorAssegurado: 0, taxaSeguro: 0, valorSeguro: 0, adicionais: 0,
+    valorFrete, tarifa: valorFrete, sacas: quantidade, precoSaca: valorFrete / quantidade, vpo: false, observacoes: "",
+    criadoPor: "Ana", criadoEm: AGORA, origemLancamento: "importacao" });
+  return { versao: 1, salvoEm: "2026-10-28T09:00:00.000Z", salvoPor: "Ana", log: [], lixeira: [],
+    cnpjs: [{ cnpj: "44209336003583", nome: "USINA ALTA MOGIANA S/A", produtoPadrao: "ACUCAR" }, { cnpj: "55555555000100", nome: "EISA", produtoPadrao: "CAFE" },
+      { cnpj: "66666666000100", nome: "COLOMBARI SERVIÇOS DE TRANSPORTES LTDA" }, { cnpj: T1, nome: "TRANSPORTES UM" }],
+    ctes: [cte(1, "44209336003583", 50, 8750), cte(2, "44209336003583", 1080, 9612), cte(3, "55555555000100", 540, 17353.56), cte(4, "66666666000100", 50, 6900)] };
+}

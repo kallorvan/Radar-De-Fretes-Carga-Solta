@@ -179,3 +179,14 @@ test("excecao diverge-planilha vem da marca do CT-e", () => {
   c.divergencia = { calculado: { tarifa: 8750 }, planilha: { tarifa: 8700 } };
   assert.equal(excecoes(d).filter(e => e.tipo === "diverge-planilha").length, 1);
 });
+
+test("resumoRotas filtra por produto e lista os produtos da rota", () => {
+  const d = baseAB();
+  lanca(d, { cnpjTransportador: T2, emissao: "2026-04-03", valorFrete: 17353.56, quantidade: 540, unidade: "SC60", produto: "CAFE" });
+  const todos = resumoRotas(d, "tonelada");
+  assert.deepEqual(todos[0].produtos, ["ACUCAR", "CAFE"]);
+  const cafe = resumoRotas(d, "tonelada", { produto: "CAFE" });
+  assert.equal(cafe.length, 1);
+  assert.equal(cafe[0].nCtes, 1);
+  assert.equal(cafe[0].valor, 535.6);
+});

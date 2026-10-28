@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { chromium, abrir } from "./ajuda.js";
-import { baseExemplo } from "../fixtures/base-exemplo.js";
+import { baseExemplo, baseCafeEAcucar } from "../fixtures/base-exemplo.js";
 import { novaBase } from "../../src/base.js";
 
 let browser;
@@ -26,6 +26,8 @@ test("evolução mostra mediana da rota", async () => {
 test("trocar a métrica e o filtro atualiza o endereço", async () => {
   const { page, ctx } = await abrir(browser, { dados: baseExemplo() });
   await page.waitForSelector(".bignum");
+  assert.match(await page.locator(".hero h1").textContent(), /Preço por tonelada/i);
+  assert.equal(await page.locator(".modes button[data-metrica]").count(), 3);
   await page.click(".modes button[data-metrica=tarifa]");
   await page.waitForFunction(() => location.hash.includes("metrica=tarifa"));
   await page.waitForFunction(() => /Tarifa/i.test(document.querySelector(".hero h1").textContent));
@@ -48,6 +50,19 @@ test("base vazia mostra o caminho para lançar ou importar", async () => {
   const { page, ctx, erros } = await abrir(browser, { dados: novaBase() });
   await page.waitForSelector(".vazio");
   assert.match(await page.locator(".vazio").first().textContent(), /Nenhum CT-e lançado/);
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});
+
+test("rota com café e açúcar mostra o aviso e o filtro resolve", async () => {
+  const { page, ctx, erros } = await abrir(browser, { dados: baseCafeEAcucar(), hash: "#evolucao?rota=A%20%E2%86%92%20B" });
+  await page.waitForSelector(".bignum");
+  assert.match(await page.locator("#aviso-produtos").textContent(), /Café e Açúcar|Açúcar e Café/);
+  await page.selectOption("#f-produto", "CAFE");
+  await page.waitForFunction(() => location.hash.includes("produto=CAFE"));
+  await page.waitForFunction(() => !document.querySelector("#aviso-produtos"));
+  assert.equal(await page.locator(".bignum").textContent(), "R$ 535,60");
+  assert.match(await page.locator(".kpis").textContent(), /Toneladas/);
   assert.deepEqual(erros, []);
   await ctx.close();
 });

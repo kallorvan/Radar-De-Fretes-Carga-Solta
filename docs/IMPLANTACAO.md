@@ -11,9 +11,18 @@ O painel é um arquivo HTML só. Ele fica numa pasta compartilhada do SharePoint
 5. Vá em **Dados → Conectar a pasta** e escolha a pasta do passo 1. Como ela ainda não tem o `radar-carga-solta-dados.js`, o painel pergunta **"Criar a base nesta pasta?"**: confirme.
 6. Em **Dados → Importar planilha**, escolha a `Radar_Fretes_Concorrentes_v2.10.xlsm`. O painel lê só as abas *BASE CARGA SOLTA 2026* e *BASE DE DADOS CNPJ*. Com a versão 2.10 o resultado esperado é **195 CT-e incluídos, 0 rejeitados e 125 CNPJ cadastrados**.
    - Um CT-e (nº 257219) tem o seguro digitado como R$ 193,00, e a conta dá R$ 193,07. Ele entra com o valor da planilha e aparece em **Exceções a tratar**.
-7. A gravação é automática: a barra abaixo do menu mostra **Tudo salvo** quando o arquivo da pasta está em dia.
+7. Em **Dados → Classificar CT-e**, revise produto e unidade de cada CT-e importado (a planilha não tem esses campos). O painel já sugere:
+   - **produto** pelo cliente (café: EISA, Stonex, Olam, Louis Dreyfus…; açúcar: usinas, U.S.J., Coplasa…);
+   - **unidade** pela quantidade (até 100 = toneladas; acima, saca de 60 kg para café e de 50 kg para açúcar).
+   
+   Com a v2.10, a regra sugere 164 dos 195 CT-e. Os 31 restantes são de clientes que são transportadoras (Colombari, R S G, Agius…): escolha produto e unidade nessas linhas, ou defina o *produto padrão* do cliente na aba **Cadastro**. Confira também o CT-e **22875** (EISA, LEM → Machado): são 35 **sacas**, não toneladas. Ele aparece em "R$/t fora da faixa da rota".
+8. A gravação é automática: a barra abaixo do menu mostra **Tudo salvo** quando o arquivo da pasta está em dia.
 
 ## Uso no dia a dia
+
+- O preço principal é **R$/t**: tarifa (frete − seguro − adicionais) ÷ peso. O peso sai da quantidade × kg da unidade (saca de 60 kg, saca de 50 kg, tonelada). Para big bag, ou quando o CT-e traz outro peso, marque **Usar o peso do CT-e** e digite o peso bruto.
+- Produtos e unidades novos são incluídos na aba **Cadastro**. O peso de uma unidade já usada não muda: para outro peso, crie outra unidade.
+- Ao comparar uma rota que leva mais de um produto, escolha o produto no recorte. O painel avisa quando a rota mistura produtos.
 
 - Cada pessoa abre o HTML pela pasta sincronizada no Chrome ou no Edge.
 - Na primeira vez em cada computador, é preciso clicar em **Conectar a pasta** (aba Dados). Depois disso o navegador lembra.

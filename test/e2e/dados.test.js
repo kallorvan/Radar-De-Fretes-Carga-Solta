@@ -4,7 +4,7 @@ import http from "node:http";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, abrir } from "./ajuda.js";
-import { baseExemplo } from "../fixtures/base-exemplo.js";
+import { baseExemplo, baseV1ParaClassificar } from "../fixtures/base-exemplo.js";
 import { gerarPlanilha, linhaPadrao } from "../fixtures/planilha.js";
 import { excluir } from "../../src/base.js";
 
@@ -99,5 +99,25 @@ test("produto padrão no cadastro de CNPJ", async () => {
   await page.waitForSelector('select.produto-padrao[data-cnpj="44209336003583"]');
   await page.selectOption('select.produto-padrao[data-cnpj="44209336003583"]', "ACUCAR");
   await page.waitForFunction(() => window.RADAR_APP.dados.cnpjs.find(c => c.cnpj === "44209336003583").produtoPadrao === "ACUCAR");
+  await ctx.close();
+});
+
+test("classificar aplica as sugestões marcadas", async () => {
+  const { page, ctx, erros } = await abrir(browser, { dados: baseV1ParaClassificar(), hash: "#dados", ...opc });
+  await page.waitForSelector("#classificar tbody tr");
+  assert.equal(await page.locator("#classificar tbody tr").count(), 4);
+  assert.equal(await page.locator("#classificar input[data-marcar]:checked").count(), 3);
+  assert.match(await page.locator("#classificar").textContent(), /sem produto padrão/);
+  // trocar a unidade de uma linha recalcula o R$/t mostrado
+  await page.selectOption('#classificar select[data-unidade="' + (await page.locator("#classificar tbody tr").nth(0).getAttribute("data-chave")) + '"]', "SC50");
+  await page.waitForFunction(() => document.querySelector("#classificar tbody tr").textContent.includes("3.500,00"));
+  await page.selectOption('#classificar select[data-unidade="' + (await page.locator("#classificar tbody tr").nth(0).getAttribute("data-chave")) + '"]', "TON");
+  await page.click("#aplicar-classificacao");
+  await page.waitForFunction(() => window.RADAR_APP.dados.ctes.filter(c => c.produto && c.unidade).length === 3);
+  const r = await page.evaluate(() => window.RADAR_APP.dados.ctes.map(c => [c.numero, c.produto, c.unidade, c.precoTonelada]));
+  assert.deepEqual(r, [[201, "ACUCAR", "TON", 175], [202, "ACUCAR", "SC50", 178], [203, "CAFE", "SC60", 535.6], [204, null, null, null]]);
+  assert.equal(await page.locator("#classificar tbody tr").count(), 1);
+  assert.equal(await page.evaluate(() => window.RADAR_APP.dados.log.filter(l => l.acao === "classificar").length), 3);
+  assert.deepEqual(erros, []);
   await ctx.close();
 });

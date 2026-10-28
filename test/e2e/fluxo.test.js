@@ -36,6 +36,15 @@ test("fluxo completo com pasta simulada", async () => {
   await page.setInputFiles("#arq-planilha", { name: "Radar.xlsx", mimeType: "application/octet-stream", buffer: buf });
   await esperarGravado(page, () => window.__pasta.arquivos.get("radar-carga-solta-dados.js").includes('"numero":903'));
   assert.equal((await lerPasta(page)).dados.ctes.length, 10);
+  assert.equal((await lerPasta(page)).dados.versao, 2);
+
+  // classificar o que veio da planilha
+  await page.waitForSelector("#classificar tbody tr");
+  assert.equal(await page.locator("#classificar tbody tr").count(), 3);
+  await page.click("#aplicar-classificacao");
+  await esperarGravado(page, () => window.__pasta.arquivos.get("radar-carga-solta-dados.js").includes('"acao":"classificar"'));
+  const pc = await lerPasta(page);
+  assert.deepEqual(pc.dados.ctes.filter(c => c.numero > 900).map(c => [c.produto, c.unidade, c.precoTonelada]), [["ACUCAR", "TON", 175], ["ACUCAR", "TON", 175], ["ACUCAR", "TON", 175]]);
 
   // lançar, corrigir, excluir, restaurar
   await page.click("#abas button[data-aba=lancamentos]");
@@ -63,7 +72,7 @@ test("fluxo completo com pasta simulada", async () => {
   const p1 = await lerPasta(page);
   assert.equal(p1.dados.ctes.length, 11);
   assert.equal(p1.dados.ctes.find(c => c.numero === 99999).precoTonelada, 125);
-  assert.deepEqual(p1.dados.log.slice(-5).map(l => l.acao), ["importar", "incluir", "corrigir", "excluir", "restaurar"]);
+  assert.deepEqual(p1.dados.log.slice(-8).map(l => l.acao), ["importar", "classificar", "classificar", "classificar", "incluir", "corrigir", "excluir", "restaurar"]);
   assert.equal(p1.dados.salvoPor, "Ana");
   assert.ok(p1.backups >= 1);
 

@@ -2,20 +2,59 @@
 
 import { lerPlanilha, exportarXlsx } from "../importacao.js";
 import { ARQ_DADOS, PASTA_BKP, sessaoVazia } from "../arquivo.js";
-import { grupoDoCnpj } from "../base.js";
-import { rotaDe } from "../calculos.js";
-import { esc, fmtData, fmtNum, fmtQuando } from "../formato.js";
-import { $, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
+import { grupoDoCnpj, unidadeDe } from "../base.js";
+import { rotaDe, calcularCte, numeroBR } from "../calculos.js";
+import { sugerirClassificacao, pendentesDeClassificacao } from "../classificacao.js";
+import { esc, fmtData, fmtNum, fmtMoeda, fmtQuando } from "../formato.js";
+import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 
-const estado = { resumo: null, erroImp: "" };
-const ACAO = { incluir: "Lançou", corrigir: "Corrigiu", excluir: "Excluiu", restaurar: "Restaurou", importar: "Importou", cadastro: "Cadastro" };
+// escolhas: o que a pessoa ajustou em cada linha da classificação, guardado entre redesenhos
+const estado = { resumo: null, erroImp: "", escolhas: new Map() };
+const ACAO = { incluir: "Lançou", corrigir: "Corrigiu", excluir: "Excluiu", restaurar: "Restaurou", importar: "Importou", cadastro: "Cadastro",
+  classificar: "Classificou", produto: "Produto", unidade: "Unidade" };
+
+/* Linha da classificação: a sugestão da regra, com o que a pessoa trocou por cima. */
+function escolhaDe(d, cte) {
+  if (!estado.escolhas.has(cte.chave)) {
+    const s = sugerirClassificacao(d, cte);
+    estado.escolhas.set(cte.chave, { produto: s.produto || "", unidade: s.unidade || "", peso: "", marcado: Boolean(s.produto && s.unidade), motivo: s.motivo });
+  }
+  const e = estado.escolhas.get(cte.chave), u = unidadeDe(d, e.unidade), peso = numeroBR(e.peso);
+  const calc = u ? calcularCte({ ...cte, unidade: u, pesoKg: peso, pesoInformado: peso > 0 || !(u.kg > 0) }) : { pesoKg: null, precoTonelada: null };
+  return { ...e, calc };
+}
+
+const opc = (lista, atual) => `<option value="">—</option>` + lista.map(x => `<option value="${esc(x.id)}"${x.id === atual ? " selected" : ""}>${esc(x.nome)}</option>`).join("");
+
+function classificarHtml(App) {
+  const d = App.dados, pend = pendentesDeClassificacao(d);
+  if (!pend.length) return `<div class="limpo"><b>Tudo classificado</b><p>Todos os CT-e têm produto e unidade.</p></div>`;
+  const linhas = pend.map(c => {
+    const e = escolhaDe(d, c), k = esc(c.chave);
+    return `<tr data-chave="${k}"><td><input type="checkbox" data-marcar="${k}" ${e.marcado ? "checked" : ""} aria-label="Aplicar ao CT-e ${esc(c.numero)}" data-escreve></td>
+      <td class="mono">${esc(c.numero)}<span class="sub">${fmtData(c.emissao)}</span></td>
+      <td>${esc(grupoDoCnpj(d, c.cnpjCliente).nome)}<span class="sub">${esc(rotaDe(c))}</span></td>
+      <td class="num">${fmtNum(c.quantidade, Number.isInteger(c.quantidade) ? 0 : 2)}</td>
+      <td><select data-produto="${k}" aria-label="Produto">${opc(d.produtos, e.produto)}</select></td>
+      <td><select data-unidade="${k}" aria-label="Unidade">${opc(d.unidades, e.unidade)}</select></td>
+      <td class="num"><input class="kg-lista" data-peso="${k}" value="${esc(e.peso)}" placeholder="${e.calc.pesoKg != null ? fmtNum(e.calc.pesoKg) : "peso do CT-e"}" inputmode="decimal" aria-label="Peso total (kg)"></td>
+      <td class="num">${fmtMoeda(e.calc.precoTonelada)}</td>
+      <td><span class="sub">${esc(e.motivo)}</span></td></tr>`;
+  }).join("");
+  const marcados = pend.filter(c => estado.escolhas.get(c.chave)?.marcado).length;
+  return `<p class="hint">${fmtNum(pend.length)} CT-e sem produto ou unidade. A sugestão vem do produto padrão do cliente e da quantidade (até 100 = toneladas; acima, sacas). Confira, troque o que precisar e aplique.</p>
+    <div class="tabela"><table><thead><tr><th></th><th>CT-e</th><th>Cliente · rota</th><th class="num">Quantidade</th><th>Produto</th><th>Unidade</th><th class="num">Peso (kg)</th><th class="num">R$/t</th><th>Por quê</th></tr></thead>
+    <tbody>${linhas}</tbody></table></div>
+    <div class="botoes" data-escreve><button class="btn" type="button" data-marcar-todos>Marcar todos com sugestão</button>
+      <button class="btn primario" type="button" id="aplicar-classificacao" ${marcados ? "" : "disabled"}>Aplicar marcados (${fmtNum(marcados)})</button></div>`;
+}
 
 function resumoHtml() {
   if (estado.erroImp) return `<div class="exc"><span class="pill">Não importado</span><h4>${esc(estado.erroImp)}</h4></div>`;
   const r = estado.resumo;
   if (!r) return "";
   return `<div class="resumo-imp"><p><b>${fmtNum(r.incluidos)}</b> CT-e incluídos · <b>${fmtNum(r.pulados)}</b> já existiam e ficaram como estavam ·
-    <b>${fmtNum(r.rejeitados.length)}</b> rejeitados · <b>${fmtNum(r.cadastrados)}</b> CNPJ cadastrados${r.divergentes ? ` · <b>${fmtNum(r.divergentes)}</b> com cálculo diferente da planilha (veja Exceções a tratar)` : ""}.</p>
+    <b>${fmtNum(r.rejeitados.length)}</b> rejeitados · <b>${fmtNum(r.cadastrados)}</b> CNPJ cadastrados${r.divergentes ? ` · <b>${fmtNum(r.divergentes)}</b> com cálculo diferente da planilha (veja Exceções a tratar)` : ""}${r.aClassificar ? ` · <b>${fmtNum(r.aClassificar)}</b> a classificar: <a href="#" data-ir-classificar>veja Classificar CT-e</a>` : ""}.</p>
     ${r.rejeitados.length ? `<div class="tabela"><table><thead><tr><th>Linha da planilha</th><th>Motivo</th></tr></thead><tbody>${r.rejeitados.map(x =>
       `<tr><td class="mono">${x.numLinha}</td><td>${esc(x.motivo)}</td></tr>`).join("")}</tbody></table></div>` : ""}</div>`;
 }
@@ -41,6 +80,7 @@ export function renderDados(raiz, App) {
       <div class="card"><h3>Exportar para Excel</h3><p class="hint">A base inteira no mesmo layout da planilha: ${fmtNum(d.ctes.length)} CT-e e ${fmtNum(d.cnpjs.length)} CNPJ.</p>
         <button class="btn" type="button" data-exportar ${d.ctes.length ? "" : "disabled"}>Baixar .xlsx</button></div>
     </div>
+    <div class="card" id="classificar"><h3>Classificar CT-e</h3>${classificarHtml(App)}</div>
     <div class="card"><h3>Lixeira</h3><p class="hint">CT-e excluídos. Restaurar devolve o lançamento para a base, com o registro de quem restaurou.</p><div id="tab-lixeira"></div></div>
     <div class="card"><h3>Histórico</h3><p class="hint">As ${fmtNum(d.log.length)} últimas ações (o painel guarda até 500), da mais recente para a mais antiga.</p><div id="tab-log"></div></div>
     <div class="card" data-escreve><h3>Seu nome</h3><p class="hint">${App.quem ? `Lançando como <b>${esc(App.quem)}</b>.` : "Nenhum nome informado neste navegador."}</p>
@@ -63,9 +103,41 @@ export function renderDados(raiz, App) {
   ], [...d.log].reverse(), { vazia: "Nenhuma ação registrada ainda." });
 
   // ouvinte na seção recém-desenhada: o #conteudo é o mesmo em todo redesenho e acumularia ouvintes
-  raiz.firstElementChild.addEventListener("click", async ev => {
+  const secao = raiz.firstElementChild;
+  const repintar = () => { $("#classificar", raiz).innerHTML = `<h3>Classificar CT-e</h3>${classificarHtml(App)}`; };
+  secao.addEventListener("change", ev => {
+    const t = ev.target, k = t.dataset.produto || t.dataset.unidade || t.dataset.peso || t.dataset.marcar;
+    if (!k || !t.closest("#classificar")) return;
+    const e = estado.escolhas.get(k);
+    if (t.dataset.produto !== undefined) e.produto = t.value;
+    else if (t.dataset.unidade !== undefined) e.unidade = t.value;
+    else if (t.dataset.peso !== undefined) e.peso = t.value;
+    else e.marcado = t.checked;
+    if (t.dataset.marcar === undefined) e.marcado = Boolean(e.produto && e.unidade);
+    repintar();
+  });
+  secao.addEventListener("click", async ev => {
+    if (ev.target.closest("[data-ir-classificar]")) { ev.preventDefault(); $("#classificar", raiz).scrollIntoView({ block: "start" }); return; }
     const b = ev.target.closest("button");
     if (!b) return;
+    if (b.hasAttribute("data-marcar-todos")) {
+      for (const c of pendentesDeClassificacao(d)) { const e = estado.escolhas.get(c.chave); if (e) e.marcado = Boolean(e.produto && e.unidade); }
+      return repintar();
+    }
+    if (b.id === "aplicar-classificacao") {
+      const alvo = pendentesDeClassificacao(d).filter(c => estado.escolhas.get(c.chave)?.marcado);
+      const r = await App.alterar((dd, s, quem, agora) => {
+        let feitos = 0; const falhas = [];
+        for (const c of alvo) {
+          const e = estado.escolhas.get(c.chave), peso = numeroBR(e.peso);
+          const res = App.acoes.classificar(dd, s, c.chave, { produto: e.produto, unidade: e.unidade, pesoKg: peso, pesoInformado: peso > 0 }, quem, agora);
+          if (res.ok) { feitos++; estado.escolhas.delete(c.chave); } else falhas.push(`${c.numero}: ${Object.values(res.erros).join(" ")}`);
+        }
+        return { ok: feitos > 0, feitos, falhas };
+      });
+      if (r) aviso(`${r.feitos} CT-e classificados.` + (r.falhas.length ? ` Não classificados: ${r.falhas.join("; ")}` : ""), r.falhas.length > 0);
+      return;
+    }
     if (b.dataset.restaurar) {
       const r = await App.alterar((dd, s, quem, agora) => App.acoes.restaurar(dd, s, b.dataset.restaurar, quem, agora));
       if (r?.ok) aviso(`CT-e ${r.cte.numero} restaurado.`);

@@ -145,3 +145,5 @@ input.kg-lista{text-align:right;font-family:var(--font-mono);max-width:110px}
 input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 .cols2>*{min-width:0}
 .cols2 .tabela table{min-width:0}
+.card-head .campo.curto{margin-left:auto;min-width:170px}
+.card-head .campo.curto+.modes{margin-left:0;align-self:flex-end}
