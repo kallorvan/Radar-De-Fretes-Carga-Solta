@@ -459,6 +459,20 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
 .grafico svg{max-height:340px}
 .exc .tabela table{min-width:520px}
 
+/* lançamentos */
+.form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 16px}
+.form-grid .w2{grid-column:span 2}.form-grid .w3{grid-column:span 3}
+#form-cte.editando{border-left:3px solid var(--accent)}
+#form-cte .nota input{margin-top:6px;width:100%;border:1px solid var(--accent);padding:7px 9px;font-size:13px;background:var(--card);color:var(--ink)}
+#form-cte .nota input[aria-invalid="true"]{background:var(--accent-wash)}
+#form-cte .nota .erro{display:block}
+#form-msg .exc{margin:18px 0 0}
+.card-head .busca{margin-left:auto;min-width:260px}
+td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
+.campo.check{padding-top:22px;justify-content:flex-start}
+.campo.check input{width:auto;accent-color:var(--hero-bg)}
+.campo.check span{order:0;font-size:12.5px;letter-spacing:.08em}
+
 </style>
 </head>
 <body>
@@ -542,6 +556,10 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
   var raizCnpj = (cnpj) => normalizarCnpj(cnpj).slice(0, 8);
   var ehMatriz = (cnpj) => normalizarCnpj(cnpj).slice(8, 12) === "0001";
   var chaveValida = (chave) => /^\d{44}$/.test(String(chave ?? ""));
+  function numeroDaChave(chave) {
+    const d = soDigitos(chave);
+    return d.length === 44 ? Number(d.slice(25, 34)) : null;
+  }
   var normalizarCidade = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().trim().replace(/\s+/g, " ");
   var rotaDe = (c) => `${normalizarCidade(c.origem)} → ${normalizarCidade(c.destino)}`;
   var mesDe = (iso) => String(iso ?? "").slice(0, 7);
@@ -790,8 +808,8 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
       mensagem: ""
     };
     let fila = Promise.resolve(), timer = null, esperaTimer = Promise.resolve();
-    const muda = (estado, mensagem = "") => {
-      g.estado = estado;
+    const muda = (estado2, mensagem = "") => {
+      g.estado = estado2;
       g.mensagem = mensagem;
       aoMudar(g);
     };
@@ -1170,6 +1188,17 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
     toastT = setTimeout(() => {
       t.className = "toast" + (erro ? " erro" : "");
     }, erro ? 9e3 : 3500);
+  }
+  function confirmar(titulo, texto, rotuloOk = "Confirmar") {
+    const dlg = $("#dlg-confirma");
+    $("#dlg-confirma-titulo").textContent = titulo;
+    $("#dlg-confirma-texto").textContent = texto;
+    $("#dlg-confirma-ok").textContent = rotuloOk;
+    return new Promise((ok) => {
+      dlg.addEventListener("close", () => ok(dlg.returnValue === "ok"), { once: true });
+      dlg.returnValue = "";
+      dlg.showModal();
+    });
   }
   function tabelaOrdenavel(raiz, colunas, linhas, { ordem = null, aoClicar = null, vazia: vazia2 = "Nada a mostrar." } = {}) {
     let col = ordem?.col ?? null, desc = ordem?.desc ?? true;
@@ -1598,8 +1627,211 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
   }
 
   // src/telas/lancamentos.js
+  var POR_PAGINA = 100;
+  var estado = { editando: null, busca: "", limite: POR_PAGINA, rascunho: null };
+  var CAMPOS = [
+    ["chave", "Chave de acesso", true, "w2", "text", "44 dígitos"],
+    ["numero", "Nº CT-e", true, "", "text", ""],
+    ["emissao", "Emissão", true, "", "date", ""],
+    ["cnpjTransportador", "CNPJ do transportador", true, "", "text", "00.000.000/0000-00"],
+    ["cnpjCliente", "CNPJ do cliente", true, "", "text", "00.000.000/0000-00"],
+    ["origem", "Cidade origem", true, "", "text", ""],
+    ["destino", "Cidade destino", true, "", "text", ""],
+    ["itinerario", "Cód. itinerário", false, "", "text", ""],
+    ["valorAssegurado", "Valor assegurado", false, "", "text", ""],
+    ["taxaSeguro", "Taxa do seguro", false, "", "text", "ex.: 0,0005"],
+    ["valorFrete", "Valor do frete", true, "", "text", ""],
+    ["adicionais", "Adicionais", false, "", "text", ""],
+    ["sacas", "Qt. sacas", true, "", "text", ""]
+  ];
+  var NUM = /* @__PURE__ */ new Set(["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "sacas"]);
+  var fmtCampo = (k, v) => v == null || v === "" ? "" : k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) : NUM.has(k) ? String(v).replace(".", ",") : String(v);
+  function lerForm(form) {
+    const fd = new FormData(form), c = {};
+    for (const [k] of CAMPOS) c[k] = fd.get(k) ?? "";
+    if (estado.editando) c.chave = estado.editando;
+    c.vpo = fd.get("vpo") === "on";
+    c.observacoes = fd.get("observacoes") ?? "";
+    for (const k of NUM) c[k] = numeroBR(c[k]);
+    c.nomeTransportador = (fd.get("nomeTransportador") ?? "").trim();
+    c.nomeCliente = (fd.get("nomeCliente") ?? "").trim();
+    return c;
+  }
+  function formHtml(App2, cte) {
+    const v = cte || estado.rascunho || {};
+    const cidades = [...new Set(App2.dados.ctes.flatMap((c) => [c.origem, c.destino]))].sort();
+    return `<form id="form-cte" class="card${cte ? " editando" : ""}" novalidate data-escreve>
+    <div class="card-head"><div><h3>${cte ? "Corrigir lançamento" : "Lançar CT-e"}</h3>
+      <p class="hint">${cte ? `Corrigindo o CT-e Nº ${esc(cte.numero)}, lançado por ${esc(cte.criadoPor)} em ${fmtQuando(cte.criadoEm)}. A chave não muda.` : "Campos com * são obrigatórios. Seguro, tarifa e preço por saca saem das fórmulas da planilha."}</p></div></div>
+    <div class="form-grid">
+      ${CAMPOS.map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
+        <input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
+          value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${k === "origem" || k === "destino" ? 'list="cidades"' : ""} autocomplete="off">
+        ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("")}
+      <label class="campo"><span>Valor do seguro</span><output name="valorSeguro">—</output></label>
+      <label class="campo"><span>Tarifa do frete</span><output name="tarifa">—</output></label>
+      <label class="campo"><span>Preço por saca</span><output name="precoSaca">—</output></label>
+      <label class="campo check"><input type="checkbox" name="vpo" ${v.vpo ? "checked" : ""}><span>VPO</span></label>
+      <label class="campo w3"><span>Observações</span><input name="observacoes" value="${esc(v.observacoes || "")}" maxlength="300"></label>
+    </div>
+    <datalist id="cidades">${cidades.map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
+    <div id="form-msg"></div>
+    <div class="botoes">${cte ? `<button class="btn" type="button" data-cancelar>Cancelar correção</button>` : `<button class="btn" type="button" data-limpar>Limpar</button>`}
+      <button class="btn primario" type="submit">${cte ? "Salvar correção" : "Lançar CT-e"}</button></div>
+  </form>`;
+  }
+  function atualizarForm(form, App2) {
+    const c = lerForm(form);
+    const r = calcularCte(c);
+    const ok = c.valorFrete != null;
+    form.querySelector("output[name=valorSeguro]").textContent = ok ? fmtMoeda(r.valorSeguro) : "—";
+    form.querySelector("output[name=tarifa]").textContent = ok ? fmtMoeda(r.tarifa) : "—";
+    form.querySelector("output[name=precoSaca]").textContent = ok && r.precoSaca != null ? fmtMoeda(r.precoSaca) : "—";
+    for (const [campo, nomeCampo] of [["cnpjTransportador", "nomeTransportador"], ["cnpjCliente", "nomeCliente"]]) {
+      const cnpj = normalizarCnpj(c[campo]), alvo = form.querySelector(`[data-nome=${campo}]`);
+      const nome = cnpj.length === 14 ? nomeDoCnpj(App2.dados, cnpj) : null;
+      if (nome || cnpj.length !== 14) {
+        alvo.textContent = nome || "";
+        continue;
+      }
+      if (!alvo.querySelector("input")) alvo.innerHTML = `CNPJ sem cadastro. <input name="${nomeCampo}" placeholder="Nome para o cadastro" maxlength="120">`;
+    }
+  }
+  function mostrarErros(form, erros) {
+    $$("[aria-invalid]", form).forEach((i) => i.removeAttribute("aria-invalid"));
+    $$("[data-erro]", form).forEach((e) => {
+      e.textContent = "";
+    });
+    for (const [k, msg] of Object.entries(erros)) {
+      form.querySelector(`[name=${k}]`)?.setAttribute("aria-invalid", "true");
+      const alvo = form.querySelector(`[data-erro=${k}]`) || form.querySelector(`[data-nome=${k === "nomeTransportador" ? "cnpjTransportador" : "cnpjCliente"}]`);
+      if (alvo) alvo.insertAdjacentHTML("beforeend", `<span class="erro">${esc(msg)}</span>`);
+    }
+    form.querySelector("[aria-invalid=true]")?.focus();
+  }
+  async function enviar(form, App2) {
+    const c = lerForm(form), msg = $("#form-msg", form);
+    msg.innerHTML = "";
+    const v = validarCampos(c), erros = { ...v.erros };
+    if (!nomeDoCnpj(App2.dados, c.cnpjTransportador) && v.campos.cnpjTransportador.length === 14 && !c.nomeTransportador) erros.nomeTransportador = "Informe o nome do transportador para o cadastro.";
+    if (!nomeDoCnpj(App2.dados, c.cnpjCliente) && v.campos.cnpjCliente.length === 14 && !c.nomeCliente) erros.nomeCliente = "Informe o nome do cliente para o cadastro.";
+    if (Object.keys(erros).length) return mostrarErros(form, erros);
+    const editando = estado.editando;
+    const existe = !editando && (App2.dados.ctes.find((x) => x.chave === v.campos.chave) || App2.dados.lixeira.find((l) => l.cte.chave === v.campos.chave)?.cte);
+    if (existe) {
+      const naLixeira = !App2.dados.ctes.includes(existe);
+      msg.innerHTML = `<div class="exc existente"><span class="pill">Chave repetida</span><h4>Este CT-e já foi lançado</h4>
+      <p class="exc-act">Nº ${esc(existe.numero)} · emissão ${fmtData(existe.emissao)} · ${esc(grupoDoCnpj(App2.dados, existe.cnpjTransportador).nome)} · lançado por ${esc(existe.criadoPor)} em ${fmtQuando(existe.criadoEm)}.
+      ${naLixeira ? "Ele está na lixeira: restaure na aba Dados." : ""}</p>
+      ${naLixeira ? "" : `<button class="btn" type="button" data-abrir="${esc(existe.chave)}">Abrir para corrigir</button>`}</div>`;
+      return;
+    }
+    estado.rascunho = editando ? null : c;
+    const r = await App2.alterar((d, s, quem, agora) => {
+      if (c.nomeTransportador) App2.acoes.cadastrar(d, s, c.cnpjTransportador, c.nomeTransportador, quem, agora);
+      if (c.nomeCliente) App2.acoes.cadastrar(d, s, c.cnpjCliente, c.nomeCliente, quem, agora);
+      return editando ? App2.acoes.corrigir(d, s, editando, c, quem, agora) : App2.acoes.incluir(d, s, c, quem, agora);
+    });
+    if (r?.ok) {
+      estado.rascunho = null;
+      estado.editando = null;
+      aviso(`CT-e ${r.cte.numero} ${editando ? "corrigido" : "lançado"}.`);
+      App2.render();
+    } else if (r?.erros) mostrarErros(form, r.erros);
+  }
+  function baseHtml() {
+    return `<div class="card"><div class="card-head"><div><h3>Base de CT-e</h3><p class="hint" id="base-cont"></p></div>
+    <label class="campo busca"><span>Buscar por número ou chave</span><input id="busca" type="search" value="${esc(estado.busca)}" autocomplete="off"></label></div>
+    <div id="tab-base"></div><div class="botoes" id="base-mais"></div></div>`;
+  }
+  function pintarBase(raiz, App2) {
+    const d = App2.dados, q = soDigitos(estado.busca);
+    const todas = filtrar(d, { ...App2.filtros, metrica: void 0 }).filter((c) => !q || (q.length <= 9 ? String(c.numero).startsWith(String(Number(q))) : c.chave.includes(q))).sort((a, b) => b.emissao.localeCompare(a.emissao) || b.numero - a.numero);
+    const linhas = todas.slice(0, estado.limite);
+    const recorte = ["rota", "transportador", "cliente", "itinerario", "mesIni", "mesFim"].some((k) => App2.filtros[k]);
+    $("#base-cont", raiz).textContent = `${fmtNum(todas.length)} de ${fmtNum(d.ctes.length)} CT-e${recorte ? " (com o recorte da Evolução)" : ""}. Mais recentes primeiro.`;
+    tabelaOrdenavel($("#tab-base", raiz), [
+      { titulo: "Emissão", valor: (c) => c.emissao, html: (c) => fmtData(c.emissao) },
+      { titulo: "Nº", valor: (c) => c.numero, html: (c) => `<span class="mono">${esc(c.numero)}</span>` },
+      { titulo: "Transportador", valor: (c) => grupoDoCnpj(d, c.cnpjTransportador).nome, html: (c) => esc(nomeDoCnpj(d, c.cnpjTransportador) || fmtCnpj(c.cnpjTransportador)) },
+      { titulo: "Cliente", valor: (c) => grupoDoCnpj(d, c.cnpjCliente).nome, html: (c) => esc(nomeDoCnpj(d, c.cnpjCliente) || fmtCnpj(c.cnpjCliente)) },
+      { titulo: "Rota", valor: (c) => rotaDe(c), html: (c) => esc(rotaDe(c)) },
+      { titulo: "Sacas", valor: (c) => c.sacas, html: (c) => fmtNum(c.sacas), num: true },
+      { titulo: "Tarifa", valor: (c) => c.tarifa, html: (c) => fmtMoeda(c.tarifa), num: true },
+      { titulo: "R$/saca", valor: (c) => c.precoSaca, html: (c) => fmtMoeda(c.precoSaca), num: true },
+      { titulo: "Lançado por", valor: (c) => c.criadoPor, html: (c) => `${esc(c.alteradoPor || c.criadoPor)}<span class="sub">${c.alteradoPor ? "corrigiu " : ""}${fmtQuando(c.alteradoEm || c.criadoEm).slice(0, 10)}</span>` },
+      { titulo: "", valor: () => null, html: (c) => `<span data-escreve><button class="btn mini" type="button" data-corrigir="${c.chave}">Corrigir</button>
+      <button class="btn mini perigo" type="button" data-excluir="${c.chave}">Excluir</button></span>` }
+    ], linhas, { vazia: q ? "Nenhum CT-e com esse número ou chave." : "Nenhum CT-e no recorte." });
+    $("#base-mais", raiz).innerHTML = todas.length > linhas.length ? `<button class="btn" type="button" data-mais>Mostrar mais ${fmtNum(Math.min(POR_PAGINA, todas.length - linhas.length))}</button>` : "";
+  }
   function renderLancamentos(raiz, App2) {
-    raiz.innerHTML = `<section class="secao"><div class="wrap">${secHead("Lançamentos")}</div></section>`;
+    const cte = estado.editando ? App2.dados.ctes.find((c) => c.chave === estado.editando) : null;
+    if (!cte) estado.editando = null;
+    raiz.innerHTML = `<section class="secao"><div class="wrap pilha">
+    ${secHead("Lançamentos", "Um CT-e de concorrente por lançamento. Cada um registra quem lançou e quando.")}
+    ${App2.somenteLeitura ? `<div class="card"><p class="vazio">Painel aberto só para consulta: para lançar, abra o HTML pela pasta compartilhada no Chrome ou Edge.</p></div>` : formHtml(App2, cte)}
+    ${baseHtml()}</div></section>`;
+    const form = $("#form-cte", raiz);
+    if (form) {
+      atualizarForm(form, App2);
+      form.addEventListener("input", (ev) => {
+        if (ev.target.name === "chave" && !estado.editando) {
+          const n = numeroDaChave(ev.target.value), num = form.querySelector("[name=numero]");
+          if (n && !num.value) num.value = n;
+        }
+        atualizarForm(form, App2);
+      });
+      form.addEventListener("change", () => atualizarForm(form, App2));
+      form.addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        enviar(form, App2);
+      });
+      form.addEventListener("click", (ev) => {
+        const abrirEx = ev.target.closest("[data-abrir]");
+        if (abrirEx) {
+          estado.editando = abrirEx.dataset.abrir;
+          estado.rascunho = null;
+          App2.render();
+          scrollTo(0, 0);
+        }
+        if (ev.target.closest("[data-cancelar]")) {
+          estado.editando = null;
+          App2.render();
+        }
+        if (ev.target.closest("[data-limpar]")) {
+          estado.rascunho = null;
+          App2.render();
+        }
+      });
+      if (cte) form.scrollIntoView({ block: "start" });
+    }
+    pintarBase(raiz, App2);
+    $("#busca", raiz).addEventListener("input", (ev) => {
+      estado.busca = ev.target.value;
+      estado.limite = POR_PAGINA;
+      pintarBase(raiz, App2);
+    });
+    raiz.addEventListener("click", async (ev) => {
+      const b = ev.target.closest("[data-corrigir],[data-excluir],[data-mais]");
+      if (!b) return;
+      if (b.dataset.mais !== void 0) {
+        estado.limite += POR_PAGINA;
+        pintarBase(raiz, App2);
+        return;
+      }
+      if (b.dataset.corrigir) {
+        estado.editando = b.dataset.corrigir;
+        estado.rascunho = null;
+        App2.render();
+        return;
+      }
+      const c = App2.dados.ctes.find((x) => x.chave === b.dataset.excluir);
+      if (c && await confirmar(`Excluir o CT-e Nº ${c.numero}?`, "Ele vai para a lixeira e pode ser restaurado na aba Dados. A exclusão fica registrada com o seu nome.", "Excluir")) {
+        const r = await App2.alterar((d, s, quem, agora) => App2.acoes.excluir(d, s, c.chave, quem, agora));
+        if (r?.ok) aviso(`CT-e ${c.numero} enviado para a lixeira.`);
+      }
+    });
   }
 
   // src/telas/cadastro.js
@@ -1697,14 +1929,14 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
     erro: "Não gravado"
   };
   function pintarEstado() {
-    const g = App.gravador, estado = App.somenteLeitura ? "somente-leitura" : g.estado;
+    const g = App.gravador, estado2 = App.somenteLeitura ? "somente-leitura" : g.estado;
     const msg = App.somenteLeitura ? location.protocol === "file:" ? "Este navegador não grava na pasta. Abra pelo Chrome ou Edge para lançar." : "Aberto por link: só consulta. Para lançar, abra o HTML pela pasta compartilhada no Chrome ou Edge." : g.mensagem || (App.dados.salvoEm ? `Última gravação ${fmtQuando(App.dados.salvoEm)}${App.dados.salvoPor ? " por " + App.dados.salvoPor : ""}.` : "Base ainda não gravada na pasta.");
-    $("#estado-gravacao").innerHTML = `<span class="perlab"><i class="marca ${estado}"></i>${esc(ROTULO[estado] || estado)}</span><span class="msg">${esc(msg)}</span>` + (!App.somenteLeitura && !g.pasta ? `<button class="btn mini" type="button" data-acao="conectar">Conectar a pasta</button>` : "") + (!App.somenteLeitura && g.pasta && estado !== "salvo" && estado !== "conflito" ? `<button class="btn mini" type="button" data-acao="salvar">Salvar agora</button>` : "") + `<span class="quem">${App.quem ? `Lançando como <b>${esc(App.quem)}</b> ` : ""}<button class="btn mini" type="button" data-acao="nome">${App.quem ? "Trocar" : "Informar nome"}</button></span>`;
+    $("#estado-gravacao").innerHTML = `<span class="perlab"><i class="marca ${estado2}"></i>${esc(ROTULO[estado2] || estado2)}</span><span class="msg">${esc(msg)}</span>` + (!App.somenteLeitura && !g.pasta ? `<button class="btn mini" type="button" data-acao="conectar">Conectar a pasta</button>` : "") + (!App.somenteLeitura && g.pasta && estado2 !== "salvo" && estado2 !== "conflito" ? `<button class="btn mini" type="button" data-acao="salvar">Salvar agora</button>` : "") + `<span class="quem">${App.quem ? `Lançando como <b>${esc(App.quem)}</b> ` : ""}<button class="btn mini" type="button" data-acao="nome">${App.quem ? "Trocar" : "Informar nome"}</button></span>`;
     const fixo = $("#aviso-fixo");
-    if (!App.somenteLeitura && (estado === "erro" || estado === "conflito")) {
+    if (!App.somenteLeitura && (estado2 === "erro" || estado2 === "conflito")) {
       fixo.hidden = false;
-      fixo.className = "aviso-fixo" + (estado === "conflito" ? " conflito" : "");
-      fixo.innerHTML = `<div class="wrap"><span><b>${estado === "conflito" ? "Outra pessoa gravou na pasta." : "Não gravado na pasta."}</b> ${esc(g.mensagem)}</span>` + (estado === "conflito" ? `<button class="btn primario" type="button" data-acao="juntar">Juntar e salvar</button>` : `<button class="btn" type="button" data-acao="salvar">Tentar de novo</button>`) + `</div>`;
+      fixo.className = "aviso-fixo" + (estado2 === "conflito" ? " conflito" : "");
+      fixo.innerHTML = `<div class="wrap"><span><b>${estado2 === "conflito" ? "Outra pessoa gravou na pasta." : "Não gravado na pasta."}</b> ${esc(g.mensagem)}</span>` + (estado2 === "conflito" ? `<button class="btn primario" type="button" data-acao="juntar">Juntar e salvar</button>` : `<button class="btn" type="button" data-acao="salvar">Tentar de novo</button>`) + `</div>`;
     } else fixo.hidden = true;
     document.body.classList.toggle("somente-leitura", App.somenteLeitura);
   }

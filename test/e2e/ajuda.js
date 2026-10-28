@@ -11,7 +11,7 @@ export const { chromium } = require("playwright");
 const XLSX_JS = readFileSync(new URL("../../node_modules/xlsx/dist/xlsx.full.min.js", import.meta.url), "utf8");
 const DIST = new URL("../../dist/index.html", import.meta.url).pathname;
 
-export async function abrir(browser, { dados = null, hash = "", largura = 1280, altura = 900, tema = "light", antes = null } = {}) {
+export async function abrir(browser, { dados = null, hash = "", largura = 1280, altura = 900, tema = "light", antes = null, gravavel = false, quem = null } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "radar-cs-"));
   copyFileSync(DIST, join(dir, "index.html"));
   if (dados) writeFileSync(join(dir, "radar-carga-solta-dados.js"), montarDadosJs(dados));
@@ -23,6 +23,9 @@ export async function abrir(browser, { dados = null, hash = "", largura = 1280, 
   page.on("console", m => { if (m.type() === "error" && !/ERR_FILE_NOT_FOUND|fonts\.googleapis|fonts\.gstatic|net::/.test(m.text())) erros.push(m.text()); });
   await page.route(/cdnjs\.cloudflare\.com\/ajax\/libs\/xlsx/, r => r.fulfill({ body: XLSX_JS, contentType: "text/javascript" }));
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  // o Chromium de teste pode não ter o seletor de pasta: um falso deixa o painel em modo de lançamento
+  if (gravavel) await page.addInitScript(() => { if (!window.showDirectoryPicker) window.showDirectoryPicker = async () => { throw Object.assign(new Error("cancelado"), { name: "AbortError" }); }; });
+  if (quem) await page.addInitScript(n => { try { localStorage.setItem("radar-carga-solta:quem", n); } catch (e) {} }, quem);
   if (antes) await antes(page, dir);
   await page.goto("file://" + join(dir, "index.html") + hash);
   return { page, ctx, dir, erros };
