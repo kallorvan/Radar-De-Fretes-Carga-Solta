@@ -367,7 +367,6 @@ button,input,select,textarea{font:inherit;color:inherit}
 .abas button{background:none;border:0;padding:0 0 2px;color:var(--steel);cursor:pointer;border-bottom:2px solid transparent}
 .abas button:hover,.abas button[aria-selected="true"]{color:var(--accent-d);border-color:var(--accent)}
 .abas button[aria-selected="true"]{color:var(--navy)}
-@media (max-width:640px){.top .rule,.top .who{display:none}.abas{margin-left:0;gap:14px;width:100%;overflow-x:auto;flex-wrap:nowrap}.abas button{flex:none}}
 .logos-branco{display:flex;gap:14px;align-items:center}
 .logos-branco img{height:22px;width:auto}
 
@@ -411,7 +410,6 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* filtros */
 .filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 14px;align-items:end}
 .filtros .largo{grid-column:span 2}
-@media (max-width:640px){.filtros .largo{grid-column:auto}}
 .hero .filtros .campo>span{color:var(--on-navy-3)}
 .hero .filtros select{background:#0f1f3f;border-color:var(--border-on-navy);color:#fff}
 
@@ -455,13 +453,11 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
 .bignum{font-size:84px;white-space:nowrap}
 .bignum .un{font-size:.36em;letter-spacing:.02em}
 .bignum.longo{font-size:60px}
-@media (max-width:640px){.bignum{font-size:60px}.bignum.longo{font-size:44px}}
 .hero .split span .sobe{color:#ffb3c0}.hero .split span .desce{color:#9be0b8}
 .hero-grid{grid-template-columns:minmax(0,340px) minmax(0,1fr)}
 @media (max-width:1000px){.hero-grid{grid-template-columns:minmax(0,1fr)}}
 .grafico svg{max-height:340px}
 .exc .tabela table{min-width:520px}
-@media (max-width:640px){.grafico{overflow-x:auto}.grafico svg{min-width:620px}}
 
 </style>
 </head>
@@ -1417,6 +1413,28 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
     partes.push("</svg>");
     return partes.join("");
   }
+  function miniGrafico(porMes2, meses, { largura = 120, altura = 28 } = {}) {
+    const vals = meses.map((m) => porMes2[m]).filter((v) => v != null);
+    const abre = `<svg class="mini" viewBox="0 0 ${largura} ${altura}" width="${largura}" height="${altura}" aria-hidden="true">`;
+    if (!vals.length) return abre + "</svg>";
+    const min = Math.min(...vals), max = Math.max(...vals), pad = 3;
+    const x = (i) => r1(meses.length === 1 ? largura / 2 : pad + i * (largura - 2 * pad) / (meses.length - 1));
+    const y = (v) => r1(max === min ? altura / 2 : altura - pad - (v - min) / (max - min) * (altura - 2 * pad));
+    const trechos = [];
+    let atual = [], ultimo = null;
+    meses.forEach((m, i) => {
+      const v = porMes2[m];
+      if (v == null) {
+        if (atual.length) trechos.push(atual);
+        atual = [];
+        return;
+      }
+      atual.push(`${x(i)},${y(v)}`);
+      ultimo = [x(i), y(v)];
+    });
+    if (atual.length) trechos.push(atual);
+    return abre + trechos.map((t) => `<polyline points="${t.join(" ")}" fill="none" stroke="var(--navy)" stroke-width="1.5"/>`).join("") + `<circle cx="${ultimo[0]}" cy="${ultimo[1]}" r="2.6" fill="var(--accent)"/></svg>`;
+  }
 
   // src/telas/evolucao.js
   var variacaoHtml = (v) => v == null ? "—" : `<span class="${v > 0 ? "sobe" : v < 0 ? "desce" : ""}">${v > 0 ? "+" : ""}${fmtPct(v)}</span>`;
@@ -1556,7 +1574,27 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
 
   // src/telas/rotas.js
   function renderRotas(raiz, App2) {
-    raiz.innerHTML = `<section class="secao"><div class="wrap">${secHead("Rotas")}</div></section>`;
+    const metrica = App2.filtros.metrica;
+    const rotas = resumoRotas(App2.dados, metrica);
+    const todos = rotas.flatMap((r) => Object.keys(r.porMes)).sort();
+    const meses = todos.length ? mesesEntre(todos[0], todos.at(-1)) : [];
+    raiz.innerHTML = `<section class="secao"><div class="wrap">
+    ${secHead("Rotas", "Uma linha por origem → destino. Clique para ver a evolução da rota.")}
+    <div class="card"><div class="card-head"><div><h3>${metrica === "tarifa" ? "Tarifa do frete" : "Preço por saca"} por rota</h3>
+      <p class="hint">Mediana do último mês com dados; a variação compara com o mês anterior que teve CT-e. O traço mostra ${meses.length ? fmtMes(meses[0]) + " a " + fmtMes(meses.at(-1)) : "os meses"}.</p></div>
+      <div class="modes light" role="group" aria-label="Métrica">
+        <button type="button" data-metrica="saca" aria-pressed="${metrica === "saca"}">R$/saca</button>
+        <button type="button" data-metrica="tarifa" aria-pressed="${metrica === "tarifa"}">Tarifa R$</button></div></div>
+      <div id="tab-rotas"></div></div></div></section>`;
+    tabelaOrdenavel($("#tab-rotas", raiz), [
+      { titulo: "Rota", valor: (r) => r.rota, html: (r) => esc(r.rota) },
+      { titulo: "CT-e", valor: (r) => r.nCtes, html: (r) => fmtNum(r.nCtes), num: true },
+      { titulo: "Transportadores", valor: (r) => r.nTransportadores, html: (r) => fmtNum(r.nTransportadores), num: true },
+      { titulo: "Último mês", valor: (r) => r.valor, html: (r) => r.valor == null ? "—" : `${fmtMoeda(r.valor)}<span class="sub">${fmtMes(r.ultimoMes)}</span>`, num: true },
+      { titulo: "Variação", valor: (r) => r.variacao, html: (r) => variacaoHtml(r.variacao), num: true },
+      { titulo: "Meses", valor: (r) => Object.keys(r.porMes).length, html: (r) => miniGrafico(r.porMes, meses, {}) }
+    ], rotas, { aoClicar: (r) => App2.irPara("evolucao", { metrica, rota: r.rota }), vazia: "Nenhum CT-e lançado ainda." });
+    $$("[data-metrica]", raiz).forEach((b) => b.addEventListener("click", () => App2.mudarFiltros({ metrica: b.dataset.metrica })));
   }
 
   // src/telas/lancamentos.js

@@ -1,6 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { chromium, abrir, semRolagemHorizontal } from "./ajuda.js";
+import { chromium, abrir } from "./ajuda.js";
 import { baseExemplo } from "../fixtures/base-exemplo.js";
 import { novaBase } from "../../src/base.js";
 
@@ -48,13 +48,5 @@ test("base vazia mostra o caminho para lançar ou importar", async () => {
   await page.waitForSelector(".vazio");
   assert.match(await page.locator(".vazio").first().textContent(), /Nenhum CT-e lançado/);
   assert.deepEqual(erros, []);
-  await ctx.close();
-});
-
-test("evolução no celular não rola para o lado", async () => {
-  const { page, ctx } = await abrir(browser, { dados: baseExemplo(), largura: 390, altura: 844, hash: "#evolucao?rota=A%20%E2%86%92%20B" });
-  await page.waitForSelector(".bignum");
-  assert.equal(await semRolagemHorizontal(page), true);
-  await page.screenshot({ path: "test-results/evolucao-390.png", fullPage: true });
   await ctx.close();
 });

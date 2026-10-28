@@ -178,7 +178,7 @@ Segue o Tóliman Painéis:
 - Barlow Condensed em títulos e números, IBM Plex Sans no texto e IBM Plex Mono em rótulos, valores e cabeçalhos de tabela.
 - Sem ícones nem emoji; números em pt-BR.
 - O rodapé diz de onde vêm os números: "Lançamentos do Radar de Fretes · Carga Solta; histórico importado de Radar_Fretes_Concorrentes_v2.10.xlsm".
-- Tema claro e escuro; layout utilizável no celular (consulta), com o lançamento pensado para desktop.
+- Tema claro e escuro. Uso em computador (desktop); celular está fora do escopo (decisão de 28/10/2026).
 
 ## 7. Exceções e erros
 
@@ -218,7 +218,6 @@ Segue o Tóliman Painéis:
   - tentar lançar a mesma chave (bloqueado);
   - corrigir, excluir, restaurar;
   - conferir o número do topo e a tabela da rota;
-  - conferir que não há rolagem horizontal da página a 390 px.
 - A gravação em pasta é testada com o sistema de arquivos simulado (o Playwright não abre o seletor de pasta real).
 
 ## 9. Fora do escopo
@@ -227,3 +226,4 @@ Segue o Tóliman Painéis:
 - Container, tarifário e comparativo, que continuam no Radar de Fretes Tóliman.
 - Login e permissões reais.
 - Leitura automática de XML ou PDF do CT-e.
+- Uso no celular.

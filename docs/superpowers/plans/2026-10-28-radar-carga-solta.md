@@ -490,7 +490,7 @@ test("esc escapa < > & \"", () => assert.equal(esc(`<b a="1">&`), "&lt;b a=&quot
   - espera `.bignum` = `"R$ 175,00"` e 3 `path.serie`.
 - [ ] **Step 2: Rodar `npm run montar && npm run test:e2e`.** Esperado: FAIL.
 - [ ] **Step 3: Implementar `renderEvolucao`.** Toda interpolação de texto em HTML passa por `esc()`.
-- [ ] **Step 4: Rodar de novo.** Esperado: PASS. Conferir o screenshot a 1280 px e a 390 px (sem rolagem horizontal: `document.documentElement.scrollWidth <= innerWidth`).
+- [ ] **Step 4: Rodar de novo.** Esperado: PASS. Conferir o screenshot a 1280 px (celular fora do escopo, decisão do usuário em 28/10/2026).
 - [ ] **Step 5: Commit** `"Tela Evolução"`.
 
 ---
@@ -596,8 +596,8 @@ test("esc escapa < > & \"", () => assert.equal(esc(`<b a="1">&`), "&lt;b a=&quot
   - Conferir que o arquivo gravado tem 4 CT-e, que `backups/` tem cópias e que o log tem as ações em ordem.
   - Simular outra gravação (alterar `salvoEm` no arquivo falso) e verificar que aparece o painel de conflito e que "Juntar e salvar" preserva as duas mudanças.
 - [ ] **Step 2: Rodar.** Esperado: PASS.
-- [ ] **Step 3: Conferência visual.** Screenshots das 5 telas a 1280 px e a 390 px, nos temas claro e escuro, em `test-results/`. Checar:
-  - sem rolagem horizontal da página;
+- [ ] **Step 3: Conferência visual.** Screenshots das 5 telas a 1280 px, nos temas claro e escuro, em `test-results/`. Checar:
+  - sem rolagem horizontal da página a 1280 px;
   - números legíveis;
   - nenhum texto em inglês.
 - [ ] **Step 4: Escrever `docs/IMPLANTACAO.md`** em pt-BR:
