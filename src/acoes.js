@@ -66,7 +66,7 @@ export function cadastrarUnidade(d, s, unidade, quem, agora, opcoes) {
 }
 export function definirCorte(d, s, valor, quem, agora) {
   const r = comLog(d, s, () => B.definirCorte(d, valor, quem, agora));
-  if (r.ok) s.config.set("corte", r.corte);
+  if (r.ok && r.mudou) s.config.set("corte", r.corte);
   return r;
 }
 export function importar(d, s, resultado, quem, agora) {

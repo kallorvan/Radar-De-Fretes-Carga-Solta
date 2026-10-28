@@ -148,7 +148,8 @@ export function renderDados(raiz, App) {
       if (r?.ok) aviso(`CT-e ${r.cte.numero} restaurado.`);
     } else if (b.hasAttribute("data-salvar-corte")) {
       const r = await App.alterar((dd, s, quem, agora) => App.acoes.definirCorte(dd, s, $("#corte", raiz).value, quem, agora));
-      if (r?.ok) aviso(r.corte ? `Data de corte: ${fmtData(r.corte)}.` : "Sem data de corte: todos os CT-e entram na análise.");
+      if (r?.ok && !r.mudou) aviso("A data de corte já era essa.");
+      else if (r?.ok) aviso(r.corte ? `Data de corte: ${fmtData(r.corte)}.` : "Sem data de corte: todos os CT-e entram na análise.");
       else if (r) aviso("Data inválida.", true);
     } else if (b.hasAttribute("data-nome")) { await App.pedirNome(); App.render(); }
     else if (b.hasAttribute("data-salvar")) { const r = await g.gravarNaFila({ manual: true }); if (r?.ok) aviso("Salvo na pasta."); App.render(); }

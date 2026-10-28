@@ -77,6 +77,7 @@ function formHtml(App, cte) {
       <label class="campo w3"><span>Observações</span><input name="observacoes" value="${esc(v.observacoes || "")}" maxlength="300"></label>
     </div>
     <datalist id="cidades">${cidades.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
+    ${cte && cte.cnpjTransportador !== cnpjDaChave(cte.chave) ? `<p class="aviso-campo" id="aviso-cnpj-chave">O CNPJ do transportador guardado neste CT-e (${fmtCnpj(cte.cnpjTransportador)}) não bate com a chave de acesso. Ao salvar a correção, vale o da chave: ${fmtCnpj(cnpjDaChave(cte.chave))}.</p>` : ""}
     <div id="form-msg"></div>
     <div class="botoes">${cte ? `<button class="btn" type="button" data-cancelar>Cancelar correção</button>` : `<button class="btn" type="button" data-limpar>Limpar</button>`}
       <button class="btn primario" type="submit">${cte ? "Salvar correção" : "Lançar CT-e"}</button></div>

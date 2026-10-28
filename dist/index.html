@@ -498,6 +498,9 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 .card-head .campo.curto{margin-left:auto;min-width:170px}
 .card-head .campo.curto+.modes{margin-left:0;align-self:flex-end}
 .exc td .btn.mini{margin-left:10px;vertical-align:middle}
+#tab-cnpj tr.destaque td{background:color-mix(in srgb, var(--accent) 12%, transparent)}
+.aviso-campo{margin:12px 0 0;padding:10px 12px;border-left:3px solid var(--accent);background:color-mix(in srgb, var(--accent) 8%, transparent);font-size:13px}
+#form-cnpj.destaque{box-shadow:0 0 0 2px var(--accent)}
 
 </style>
 </head>
@@ -1048,9 +1051,10 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     r.lixeira = r.lixeira.map((l) => ({ ...l, cte: normaliza(l.cte) }));
     if ((r.versao || 1) < 3) {
       if (r.corte === void 0) r.corte = CORTE_PADRAO;
+      const taxaV3 = (c) => !(c.valorAssegurado > 0) ? null : c.taxaSeguro > 0 && arred2(c.valorAssegurado * c.taxaSeguro) === arred2(c.valorSeguro || 0) ? c.taxaSeguro : arred6((c.valorSeguro || 0) / c.valorAssegurado);
       const v3 = (c) => ({
         ...c,
-        taxaSeguro: c.valorAssegurado > 0 ? arred6((c.valorSeguro || 0) / c.valorAssegurado) : null,
+        taxaSeguro: taxaV3(c),
         itinerario: c.itinerario || codigoItinerario(c.origem, c.destino)
       });
       r.ctes = r.ctes.map(v3);
@@ -1064,9 +1068,10 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   function definirCorte(d, valor, quem, agora) {
     const v = valor ? String(valor) : null;
     if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return { ok: false };
+    if (v === (d.corte ?? null)) return { ok: true, corte: v, mudou: false };
     d.corte = v;
     registrar(d, "corte", quem, agora, "", v ? `data de corte ${v.split("-").reverse().join("/")}` : "sem data de corte");
-    return { ok: true, corte: v };
+    return { ok: true, corte: v, mudou: true };
   }
   var unidadeDe = (d, id) => (d.unidades || []).find((u) => u.id === id) || null;
   var produtoDe = (d, id) => (d.produtos || []).find((p) => p.id === id) || null;
@@ -1109,8 +1114,10 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     if (!chaveValida(c.chave)) erros.chave = "Chave de acesso precisa ter 44 dígitos.";
     if (!c.numero) erros.numero = "Informe o número do CT-e.";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(c.emissao)) erros.emissao = "Informe a data de emissão.";
-    if (c.cnpjTransportador.length !== 14) erros.cnpjTransportador = "CNPJ do transportador precisa ter 14 dígitos.";
-    else if (chaveValida(c.chave) && c.cnpjTransportador !== cnpjDaChave(c.chave)) erros.cnpjTransportador = "O CNPJ do transportador não bate com a chave de acesso.";
+    const daChave = !normalizarCnpj(campos.cnpjTransportador);
+    if (c.cnpjTransportador.length !== 14) {
+      if (!daChave || chaveValida(c.chave)) erros.cnpjTransportador = "CNPJ do transportador precisa ter 14 dígitos.";
+    } else if (chaveValida(c.chave) && c.cnpjTransportador !== cnpjDaChave(c.chave)) erros.cnpjTransportador = "O CNPJ do transportador não bate com a chave de acesso.";
     if (c.cnpjCliente.length !== 14) erros.cnpjCliente = "CNPJ do cliente precisa ter 14 dígitos.";
     if (!c.origem) erros.origem = "Informe a cidade de origem.";
     if (!c.destino) erros.destino = "Informe a cidade de destino.";
@@ -1906,7 +1913,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   }
   function definirCorte2(d, s, valor, quem, agora) {
     const r = comLog(d, s, () => definirCorte(d, valor, quem, agora));
-    if (r.ok) s.config.set("corte", r.corte);
+    if (r.ok && r.mudou) s.config.set("corte", r.corte);
     return r;
   }
   function importar(d, s, resultado, quem, agora) {
@@ -2260,7 +2267,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     "sem-cadastro": ["CNPJ sem nome no cadastro", "O painel mostra o CNPJ no lugar do nome. Cadastre o nome na aba Cadastro."],
     "diverge-planilha": ["Diferente da planilha", "Na importação, o CNPJ do transportador, o itinerário ou a tarifa não bateram; vale o CNPJ da chave e o itinerário do cadastro do Rodopar, e a tarifa da planilha."]
   };
-  var NOMES_DIVERGENCIA = { tarifa: "Tarifa", precoSaca: "R$/saca", cnpjTransportador: "CNPJ", itinerario: "Itinerário" };
+  var NOMES_DIVERGENCIA = { valorSeguro: "Seguro", tarifa: "Tarifa", precoSaca: "R$/saca", cnpjTransportador: "CNPJ", itinerario: "Itinerário" };
   var fmtDivergente = (k, v) => k === "cnpjTransportador" ? fmtCnpj(v) : k === "itinerario" ? v || "em branco" : fmtMoeda(v);
   var oQueDivergiu = (div) => Object.keys(div?.planilha || {}).map((k) => `${NOMES_DIVERGENCIA[k] || k}: planilha ${fmtDivergente(k, div.planilha[k])}${k in (div.calculado || {}) ? " · painel " + fmtDivergente(k, div.calculado[k]) : ""}`).join("<br>");
   function excecoesHtml(d) {
@@ -2489,6 +2496,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       <label class="campo w3"><span>Observações</span><input name="observacoes" value="${esc(v.observacoes || "")}" maxlength="300"></label>
     </div>
     <datalist id="cidades">${cidades.map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
+    ${cte && cte.cnpjTransportador !== cnpjDaChave(cte.chave) ? `<p class="aviso-campo" id="aviso-cnpj-chave">O CNPJ do transportador guardado neste CT-e (${fmtCnpj(cte.cnpjTransportador)}) não bate com a chave de acesso. Ao salvar a correção, vale o da chave: ${fmtCnpj(cnpjDaChave(cte.chave))}.</p>` : ""}
     <div id="form-msg"></div>
     <div class="botoes">${cte ? `<button class="btn" type="button" data-cancelar>Cancelar correção</button>` : `<button class="btn" type="button" data-limpar>Limpar</button>`}
       <button class="btn primario" type="submit">${cte ? "Salvar correção" : "Lançar CT-e"}</button></div>
@@ -2668,9 +2676,10 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   }
 
   // src/telas/cadastro.js
-  var estado2 = { busca: "" };
+  var estado2 = { busca: "", destaque: null };
   var abrirNoCadastro = (cnpj) => {
-    estado2.busca = cnpj;
+    estado2.busca = "";
+    estado2.destaque = cnpj;
   };
   var opcoesProduto = (d, atual) => `<option value="">—</option>` + d.produtos.map((p) => `<option value="${esc(p.id)}"${p.id === atual ? " selected" : ""}>${esc(p.nome)}</option>`).join("");
   function renderCadastro(raiz, App2) {
@@ -2716,7 +2725,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       const q = estado2.busca.trim().toUpperCase(), qd = soDigitos(q);
       const linhas = d.cnpjs.filter((c) => !q || c.nome.includes(q) || qd && c.cnpj.includes(qd));
       tabelaOrdenavel($("#tab-cnpj", raiz), [
-        { titulo: "CNPJ", valor: (c) => c.cnpj, html: (c) => `<span class="mono">${fmtCnpj(c.cnpj)}</span>` },
+        { titulo: "CNPJ", valor: (c) => c.cnpj, html: (c) => `<span class="mono" data-linha-cnpj="${c.cnpj}">${fmtCnpj(c.cnpj)}</span>` },
         { titulo: "Nome", valor: (c) => c.nome, html: (c) => so ? esc(c.nome) : `<input class="nome-cnpj" data-cnpj="${c.cnpj}" value="${esc(c.nome)}" aria-label="Nome de ${fmtCnpj(c.cnpj)}">` },
         { titulo: "Produto padrão", valor: (c) => c.produtoPadrao || "", html: (c) => so ? esc(d.produtos.find((p) => p.id === c.produtoPadrao)?.nome || "—") : `<select class="produto-padrao" data-cnpj="${c.cnpj}" aria-label="Produto padrão de ${fmtCnpj(c.cnpj)}">${opcoesProduto(d, c.produtoPadrao)}</select>` },
         { titulo: "Grupo (raiz)", valor: (c) => grupoDoCnpj(d, c.cnpj).nome, html: (c) => `${esc(grupoDoCnpj(d, c.cnpj).nome)}<span class="sub">${raizCnpj(c.cnpj)}</span>` },
@@ -2724,6 +2733,19 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       ], linhas, { ordem: { col: 1, desc: false }, vazia: "Nenhum CNPJ encontrado." });
     };
     pintar();
+    if (estado2.destaque) {
+      const tr = raiz.querySelector(`[data-linha-cnpj="${estado2.destaque}"]`)?.closest("tr"), form = $("#form-cnpj", raiz);
+      const alvo = tr || form;
+      if (!tr && form) {
+        form.querySelector("[name=cnpj]").value = fmtCnpj(estado2.destaque);
+        form.querySelector("[name=nome]").focus({ preventScroll: true });
+      } else tr?.querySelector("input")?.focus({ preventScroll: true });
+      if (alvo) {
+        alvo.classList.add("destaque");
+        requestAnimationFrame(() => alvo.scrollIntoView({ block: "center" }));
+      }
+      estado2.destaque = null;
+    }
     $("#busca-cnpj", raiz).addEventListener("input", (ev) => {
       estado2.busca = ev.target.value;
       pintar();
@@ -2918,7 +2940,8 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
         if (r?.ok) aviso(`CT-e ${r.cte.numero} restaurado.`);
       } else if (b.hasAttribute("data-salvar-corte")) {
         const r = await App2.alterar((dd, s, quem, agora) => App2.acoes.definirCorte(dd, s, $("#corte", raiz).value, quem, agora));
-        if (r?.ok) aviso(r.corte ? `Data de corte: ${fmtData(r.corte)}.` : "Sem data de corte: todos os CT-e entram na análise.");
+        if (r?.ok && !r.mudou) aviso("A data de corte já era essa.");
+        else if (r?.ok) aviso(r.corte ? `Data de corte: ${fmtData(r.corte)}.` : "Sem data de corte: todos os CT-e entram na análise.");
         else if (r) aviso("Data inválida.", true);
       } else if (b.hasAttribute("data-nome")) {
         await App2.pedirNome();

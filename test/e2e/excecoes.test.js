@@ -33,14 +33,6 @@ test("exceção de CT-e abre a correção dele na base", async () => {
   await ctx.close();
 });
 
-test("exceção de CNPJ abre o cadastro já buscando o CNPJ", async () => {
-  const { page, ctx } = await abrirEvolucao();
-  await page.click('.exc[data-tipo="sem-cadastro"] [data-abrir-cnpj]');
-  await page.waitForSelector("#busca-cnpj");
-  assert.equal(await page.locator("#busca-cnpj").inputValue(), "77777777000100");
-  await ctx.close();
-});
-
 test("CT-e a classificar leva à classificação", async () => {
   const { page, ctx } = await abrirEvolucao();
   await page.click('.exc[data-tipo="a-classificar"] [data-ir-classificar]');
@@ -49,3 +41,34 @@ test("CT-e a classificar leva à classificação", async () => {
   await ctx.close();
 });
 
+
+test("CNPJ sem cadastro abre o Incluir CNPJ já preenchido, com o cursor no nome", async () => {
+  const { page, ctx } = await abrirEvolucao();
+  await page.click('.exc[data-tipo="sem-cadastro"] [data-abrir-cnpj]');
+  await page.waitForSelector("#form-cnpj.destaque");
+  assert.equal(await page.locator("#form-cnpj [name=cnpj]").inputValue(), "77.777.777/0001-00");
+  assert.equal(await page.evaluate(() => document.activeElement?.name), "nome");
+  assert.ok(await page.locator("#tab-cnpj tbody tr").count() > 1, "a lista não é filtrada");
+  await ctx.close();
+});
+
+test("CNPJ já cadastrado: a linha dele fica destacada na lista inteira", async () => {
+  const { page, ctx } = await abrirEvolucao();
+  await page.waitForSelector("#excecoes");
+  await page.evaluate(() => window.RADAR_APP.abrirCnpj("11111111000100"));
+  await page.waitForSelector("#tab-cnpj tr.destaque");
+  assert.match(await page.locator("#tab-cnpj tr.destaque").textContent(), /11\.111\.111\/0001-00/);
+  assert.ok(await page.locator("#tab-cnpj tbody tr").count() > 1);
+  await ctx.close();
+});
+
+test("divergência antiga de seguro aparece com o nome do campo", async () => {
+  const d = baseComExcecoes();
+  d.ctes[0].divergencia = { calculado: { valorSeguro: 193.07, tarifa: 8750 }, planilha: { valorSeguro: 193, tarifa: 8750.07 } };
+  const { page, ctx } = await abrir(browser, { dados: d, hash: "#evolucao" });
+  await page.waitForSelector('.exc[data-tipo="diverge-planilha"]');
+  const txt = await page.locator('.exc[data-tipo="diverge-planilha"] tbody').first().textContent();
+  assert.match(txt, /Seguro: planilha R\$ 193,00/);
+  assert.doesNotMatch(txt, /valorSeguro/);
+  await ctx.close();
+});

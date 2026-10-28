@@ -6,9 +6,10 @@ import { normalizarCnpj, raizCnpj, soDigitos } from "../calculos.js";
 import { esc, fmtCnpj, fmtNum } from "../formato.js";
 import { $, secHead, tabelaOrdenavel, aviso } from "../ui.js";
 
-const estado = { busca: "" };
+const estado = { busca: "", destaque: null };
 
-export const abrirNoCadastro = cnpj => { estado.busca = cnpj; };
+/* Vindo de uma exceção: a lista inteira, com a linha do CNPJ destacada; sem cadastro, o "Incluir CNPJ" já preenchido. */
+export const abrirNoCadastro = cnpj => { estado.busca = ""; estado.destaque = cnpj; };
 
 const opcoesProduto = (d, atual) => `<option value="">—</option>` +
   d.produtos.map(p => `<option value="${esc(p.id)}"${p.id === atual ? " selected" : ""}>${esc(p.nome)}</option>`).join("");
@@ -60,7 +61,7 @@ export function renderCadastro(raiz, App) {
     const q = estado.busca.trim().toUpperCase(), qd = soDigitos(q);
     const linhas = d.cnpjs.filter(c => !q || c.nome.includes(q) || (qd && c.cnpj.includes(qd)));
     tabelaOrdenavel($("#tab-cnpj", raiz), [
-      { titulo: "CNPJ", valor: c => c.cnpj, html: c => `<span class="mono">${fmtCnpj(c.cnpj)}</span>` },
+      { titulo: "CNPJ", valor: c => c.cnpj, html: c => `<span class="mono" data-linha-cnpj="${c.cnpj}">${fmtCnpj(c.cnpj)}</span>` },
       { titulo: "Nome", valor: c => c.nome, html: c => so ? esc(c.nome) :
         `<input class="nome-cnpj" data-cnpj="${c.cnpj}" value="${esc(c.nome)}" aria-label="Nome de ${fmtCnpj(c.cnpj)}">` },
       { titulo: "Produto padrão", valor: c => c.produtoPadrao || "", html: c => so ? esc(d.produtos.find(p => p.id === c.produtoPadrao)?.nome || "—") :
@@ -70,6 +71,14 @@ export function renderCadastro(raiz, App) {
     ], linhas, { ordem: { col: 1, desc: false }, vazia: "Nenhum CNPJ encontrado." });
   };
   pintar();
+  if (estado.destaque) {
+    const tr = raiz.querySelector(`[data-linha-cnpj="${estado.destaque}"]`)?.closest("tr"), form = $("#form-cnpj", raiz);
+    const alvo = tr || form;
+    if (!tr && form) { form.querySelector("[name=cnpj]").value = fmtCnpj(estado.destaque); form.querySelector("[name=nome]").focus({ preventScroll: true }); }
+    else tr?.querySelector("input")?.focus({ preventScroll: true });
+    if (alvo) { alvo.classList.add("destaque"); requestAnimationFrame(() => alvo.scrollIntoView({ block: "center" })); }
+    estado.destaque = null;
+  }
   $("#busca-cnpj", raiz).addEventListener("input", ev => { estado.busca = ev.target.value; pintar(); });
 
   const alterar = async (fn, ok) => { const r = await App.alterar(fn); if (r?.ok) aviso(ok(r)); else if (r?.erro) { aviso(r.erro, true); App.render(); } };

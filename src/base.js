@@ -1,7 +1,7 @@
 // A base em memória: CT-e, cadastro de CNPJ, lixeira e histórico.
 // Toda alteração passa por aqui e deixa registro de quem fez e quando.
 
-import { calcularCte, arred6, cnpjDaChave, codigoItinerario, normalizarCnpj, chaveValida, normalizarCidade, raizCnpj, ehMatriz, soDigitos, numeroBR } from "./calculos.js";
+import { calcularCte, arred2, arred6, cnpjDaChave, codigoItinerario, normalizarCnpj, chaveValida, normalizarCidade, raizCnpj, ehMatriz, soDigitos, numeroBR } from "./calculos.js";
 import { fmtCnpj } from "./formato.js";
 import { sugerirProdutoCliente } from "./produtos-clientes.js";
 
@@ -54,7 +54,11 @@ export function migrarBase(d) {
   if ((r.versao || 1) < 3) {
     if (r.corte === undefined) r.corte = CORTE_PADRAO;
     // o seguro passa a ser o informado no CT-e; a taxa vira conferência
-    const v3 = c => ({ ...c, taxaSeguro: c.valorAssegurado > 0 ? arred6((c.valorSeguro || 0) / c.valorAssegurado) : null,
+    // a taxa digitada fica quando ela reproduz o seguro guardado (sem perder casas); senão sai do seguro
+    const taxaV3 = c => !(c.valorAssegurado > 0) ? null
+      : c.taxaSeguro > 0 && arred2(c.valorAssegurado * c.taxaSeguro) === arred2(c.valorSeguro || 0) ? c.taxaSeguro
+      : arred6((c.valorSeguro || 0) / c.valorAssegurado);
+    const v3 = c => ({ ...c, taxaSeguro: taxaV3(c),
       itinerario: c.itinerario || codigoItinerario(c.origem, c.destino) });
     r.ctes = r.ctes.map(v3);
     r.lixeira = r.lixeira.map(l => ({ ...l, cte: v3(l.cte) }));
@@ -70,9 +74,10 @@ export const ctesNoCorte = d => d.ctes.filter(c => noCorte(d, c));
 export function definirCorte(d, valor, quem, agora) {
   const v = valor ? String(valor) : null;
   if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return { ok: false };
+  if (v === (d.corte ?? null)) return { ok: true, corte: v, mudou: false };
   d.corte = v;
   registrar(d, "corte", quem, agora, "", v ? `data de corte ${v.split("-").reverse().join("/")}` : "sem data de corte");
-  return { ok: true, corte: v };
+  return { ok: true, corte: v, mudou: true };
 }
 
 export const unidadeDe = (d, id) => (d.unidades || []).find(u => u.id === id) || null;
@@ -121,7 +126,9 @@ export function validarCampos(d, campos, { exigirClassificacao = true } = {}) {
   if (!chaveValida(c.chave)) erros.chave = "Chave de acesso precisa ter 44 dígitos.";
   if (!c.numero) erros.numero = "Informe o número do CT-e.";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(c.emissao)) erros.emissao = "Informe a data de emissão.";
-  if (c.cnpjTransportador.length !== 14) erros.cnpjTransportador = "CNPJ do transportador precisa ter 14 dígitos.";
+  // CNPJ vazio que sairia de uma chave inválida: o erro é só o da chave
+  const daChave = !normalizarCnpj(campos.cnpjTransportador);
+  if (c.cnpjTransportador.length !== 14) { if (!daChave || chaveValida(c.chave)) erros.cnpjTransportador = "CNPJ do transportador precisa ter 14 dígitos."; }
   else if (chaveValida(c.chave) && c.cnpjTransportador !== cnpjDaChave(c.chave)) erros.cnpjTransportador = "O CNPJ do transportador não bate com a chave de acesso.";
   if (c.cnpjCliente.length !== 14) erros.cnpjCliente = "CNPJ do cliente precisa ter 14 dígitos.";
   if (!c.origem) erros.origem = "Informe a cidade de origem.";

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   novaBase, validarCampos, incluir, corrigir, excluir, restaurar,
   cadastrarCnpj, nomeDoCnpj, grupoDoCnpj, registrar, migrarBase, classificar,
-  cadastrarProduto, cadastrarUnidade, definirProdutoPadrao, unidadeDe, produtoDe,
+  cadastrarProduto, cadastrarUnidade, definirProdutoPadrao, unidadeDe, produtoDe, definirCorte,
 } from "../src/base.js";
 import { CHAVE, campos, chaveN } from "./ajuda.js";
 
@@ -276,4 +276,28 @@ test("corrigir não apaga o itinerário guardado quando a rota não muda e a reg
   assert.equal(d.ctes[0].itinerario, "ARRSAN", "rota mudou: vale a regra");
   corrigir(d, cte.chave, campos({ origem: "Boa Esperança", destino: "Santos" }), "Ana", AGORA);
   assert.equal(d.ctes[0].itinerario, "", "rota mudou para cidade sem código");
+});
+
+test("chave com 43 dígitos: só o erro da chave, sem erro no CNPJ que sairia dela", () => {
+  const v = validarCampos(novaBase(), { ...campos(), chave: campos().chave.slice(1), cnpjTransportador: "" });
+  assert.ok(v.erros.chave);
+  assert.equal(v.erros.cnpjTransportador, undefined);
+});
+
+test("migrar v2 → v3 mantém a taxa digitada quando ela reproduz o seguro guardado", () => {
+  const base = { numero: 1, emissao: "2026-08-02", origem: "A", destino: "B", itinerario: "", valorFrete: 1000, adicionais: 0, tarifa: 999.98,
+    quantidade: 1, produto: null, unidade: null, pesoKg: null, pesoInformado: false };
+  const r = migrarBase({ versao: 2, cnpjs: [], lixeira: [], log: [], ctes: [
+    { ...base, chave: "a", valorAssegurado: 100, taxaSeguro: 0.00015, valorSeguro: 0.02 },
+    { ...base, chave: "b", valorAssegurado: 386140, taxaSeguro: 0.0005, valorSeguro: 193 }] });
+  assert.equal(r.ctes[0].taxaSeguro, 0.00015, "a taxa digitada dá o seguro guardado: fica");
+  assert.equal(r.ctes[1].taxaSeguro, 0.0005, "seguro digitado diferente: taxa recalculada do seguro (193 / 386140 = 0,0005)");
+});
+
+test("salvar a mesma data de corte não vira alteração", () => {
+  const d = novaBase(), antes = d.log.length;
+  const r = definirCorte(d, "2026-08-01", "Ana", AGORA);
+  assert.equal(r.ok, true);
+  assert.equal(r.mudou, false);
+  assert.equal(d.log.length, antes);
 });

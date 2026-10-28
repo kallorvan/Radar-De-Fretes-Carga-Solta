@@ -204,3 +204,14 @@ test("a chave preenche e trava o CNPJ do transportador; origem e destino montam 
   assert.deepEqual(erros, []);
   await ctx.close();
 });
+
+test("corrigir CT-e cujo CNPJ guardado não bate com a chave avisa a troca de transportador", async () => {
+  const d = baseExemplo();
+  d.ctes[0].cnpjTransportador = "22222222000100";   // base antiga: CNPJ digitado diferente do emitente da chave
+  const { page, ctx } = await abrir(browser, { dados: d, hash: "#lancamentos", gravavel: true, quem: "Ana" });
+  await page.fill("#busca", String(d.ctes[0].numero));
+  await page.click(`#tab-base [data-corrigir="${d.ctes[0].chave}"]`);
+  await page.waitForSelector("#form-cte.editando");
+  assert.match(await page.locator("#aviso-cnpj-chave").textContent(), /22\.222\.222\/0001-00.*não bate com a chave.*11\.111\.111\/0001-00/);
+  await ctx.close();
+});

@@ -36,7 +36,7 @@ const TITULOS_EXC = {
   "diverge-planilha": ["Diferente da planilha", "Na importação, o CNPJ do transportador, o itinerário ou a tarifa não bateram; vale o CNPJ da chave e o itinerário do cadastro do Rodopar, e a tarifa da planilha."],
 };
 
-const NOMES_DIVERGENCIA = { tarifa: "Tarifa", precoSaca: "R$/saca", cnpjTransportador: "CNPJ", itinerario: "Itinerário" };
+const NOMES_DIVERGENCIA = { valorSeguro: "Seguro", tarifa: "Tarifa", precoSaca: "R$/saca", cnpjTransportador: "CNPJ", itinerario: "Itinerário" };
 const fmtDivergente = (k, v) => k === "cnpjTransportador" ? fmtCnpj(v) : k === "itinerario" ? (v || "em branco") : fmtMoeda(v);
 /* "CNPJ: planilha 11.111.111/0001-00 · painel 05.780.969/0001-46" */
 const oQueDivergiu = div => Object.keys(div?.planilha || {}).map(k =>

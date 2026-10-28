@@ -87,3 +87,10 @@ test("juntar leva o corte mudado nesta página; sem mudança, fica o do arquivo"
   assert.equal(sessaoVazia({ ...novaSessao(), config: new Map([["corte", null]]) }), false);
   assert.equal(juntar(arquivo, tela, s).corte, "2026-09-01");
 });
+
+test("a mesma data de corte não entra na sessão", () => {
+  const d = novaBase(), s = novaSessao();
+  A.definirCorte(d, s, "2026-08-01", "Ana", AGORA);
+  assert.equal(s.config.size, 0);
+  assert.equal(s.log.length, 0);
+});

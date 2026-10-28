@@ -159,3 +159,6 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 .card-head .campo.curto{margin-left:auto;min-width:170px}
 .card-head .campo.curto+.modes{margin-left:0;align-self:flex-end}
 .exc td .btn.mini{margin-left:10px;vertical-align:middle}
+#tab-cnpj tr.destaque td{background:color-mix(in srgb, var(--accent) 12%, transparent)}
+.aviso-campo{margin:12px 0 0;padding:10px 12px;border-left:3px solid var(--accent);background:color-mix(in srgb, var(--accent) 8%, transparent);font-size:13px}
+#form-cnpj.destaque{box-shadow:0 0 0 2px var(--accent)}
