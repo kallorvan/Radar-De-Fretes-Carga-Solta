@@ -9,6 +9,11 @@ import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 const POR_PAGINA = 100;
 const estado = { editando: null, busca: "", limite: POR_PAGINA, rascunho: null };
 
+/* Vindo de uma exceção ou do gráfico: a base já buscando o CT-e e, quando dá para lançar, a correção aberta. */
+export function abrirNaBase(cte, { editar = true } = {}) {
+  Object.assign(estado, { editando: editar ? cte.chave : null, busca: String(cte.numero), limite: POR_PAGINA, rascunho: null });
+}
+
 const CAMPOS = [
   ["chave", "Chave de acesso", true, "w2", "text", "44 dígitos"],
   ["numero", "Nº CT-e", true, "", "text", ""],

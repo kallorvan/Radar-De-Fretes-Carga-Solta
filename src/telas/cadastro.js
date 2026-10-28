@@ -8,6 +8,8 @@ import { $, secHead, tabelaOrdenavel, aviso } from "../ui.js";
 
 const estado = { busca: "" };
 
+export const abrirNoCadastro = cnpj => { estado.busca = cnpj; };
+
 const opcoesProduto = (d, atual) => `<option value="">—</option>` +
   d.produtos.map(p => `<option value="${esc(p.id)}"${p.id === atual ? " selected" : ""}>${esc(p.nome)}</option>`).join("");
 

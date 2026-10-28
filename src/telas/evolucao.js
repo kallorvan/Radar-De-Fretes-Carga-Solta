@@ -49,13 +49,14 @@ function excecoesHtml(d) {
     const [titulo, acao] = TITULOS_EXC[tipo];
     const diverge = tipo === "diverge-planilha";
     const linhas = lista.map(e => e.cte
-      ? `<tr><td class="mono">${esc(e.cte.numero)}</td><td>${fmtData(e.cte.emissao)}</td><td>${esc(grupoDoCnpj(d, e.cte.cnpjTransportador).nome)}</td><td>${esc(rotaDe(e.cte))}</td><td>${esc(produtoDe(d, e.cte.produto)?.nome || "—")}</td><td class="num">${fmtMoeda(e.cte.precoTonelada)}</td>${diverge ? `<td class="sub">${esc(oQueDivergiu(e.cte.divergencia)).replace(/&lt;br&gt;/g, "<br>")}</td>` : ""}</tr>`
-      : `<tr><td class="mono" colspan="2">${fmtCnpj(e.cnpj)}</td><td colspan="4">${d.ctes.filter(c => c.cnpjTransportador === e.cnpj || c.cnpjCliente === e.cnpj).length} CT-e usam este CNPJ</td></tr>`);
+      ? `<tr><td class="mono">${esc(e.cte.numero)}${tipo === "a-classificar" ? "" : `<button class="btn mini" type="button" data-abrir-cte="${e.cte.chave}">Abrir na base</button>`}</td><td>${fmtData(e.cte.emissao)}</td><td>${esc(grupoDoCnpj(d, e.cte.cnpjTransportador).nome)}</td><td>${esc(rotaDe(e.cte))}</td><td>${esc(produtoDe(d, e.cte.produto)?.nome || "—")}</td><td class="num">${fmtMoeda(e.cte.precoTonelada)}</td>${diverge ? `<td class="sub">${esc(oQueDivergiu(e.cte.divergencia)).replace(/&lt;br&gt;/g, "<br>")}</td>` : ""}</tr>`
+      : `<tr><td class="mono" colspan="2">${fmtCnpj(e.cnpj)} <button class="btn mini" type="button" data-abrir-cnpj="${e.cnpj}">Abrir no cadastro</button></td><td colspan="4">${d.ctes.filter(c => c.cnpjTransportador === e.cnpj || c.cnpjCliente === e.cnpj).length} CT-e usam este CNPJ</td></tr>`);
     const cab = lista[0].cte ? `<tr><th>CT-e</th><th>Emissão</th><th>Transportador</th><th>Rota</th><th>Produto</th><th class="num">R$/t</th>${diverge ? "<th>O que divergiu</th>" : ""}</tr>` : `<tr><th colspan="2">CNPJ</th><th colspan="4">Uso</th></tr>`;
     return `<div class="exc" data-tipo="${tipo}"><span class="pill">${lista.length} ${lista.length === 1 ? "registro" : "registros"}</span><h4>${esc(titulo)}</h4>
       <p class="exc-act">${esc(acao)}</p><div class="tabela"><table><thead>${cab}</thead><tbody>${linhas.slice(0, 20).join("")}</tbody>
       <tbody class="resto" hidden>${linhas.slice(20).join("")}</tbody></table></div>
-      ${linhas.length > 20 ? `<div class="botoes"><button class="btn mini" type="button" data-ver-todas>Ver todas (${linhas.length})</button></div>` : ""}</div>`;
+      <div class="botoes">${tipo === "a-classificar" ? `<button class="btn mini primario" type="button" data-ir-classificar>Classificar CT-e</button>` : ""}
+      ${linhas.length > 20 ? `<button class="btn mini" type="button" data-ver-todas>Ver todas (${linhas.length})</button>` : ""}</div></div>`;
   }).join("");
 }
 
@@ -147,6 +148,11 @@ export function renderEvolucao(raiz, App) {
   $$("[data-metrica]", raiz).forEach(b => b.addEventListener("click", () => App.mudarFiltros({ metrica: b.dataset.metrica })));
   $$("select[data-f]", raiz).forEach(s => s.addEventListener("change", () => App.mudarFiltros({ [s.dataset.f]: s.value })));
   $("[data-limpar]", raiz).addEventListener("click", () => App.irPara("evolucao", { metrica }));
+  $$("[data-abrir-cte]", raiz).forEach(b => b.addEventListener("click", () => App.abrirCte(b.dataset.abrirCte)));
+  $$("[data-abrir-cnpj]", raiz).forEach(b => b.addEventListener("click", () => App.abrirCnpj(b.dataset.abrirCnpj)));
+  $$("[data-ir-classificar]", raiz).forEach(b => b.addEventListener("click", () => {
+    App.irPara("dados", { metrica }); requestAnimationFrame(() => document.querySelector("#classificar")?.scrollIntoView({ block: "start" }));
+  }));
   $$("[data-ver-todas]", raiz).forEach(b => b.addEventListener("click", () => {
     b.closest(".exc").querySelector("tbody.resto").hidden = false; b.remove();
   }));

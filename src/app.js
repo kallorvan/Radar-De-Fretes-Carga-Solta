@@ -9,8 +9,8 @@ import { fmtQuando, esc } from "./formato.js";
 import { $, $$, aviso } from "./ui.js";
 import { renderEvolucao } from "./telas/evolucao.js";
 import { renderRotas } from "./telas/rotas.js";
-import { renderLancamentos } from "./telas/lancamentos.js";
-import { renderCadastro } from "./telas/cadastro.js";
+import { renderLancamentos, abrirNaBase } from "./telas/lancamentos.js";
+import { renderCadastro, abrirNoCadastro } from "./telas/cadastro.js";
 import { renderDados } from "./telas/dados.js";
 
 const TELAS = { evolucao: renderEvolucao, rotas: renderRotas, lancamentos: renderLancamentos, cadastro: renderCadastro, dados: renderDados };
@@ -35,6 +35,19 @@ const App = {
   irPara(aba = App.aba, filtros = App.filtros) {
     const h = escreverHash(aba, filtros);
     if (location.hash === h) App.render(); else location.hash = h;
+  },
+  /* Abre o CT-e na base (corrigindo, quando o painel pode lançar), sem o recorte da Evolução. */
+  abrirCte(chave) {
+    const c = App.dados.ctes.find(x => x.chave === chave);
+    if (!c) return;
+    abrirNaBase(c, { editar: !App.somenteLeitura });
+    App.irPara("lancamentos", { metrica: App.filtros.metrica });
+    scrollTo(0, 0);
+  },
+  abrirCnpj(cnpj) {
+    abrirNoCadastro(cnpj);
+    App.irPara("cadastro", { metrica: App.filtros.metrica });
+    scrollTo(0, 0);
   },
   mudarFiltros(parciais) {
     const f = { ...App.filtros, ...parciais };
