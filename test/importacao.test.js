@@ -93,3 +93,21 @@ test("importação com log cheio mantém o histórico anterior", async () => {
   assert.equal(d.log.at(-2).resumo, "x499");
   assert.equal(d.log.at(-1).acao, "importar");
 });
+
+test("exportarXlsx usa as colunas da planilha", async () => {
+  const { exportarXlsx } = await import("../src/importacao.js");
+  const d = novaBase();
+  aplicarImportacao(d, lerPlanilha(XLSX, tres()), "Ana", AGORA);
+  const buf = exportarXlsx(d, XLSX);
+  const wb = XLSX.read(new Uint8Array(buf), { type: "array" });
+  assert.deepEqual(wb.SheetNames, ["BASE CARGA SOLTA 2026", "BASE DE DADOS CNPJ"]);
+  const cab = XLSX.utils.sheet_to_json(wb.Sheets["BASE CARGA SOLTA 2026"], { header: 1 })[0];
+  assert.equal(cab[1], "N° CT-e");
+  assert.equal(cab[16], "PREÇO POR SACAS");
+  const d2 = novaBase();
+  const r = aplicarImportacao(d2, lerPlanilha(XLSX, buf), "Ana", AGORA);
+  assert.equal(r.incluidos, 3);
+  assert.equal(r.divergentes, 0);
+  assert.deepEqual(d2.ctes.map(c => [c.chave, c.emissao, c.precoSaca, c.cnpjCliente]), d.ctes.map(c => [c.chave, c.emissao, c.precoSaca, c.cnpjCliente]));
+  assert.equal(nomeDoCnpj(d2, "05780969000146"), "JF PEREIRA TRANSPORTES E SERVIÇOS LTDA");
+});

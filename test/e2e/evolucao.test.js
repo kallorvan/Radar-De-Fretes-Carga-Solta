@@ -28,9 +28,10 @@ test("trocar a métrica e o filtro atualiza o endereço", async () => {
   await page.waitForSelector(".bignum");
   await page.click(".modes button[data-metrica=tarifa]");
   await page.waitForFunction(() => location.hash.includes("metrica=tarifa"));
-  assert.match(await page.locator(".hero h1").textContent(), /Tarifa/i);
+  await page.waitForFunction(() => /Tarifa/i.test(document.querySelector(".hero h1").textContent));
   await page.selectOption("#f-rota", "A → B");
   await page.waitForFunction(() => location.hash.includes("rota="));
+  await page.waitForFunction(() => /A → B/.test(document.querySelector(".hero h1 em").textContent));
   assert.equal(await page.locator(".bignum").textContent(), "R$ 9.500,00");
   await ctx.close();
 });

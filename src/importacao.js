@@ -103,3 +103,22 @@ export function aplicarImportacao(d, resultado, quem, agora) {
     (r.divergentes ? `, ${r.divergentes} com cálculo divergente` : ""));
   return r;
 }
+
+/* A base no mesmo layout da planilha (abas BASE CARGA SOLTA 2026 e BASE DE DADOS CNPJ). */
+export function exportarXlsx(d, XLSX) {
+  const COLS = Object.values(COL).map(c => c === "N° CT-E" ? "N° CT-e" : c === "EMISSÃO CT-E" ? "EMISSÃO CT-e" : c);
+  const serie = iso => (Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) - Date.UTC(1899, 11, 30)) / 864e5;
+  const linhas = [...d.ctes].sort((a, b) => a.emissao.localeCompare(b.emissao) || a.numero - b.numero).map(c => [
+    c.chave, c.numero, serie(c.emissao), c.cnpjTransportador, nomeDoCnpj(d, c.cnpjTransportador) || "",
+    c.cnpjCliente, nomeDoCnpj(d, c.cnpjCliente) || "", c.origem, c.destino, c.itinerario || null,
+    c.valorAssegurado, c.taxaSeguro, c.valorSeguro, c.valorFrete, c.adicionais, c.sacas, c.precoSaca, c.tarifa,
+    c.vpo ? "SIM" : null, c.observacoes || null,
+  ]);
+  const base = XLSX.utils.aoa_to_sheet([COLS, ...linhas]);
+  for (let i = 0; i < linhas.length; i++) { const cel = base[XLSX.utils.encode_cell({ r: i + 1, c: 2 })]; if (cel) cel.z = "dd/mm/yyyy"; }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, base, ABA_BASE);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["CNPJ", "TRANSPORTADOR/CLIENTE"], ...d.cnpjs.map(c => [c.cnpj, c.nome])]), ABA_CNPJ);
+  const out = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+  return out instanceof ArrayBuffer ? out : new Uint8Array(out).buffer;
+}

@@ -81,6 +81,15 @@ test("criarArquivoInicial grava base vazia e conecta", async () => {
   assert.equal(g.baseSalvoEm, lerArquivo(vazia).salvoEm);
 });
 
+test("criarArquivoInicial leva o que estava pendente e limpa a sessão", async () => {
+  const vazia = new PastaFalsa("nova"), p = pagina(pastaComBase());
+  p.lanca(1);
+  await p.g.criarArquivoInicial(vazia);
+  assert.equal(lerArquivo(vazia).ctes.length, 1);
+  assert.equal(p.sessao.alterados.size + p.sessao.log.length, 0);
+  assert.equal(p.g.estado, "salvo");
+});
+
 test("salvar detecta conflito", async () => {
   const pasta = pastaComBase(), a = pagina(pasta, "Ana"), b = pagina(pasta, "Bia");
   await a.g.conectar(pasta); await b.g.conectar(pasta);

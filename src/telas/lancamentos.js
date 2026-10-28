@@ -186,7 +186,8 @@ export function renderLancamentos(raiz, App) {
 
   pintarBase(raiz, App);
   $("#busca", raiz).addEventListener("input", ev => { estado.busca = ev.target.value; estado.limite = POR_PAGINA; pintarBase(raiz, App); });
-  raiz.addEventListener("click", async ev => {
+  // ouvinte na seção recém-desenhada: o #conteudo é o mesmo em todo redesenho e acumularia ouvintes
+  raiz.firstElementChild.addEventListener("click", async ev => {
     const b = ev.target.closest("[data-corrigir],[data-excluir],[data-mais]");
     if (!b) return;
     if (b.dataset.mais !== undefined) { estado.limite += POR_PAGINA; pintarBase(raiz, App); return; }

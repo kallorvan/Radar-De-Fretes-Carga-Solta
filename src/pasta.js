@@ -69,7 +69,10 @@ export function criarGravador({ obterTela, obterSessao, obterQuem, aoSalvar, aoM
     const w = await (await pasta.getFileHandle(ARQ_DADOS, { create: true })).createWritable();
     await w.write(montarDadosJs(d)); await w.close();
     g.pasta = pasta; g.baseSalvoEm = d.salvoEm;
+    const s = obterSessao();
+    baixarDaSessao(s, { ...serSessao(s), cadastro: [...s.cadastro] });
     await idb?.put("pasta", pasta);
+    await idb?.del("pendentes");
     aoSalvar(d);
     muda("salvo", `Base criada na pasta ${pasta.name}.`);
     return { ok: true };

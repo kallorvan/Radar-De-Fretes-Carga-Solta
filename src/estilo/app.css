@@ -17,10 +17,10 @@ body{background:var(--paper);overflow-x:hidden}
 button,input,select,textarea{font:inherit;color:inherit}
 
 /* cabeçalho */
-.logos-cor{display:flex;align-items:center;gap:14px}
-.logos-cor img{height:30px;width:auto}
-.logos-cor img+img{height:26px}
-.stickytop.scrolled .logos-cor img{height:24px}
+.logos-cor{display:flex;align-items:center;gap:18px}
+/* as duas marcas com a mesma altura (as duas imagens têm a assinatura e a linha de baixo) */
+.logos-cor img{height:32px;width:auto}
+.stickytop.scrolled .logos-cor img{height:26px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .logos-cor img{filter:brightness(0) invert(.92)}}
 :root[data-theme="dark"] .logos-cor img{filter:brightness(0) invert(.92)}
 .top .who b{display:block}

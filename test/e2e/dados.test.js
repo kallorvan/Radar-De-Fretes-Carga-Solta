@@ -1,0 +1,75 @@
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
+import http from "node:http";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { chromium, abrir } from "./ajuda.js";
+import { baseExemplo } from "../fixtures/base-exemplo.js";
+import { gerarPlanilha, linhaPadrao } from "../fixtures/planilha.js";
+import { excluir } from "../../src/base.js";
+
+let browser;
+before(async () => { browser = await chromium.launch(); });
+after(async () => { await browser?.close(); });
+const opc = { gravavel: true, quem: "Ana" };
+
+test("importa planilha e mostra o resumo", async () => {
+  const { page, ctx, erros } = await abrir(browser, { dados: baseExemplo(), hash: "#dados", ...opc });
+  await page.waitForSelector("#arq-planilha", { state: "attached" });
+  const buf = Buffer.from(gerarPlanilha([linhaPadrao(901), linhaPadrao(902), linhaPadrao(903), linhaPadrao(904, { "QT. SACAS": null })]));
+  await page.setInputFiles("#arq-planilha", { name: "Radar.xlsx", mimeType: "application/octet-stream", buffer: buf });
+  await page.waitForSelector(".resumo-imp");
+  const txt = await page.locator(".resumo-imp").textContent();
+  assert.match(txt, /3 CT-e incluídos/);
+  assert.match(txt, /1 rejeitados/);
+  assert.match(txt, /Informe as sacas/);
+  assert.equal(await page.evaluate(() => window.RADAR_APP.dados.ctes.length), 10);
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});
+
+test("restaura da lixeira uma vez só", async () => {
+  const d = baseExemplo(); excluir(d, d.ctes[0].chave, "Bia", "2026-10-28T12:00:00.000Z");
+  const { page, ctx } = await abrir(browser, { dados: d, hash: "#dados", ...opc });
+  for (const aba of ["rotas", "dados", "evolucao", "dados"]) { await page.click(`#abas button[data-aba=${aba}]`); await page.waitForSelector("#conteudo .sec-head"); }
+  assert.match(await page.locator("#tab-lixeira").textContent(), /Bia/);
+  await page.evaluate(() => { const orig = window.RADAR_APP.alterar; window.__chamadas = 0; window.RADAR_APP.alterar = (...a) => { window.__chamadas++; return orig(...a); }; });
+  await page.click("#tab-lixeira [data-restaurar]");
+  await page.waitForFunction(() => window.RADAR_APP.dados.lixeira.length === 0);
+  await page.waitForTimeout(200);
+  assert.equal(await page.evaluate(() => window.__chamadas), 1);
+  assert.match(await page.locator("#tab-log").textContent(), /Restaurou/);
+  await ctx.close();
+});
+
+test("cadastro renomeia e o nome muda na Evolução", async () => {
+  const { page, ctx } = await abrir(browser, { dados: baseExemplo(), hash: "#cadastro", ...opc });
+  await page.waitForSelector("input.nome-cnpj");
+  const inp = page.locator('input.nome-cnpj[data-cnpj="11111111000100"]');
+  await inp.fill("Transportes Um Renomeada");
+  await inp.press("Tab");
+  await page.waitForFunction(() => window.RADAR_APP.dados.cnpjs.find(c => c.cnpj === "11111111000100").nome === "TRANSPORTES UM RENOMEADA");
+  await page.click("#abas button[data-aba=evolucao]");
+  await page.waitForSelector(".legenda");
+  assert.match(await page.locator(".legenda").textContent(), /TRANSPORTES UM RENOMEADA/);
+  await ctx.close();
+});
+
+test("aberto por http é somente leitura", async () => {
+  const { dir, ctx: c0 } = await abrir(browser, { dados: baseExemplo() });
+  await c0.close();
+  const srv = http.createServer((req, res) => {
+    const nome = req.url.split("?")[0] === "/" ? "index.html" : decodeURIComponent(req.url.slice(1).split("?")[0]);
+    try { res.end(readFileSync(join(dir, nome))); } catch (e) { res.statusCode = 404; res.end(); }
+  }).listen(0);
+  const porta = srv.address().port;
+  const ctx = await browser.newContext(); ctx.setDefaultTimeout(5000);
+  const page = await ctx.newPage();
+  await page.route(/cdnjs|fonts\./, r => r.abort());
+  await page.goto(`http://127.0.0.1:${porta}/#lancamentos`);
+  await page.waitForSelector("#tab-base");
+  assert.match(await page.locator("#estado-gravacao").textContent(), /Somente consulta/);
+  assert.equal(await page.locator("#form-cte").count(), 0);
+  assert.equal(await page.locator("#tab-base [data-excluir]").first().isVisible(), false);
+  await ctx.close(); srv.close();
+});
