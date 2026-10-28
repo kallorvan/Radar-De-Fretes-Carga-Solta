@@ -49,3 +49,19 @@ test("miniGrafico sem dados devolve svg vazio sem NaN", () => {
   assert.equal((com.match(/<polyline/g) || []).length, 2);
   assert.match(com, /fill="var\(--accent\)"/);
 });
+
+test("escala segue as medianas e a faixa extrema é cortada no gráfico", () => {
+  const svg = linhasMensais({ meses: ["2026-07"], series: [serie("1", { "2026-07": ponto(32.25, 32, 541.84, 10) }), serie("2", { "2026-07": ponto(32.14, 31.37, 713.62, 9) })] }, {});
+  const rotulos = [...svg.matchAll(/<text class="ax"[^>]*text-anchor="end">([^<]+)</g)].map(m => Number(m[1].replace(/\./g, "").replace(",", ".")));
+  assert.ok(Math.max(...rotulos) < 40, `eixo até ${Math.max(...rotulos)}`);
+  for (const m of svg.matchAll(/<line class="faixa"[^>]* y1="([-\d.]+)" y2="([-\d.]+)"/g)) {
+    assert.ok(+m[1] >= 12 && +m[2] >= 12 && +m[1] <= 274 && +m[2] <= 274, "faixa dentro da área do gráfico");
+  }
+  assert.match(svg, /data-max="713.62"/);
+});
+
+test("eixo não desce abaixo de zero quando todos os preços são positivos", () => {
+  const svg = linhasMensais({ meses, series: [serie("1", { "2026-01": ponto(8), "2026-02": ponto(640) })] }, {});
+  const rotulos = [...svg.matchAll(/<text class="ax"[^>]*text-anchor="end">([^<]+)</g)].map(m => m[1]);
+  assert.ok(!rotulos.some(r => r.startsWith("-")), rotulos.join(" "));
+});

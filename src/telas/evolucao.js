@@ -101,7 +101,7 @@ export function renderEvolucao(raiz, App) {
   </div></section>
   <section class="secao"><div class="wrap pilha">
     <div class="card">
-      <div class="card-head"><div><h3>Evolução mensal</h3><p class="hint">Mediana do mês por transportador; o traço vertical vai do menor ao maior preço do mês. Passe o cursor para ver mínimo, máximo e número de CT-e.</p></div></div>
+      <div class="card-head"><div><h3>Evolução mensal</h3><p class="hint">Mediana do mês por transportador; o traço vertical vai do menor ao maior preço do mês (cortado na borda quando passa da escala). Passe o cursor para ver mínimo, máximo e número de CT-e.</p></div></div>
       <div class="grafico">${linhasMensais(serie, { formatar })}</div>
       <div class="legenda">${serie.series.slice(0, CORES_SERIES.length).map((s, i) =>
         `<span data-raiz="${esc(s.raiz)}"><i style="background:${CORES_SERIES[i]}"></i>${esc(s.nome)} · ${s.n}</span>`).join("")}

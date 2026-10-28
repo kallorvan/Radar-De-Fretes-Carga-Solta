@@ -19,15 +19,18 @@ function marcas(min, max) {
 
 export function linhasMensais({ meses, series }, { largura = 760, altura = 300, formatar = v => fmtNum(v, 2) } = {}) {
   const esq = 64, dir = 14, topo = 12, base = 26;
-  const valores = series.flatMap(s => Object.values(s.pontos).flatMap(p => [p.min, p.max]));
+  // a escala segue as medianas: um CT-e fora da curva (unidade diferente, erro de digitação) não achata a linha;
+  // a faixa mín–máx é cortada na borda e os extremos continuam na dica
+  const valores = series.flatMap(s => Object.values(s.pontos).map(p => p.mediana));
   if (!meses.length || !valores.length) return `<svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Sem dados no período"></svg>`;
   let vmin = Math.min(...valores), vmax = Math.max(...valores);
   const folga = (vmax - vmin || Math.abs(vmax) || 1) * 0.08;
-  const ticks = marcas(vmin - folga, vmax + folga);
+  const ticks = marcas(vmin >= 0 ? Math.max(0, vmin - folga) : vmin - folga, vmax + folga);
   vmin = ticks[0]; vmax = ticks.at(-1);
   const w = largura - esq - dir, h = altura - topo - base;
   const x = i => r1(esq + (meses.length === 1 ? w / 2 : (i * w) / (meses.length - 1)));
   const y = v => r1(topo + h - ((v - vmin) / (vmax - vmin)) * h);
+  const yc = v => Math.min(topo + h, Math.max(topo, y(v)));
 
   const partes = [`<svg viewBox="0 0 ${largura} ${altura}" role="img" aria-label="Evolução mensal por transportador">`];
   for (const t of ticks) partes.push(`<line class="gl" x1="${esq}" x2="${largura - dir}" y1="${y(t)}" y2="${y(t)}"/>`,
@@ -50,7 +53,7 @@ export function linhasMensais({ meses, series }, { largura = 760, altura = 300, 
     partes.push(`<g class="grupo-serie" data-raiz="${esc(s.raiz)}"><title>${esc(s.nome)}</title>`);
     meses.forEach((m, j) => {
       const p = s.pontos[m];
-      if (p && p.max > p.min) partes.push(`<line class="faixa" x1="${x(j)}" x2="${x(j)}" y1="${y(p.min)}" y2="${y(p.max)}" stroke="${cor}" stroke-opacity=".35" stroke-width="5"/>`);
+      if (p && p.max > p.min) partes.push(`<line class="faixa" x1="${x(j)}" x2="${x(j)}" y1="${yc(p.min)}" y2="${yc(p.max)}" stroke="${cor}" stroke-opacity=".35" stroke-width="5"/>`);
     });
     partes.push(`<path class="${classe}" data-raiz="${esc(s.raiz)}" d="${d.trim()}" stroke="${cor}" fill="none" stroke-width="${i < CORES_SERIES.length ? 2.2 : 1.4}"/>`);
     meses.forEach((m, j) => {
