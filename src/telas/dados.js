@@ -11,7 +11,7 @@ import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 // escolhas: o que a pessoa ajustou em cada linha da classificação, guardado entre redesenhos
 const estado = { resumo: null, erroImp: "", escolhas: new Map() };
 const ACAO = { incluir: "Lançou", corrigir: "Corrigiu", excluir: "Excluiu", restaurar: "Restaurou", importar: "Importou", cadastro: "Cadastro",
-  classificar: "Classificou", produto: "Produto", unidade: "Unidade" };
+  classificar: "Classificou", produto: "Produto", unidade: "Unidade", corte: "Data de corte" };
 
 /* Linha da classificação: a sugestão da regra, com o que a pessoa trocou por cima. */
 function escolhaDe(d, cte) {
@@ -81,6 +81,9 @@ export function renderDados(raiz, App) {
       <div class="card"><h3>Exportar para Excel</h3><p class="hint">A base inteira no mesmo layout da planilha: ${fmtNum(d.ctes.length)} CT-e e ${fmtNum(d.cnpjs.length)} CNPJ.</p>
         <button class="btn" type="button" data-exportar ${d.ctes.length ? "" : "disabled"}>Baixar .xlsx</button></div>
     </div>
+    <div class="card" data-escreve><h3>Data de corte</h3><p class="hint">CT-e emitidos antes desta data ficam na base, mas fora da Evolução, das Rotas, das exceções e da classificação. Vazio = todos entram.</p>
+      <div class="form-linha"><label class="campo"><span>Data de corte</span><input id="corte" type="date" value="${esc(d.corte || "")}"></label>
+        <button class="btn primario" type="button" data-salvar-corte>Salvar data de corte</button></div></div>
     <div class="card" id="classificar"><h3>Classificar CT-e</h3>${classificarHtml(App)}</div>
     <div class="card"><h3>Lixeira</h3><p class="hint">CT-e excluídos. Restaurar devolve o lançamento para a base, com o registro de quem restaurou.</p><div id="tab-lixeira"></div></div>
     <div class="card"><h3>Histórico</h3><p class="hint">As ${fmtNum(d.log.length)} últimas ações (o painel guarda até 500), da mais recente para a mais antiga.</p><div id="tab-log"></div></div>
@@ -143,6 +146,10 @@ export function renderDados(raiz, App) {
     if (b.dataset.restaurar) {
       const r = await App.alterar((dd, s, quem, agora) => App.acoes.restaurar(dd, s, b.dataset.restaurar, quem, agora));
       if (r?.ok) aviso(`CT-e ${r.cte.numero} restaurado.`);
+    } else if (b.hasAttribute("data-salvar-corte")) {
+      const r = await App.alterar((dd, s, quem, agora) => App.acoes.definirCorte(dd, s, $("#corte", raiz).value, quem, agora));
+      if (r?.ok) aviso(r.corte ? `Data de corte: ${fmtData(r.corte)}.` : "Sem data de corte: todos os CT-e entram na análise.");
+      else if (r) aviso("Data inválida.", true);
     } else if (b.hasAttribute("data-nome")) { await App.pedirNome(); App.render(); }
     else if (b.hasAttribute("data-salvar")) { const r = await g.gravarNaFila({ manual: true }); if (r?.ok) aviso("Salvo na pasta."); App.render(); }
     else if (b.hasAttribute("data-exportar")) {

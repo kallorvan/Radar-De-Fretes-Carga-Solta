@@ -2,7 +2,7 @@
 
 import { filtrar, serieMensal, resumoGeral, transportadoresNaRota, excecoes, resumoRotas, produtosDaRota } from "../agregacao.js";
 import { linhasMensais, CORES_SERIES } from "../graficos.js";
-import { grupoDoCnpj, produtoDe } from "../base.js";
+import { grupoDoCnpj, produtoDe, ctesNoCorte } from "../base.js";
 import { raizCnpj, rotaDe, mesDe } from "../calculos.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtMesLongo, fmtMes, fmtData, fmtCnpj } from "../formato.js";
 import { $, $$, secHead, dica, tabelaOrdenavel, opcoes } from "../ui.js";
@@ -13,18 +13,19 @@ export { variacaoHtml };
 
 /* Opções dos filtros a partir da base inteira. */
 function listas(d) {
+  const ctes = ctesNoCorte(d);
   const grupos = campo => {
     const m = new Map();
-    for (const c of d.ctes) { const g = grupoDoCnpj(d, c[campo]); m.set(g.raiz, g.nome); }
+    for (const c of ctes) { const g = grupoDoCnpj(d, c[campo]); m.set(g.raiz, g.nome); }
     return [...m].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
   };
-  const meses = [...new Set(d.ctes.map(c => mesDe(c.emissao)))].sort().map(m => [m, fmtMes(m)]);
+  const meses = [...new Set(ctes.map(c => mesDe(c.emissao)))].sort().map(m => [m, fmtMes(m)]);
   return {
     rotas: resumoRotas(d, "saca").map(r => [r.rota, `${r.rota} · ${r.nCtes} CT-e`]),
     transportadores: grupos("cnpjTransportador"), clientes: grupos("cnpjCliente"),
-    itinerarios: [...new Set(d.ctes.map(c => c.itinerario).filter(Boolean))].sort().map(i => [i, i]),
+    itinerarios: [...new Set(ctes.map(c => c.itinerario).filter(Boolean))].sort().map(i => [i, i]),
     meses,
-    produtos: d.produtos.filter(p => d.ctes.some(c => c.produto === p.id)).map(p => [p.id, p.nome]),
+    produtos: d.produtos.filter(p => ctes.some(c => c.produto === p.id)).map(p => [p.id, p.nome]),
   };
 }
 
@@ -71,6 +72,7 @@ export function renderEvolucao(raiz, App) {
     return;
   }
   const ctes = filtrar(d, f);
+  const foraDoCorte = d.ctes.length - ctesNoCorte(d).length;
   const r = resumoGeral(ctes, metrica);
   const serie = serieMensal(d, ctes, metrica);
   const L = listas(d);
@@ -113,6 +115,7 @@ export function renderEvolucao(raiz, App) {
     </div>
   </div></section>
   <section class="secao"><div class="wrap pilha">
+    ${foraDoCorte ? `<p class="hint" id="aviso-corte">${fmtNum(foraDoCorte)} CT-e emitido${foraDoCorte === 1 ? "" : "s"} antes de ${fmtData(d.corte)} fora da análise (sem CT-e em mãos para classificar). A data de corte fica em Dados.</p>` : ""}
     ${misturados.length > 1 ? `<div class="exc" id="aviso-produtos"><span class="pill">Produtos misturados</span>
       <h4>Esta rota tem ${esc(misturados.map(p => produtoDe(d, p)?.nome || p).join(" e "))}</h4>
       <p class="exc-act">O frete de produtos diferentes tem preço diferente: escolha o produto no recorte para comparar transportadores.</p></div>` : ""}

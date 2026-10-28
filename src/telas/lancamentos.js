@@ -1,6 +1,6 @@
 // Lançamentos: o formulário do CT-e (taxa do seguro, tarifa, peso, R$/t e R$/saca calculados e travados) e a base.
 
-import { validarCampos, nomeDoCnpj, grupoDoCnpj, unidadeDe, produtoDe } from "../base.js";
+import { validarCampos, nomeDoCnpj, grupoDoCnpj, unidadeDe, produtoDe, noCorte } from "../base.js";
 import { calcularCte, numeroDaChave, cnpjDaChave, codigoItinerario, normalizarCnpj, numeroBR, rotaDe, soDigitos } from "../calculos.js";
 import { filtrar } from "../agregacao.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
@@ -162,7 +162,7 @@ function baseHtml() {
 
 function pintarBase(raiz, App) {
   const d = App.dados, q = soDigitos(estado.busca);
-  const todas = filtrar(d, { ...App.filtros, metrica: undefined })
+  const todas = filtrar(d, { ...App.filtros, metrica: undefined }, { aplicarCorte: false })
     // até 9 dígitos é número de CT-e; mais que isso, pedaço da chave
     .filter(c => !q || (q.length <= 9 ? String(c.numero).startsWith(String(Number(q))) : c.chave.includes(q)))
     .sort((a, b) => b.emissao.localeCompare(a.emissao) || b.numero - a.numero);
@@ -170,7 +170,7 @@ function pintarBase(raiz, App) {
   const recorte = ["rota", "transportador", "cliente", "itinerario", "mesIni", "mesFim"].some(k => App.filtros[k]);
   $("#base-cont", raiz).textContent = `${fmtNum(todas.length)} de ${fmtNum(d.ctes.length)} CT-e${recorte ? " (com o recorte da Evolução)" : ""}. Mais recentes primeiro.`;
   tabelaOrdenavel($("#tab-base", raiz), [
-    { titulo: "Emissão", valor: c => c.emissao, html: c => fmtData(c.emissao) },
+    { titulo: "Emissão", valor: c => c.emissao, html: c => fmtData(c.emissao) + (noCorte(d, c) ? "" : '<span class="sub">antes do corte</span>') },
     { titulo: "Nº", valor: c => c.numero, html: c => `<span class="mono">${esc(c.numero)}</span>` },
     { titulo: "Transportador", valor: c => grupoDoCnpj(d, c.cnpjTransportador).nome, html: c => esc(nomeDoCnpj(d, c.cnpjTransportador) || fmtCnpj(c.cnpjTransportador)) },
     { titulo: "Cliente", valor: c => grupoDoCnpj(d, c.cnpjCliente).nome, html: c => esc(nomeDoCnpj(d, c.cnpjCliente) || fmtCnpj(c.cnpjCliente)) },
