@@ -64,6 +64,11 @@ export function cadastrarUnidade(d, s, unidade, quem, agora, opcoes) {
   if (r.ok) s.listas.set("unidade:" + r.id, structuredClone(r.unidade));
   return r;
 }
+export function definirCorte(d, s, valor, quem, agora) {
+  const r = comLog(d, s, () => B.definirCorte(d, valor, quem, agora));
+  if (r.ok) s.config.set("corte", r.corte);
+  return r;
+}
 export function importar(d, s, resultado, quem, agora) {
   const chaves = new Set(d.ctes.map(c => c.chave));
   const cnpjs = new Map(d.cnpjs.map(c => [c.cnpj, { ...c }]));

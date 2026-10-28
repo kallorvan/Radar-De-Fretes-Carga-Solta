@@ -2,7 +2,7 @@
 // Produto: o produto padrão do cliente. Unidade: até 100 é tonelada; acima, saca do produto.
 
 import { calcularCte, normalizarCnpj } from "./calculos.js";
-import { unidadeDe, nomeDoCnpj } from "./base.js";
+import { unidadeDe, nomeDoCnpj, ctesNoCorte } from "./base.js";
 import { sugerirProdutoCliente } from "./produtos-clientes.js";
 
 export { sugerirProdutoCliente };
@@ -38,4 +38,4 @@ export function sugerirClassificacao(d, cte) {
   };
 }
 
-export const pendentesDeClassificacao = d => d.ctes.filter(c => !c.produto || !c.unidade);
+export const pendentesDeClassificacao = d => ctesNoCorte(d).filter(c => !c.produto || !c.unidade);

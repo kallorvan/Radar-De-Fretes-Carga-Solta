@@ -2,7 +2,7 @@
 // Mês sem CT-e não vira zero: fica ausente, e as variações comparam com o último mês com dados.
 
 import { rotaDe, mesDe, raizCnpj, normalizarCnpj } from "./calculos.js";
-import { grupoDoCnpj, nomeDoCnpj, produtoDe } from "./base.js";
+import { grupoDoCnpj, nomeDoCnpj, produtoDe, ctesNoCorte } from "./base.js";
 
 export const FAIXA_EXCECAO = 3;        // fora de [mediana/3, mediana×3]
 export const MIN_ROTA_EXCECAO = 3;     // CT-e com R$/t no grupo rota + produto para avaliar a faixa
@@ -14,7 +14,7 @@ export const valorMetrica = (c, metrica) => {
 };
 
 export const produtosDaRota = (d, rota) =>
-  [...new Set(d.ctes.filter(c => rotaDe(c) === rota && c.produto).map(c => c.produto))].sort();
+  [...new Set(ctesNoCorte(d).filter(c => rotaDe(c) === rota && c.produto).map(c => c.produto))].sort();
 
 export function mediana(nums) {
   if (!nums.length) return null;
@@ -33,8 +33,9 @@ export function mesesEntre(ini, fim) {
   return out;
 }
 
-export function filtrar(d, f = {}) {
-  return d.ctes.filter(c =>
+/* aplicarCorte: false só na base de Lançamentos, que mostra todos os CT-e. */
+export function filtrar(d, f = {}, { aplicarCorte = true } = {}) {
+  return (aplicarCorte ? ctesNoCorte(d) : d.ctes).filter(c =>
     (!f.rota || rotaDe(c) === f.rota) &&
     (!f.transportador || raizCnpj(c.cnpjTransportador) === f.transportador) &&
     (!f.cliente || raizCnpj(c.cnpjCliente) === f.cliente) &&
@@ -141,9 +142,9 @@ export function transportadoresNaRota(d, ctes, metrica) {
 
 /* Registros que pedem atenção. Todos continuam valendo nos totais. */
 export function excecoes(d) {
-  const out = [];
+  const out = [], ctes = ctesNoCorte(d);
   const grupos = new Map();   // rota + produto: café e açúcar na mesma rota têm preços diferentes
-  for (const c of d.ctes) {
+  for (const c of ctes) {
     if (!c.produto || !c.unidade || !(c.pesoKg > 0) || c.precoTonelada == null) {
       out.push({ tipo: "a-classificar", cte: c, detalhe: "Sem produto, unidade ou peso: fica fora do R$/t e conta na tarifa." });
       continue;
@@ -160,10 +161,10 @@ export function excecoes(d) {
       out.push({ tipo: "preco-fora", cte: c, detalhe: `R$/t fora da faixa de ${nome} na rota (mediana ${m.toFixed(2).replace(".", ",")}).` });
   }
   const semNome = new Set();
-  for (const c of d.ctes) for (const cnpj of [c.cnpjTransportador, c.cnpjCliente])
+  for (const c of ctes) for (const cnpj of [c.cnpjTransportador, c.cnpjCliente])
     if (!nomeDoCnpj(d, cnpj)) semNome.add(normalizarCnpj(cnpj));
   for (const cnpj of semNome) out.push({ tipo: "sem-cadastro", cnpj, detalhe: "CNPJ sem nome no cadastro." });
-  for (const c of d.ctes) if (c.divergencia)
+  for (const c of ctes) if (c.divergencia)
     out.push({ tipo: "diverge-planilha", cte: c, detalhe: "Na importação, o cálculo não bateu com a planilha; vale o número da planilha." });
   return out;
 }

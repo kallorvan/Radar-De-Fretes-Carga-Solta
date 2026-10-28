@@ -90,7 +90,7 @@ test("resumoConflito conta o que mudou", () => {
 test("lerDadosJs devolve a base migrada", () => {
   const txt = MARCA + JSON.stringify({ versao: 1, ctes: [{ chave: "a", sacas: 10 }], cnpjs: [], lixeira: [], log: [] }) + ";";
   const d = lerDadosJs(txt);
-  assert.equal(d.versao, 2);
+  assert.equal(d.versao, 3);
   assert.equal(d.ctes[0].quantidade, 10);
   assert.equal(d.unidades.length, 4);
 });
@@ -100,7 +100,7 @@ test("juntar com arquivo v1 migra antes", () => {
   const tela = novaBase(), s = novaSessao();
   incluir(tela, campos({ chave: chaveN(1), numero: 1 }), "Ana", AGORA); s.alterados.add(chaveN(1));
   const r = juntar(v1, tela, s);
-  assert.equal(r.versao, 2);
+  assert.equal(r.versao, 3);
   assert.equal(r.ctes.find(c => c.numero === 9).quantidade, 30);
   assert.equal(r.ctes.find(c => c.numero === 1).produto, "ACUCAR");
 });
@@ -143,7 +143,7 @@ test("juntar funde o cadastro por campo: nome de um lado, produto padrão do out
 test("arquivo novo usa marca que o painel antigo não lê", () => {
   const txt = montarDadosJs(novaBase());
   assert.ok(!txt.includes("window.RADAR_CS="), "o painel antigo procura window.RADAR_CS= e deve recusar");
-  assert.ok(txt.includes("window.RADAR_CS2="));
-  assert.equal(lerDadosJs(txt).versao, 2);
-  assert.equal(lerDadosJs('window.RADAR_CS={"versao":1,"ctes":[]};').versao, 2, "lê a marca antiga e migra");
+  assert.ok(txt.includes("window.RADAR_CS3="));
+  assert.equal(lerDadosJs(txt).versao, 3);
+  assert.equal(lerDadosJs('window.RADAR_CS={"versao":1,"ctes":[]};').versao, 3, "lê a marca antiga e migra");
 });

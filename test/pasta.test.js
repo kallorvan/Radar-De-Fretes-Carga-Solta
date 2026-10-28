@@ -225,8 +225,28 @@ test("pendências v1 no IndexedDB voltam migradas", async () => {
     sessao: { alterados: ["a"], excluidos: [], restaurados: [], cadastro: [["1", "X"]], log: [] } });
   const g = criarGravador({ obterTela: () => novaBase(), obterSessao: novaSessao, obterQuem: () => "Ana", aoSalvar() {}, idb });
   const p = await g.restaurarPendentes();
-  assert.equal(p.tela.versao, 2);
+  assert.equal(p.tela.versao, 3);
   assert.equal(p.tela.ctes[0].quantidade, 7);
   assert.equal(p.sessao.cadastro.get("1").nome, "X", "cadastro antigo (só nome) vira objeto");
   assert.equal(p.sessao.listas.size, 0);
+});
+
+test("a data de corte gravada sai da sessão e vai para o arquivo", async () => {
+  const pasta = pastaComBase(), p = pagina(pasta);
+  await p.g.conectar(pasta);
+  A.definirCorte(p.dados, p.sessao, "2026-09-01", p.quem, AGORA);
+  assert.equal((await p.g.salvar({ manual: true })).ok, true);
+  assert.equal(lerArquivo(pasta).corte, "2026-09-01");
+  assert.equal(p.sessao.config.size, 0);
+});
+
+test("pendências guardadas levam a data de corte da sessão", async () => {
+  const idb = idbFalso(), s = novaSessao();
+  s.config.set("corte", null);
+  const g = criarGravador({ obterTela: () => novaBase(), obterSessao: () => s, obterQuem: () => "Ana", aoSalvar() {}, idb, atraso: 0 });
+  g.marcarAlterado();
+  await g.ocioso?.();
+  const p = await g.restaurarPendentes();
+  assert.equal(p.sessao.config.get("corte"), null);
+  assert.equal(p.sessao.config.has("corte"), true);
 });

@@ -19,6 +19,7 @@ export function baseExemplo() {
   lanca({ cnpjTransportador: T1, emissao: "2026-04-02", valorFrete: 9500 });   // 190
   lanca({ cnpjTransportador: T2, emissao: "2026-03-02", valorFrete: 5000, origem: "C" });
   d.salvoEm = "2026-10-28T09:00:00.000Z"; d.salvoPor = "Ana";
+  d.corte = null;   // os CT-e de exemplo são de janeiro a abril: sem corte, todos entram na análise
   return d;
 }
 
@@ -38,7 +39,7 @@ export function baseV1ParaClassificar() {
     cnpjTransportador: T1, origem: "A", destino: "B", itinerario: "", valorAssegurado: 0, taxaSeguro: 0, valorSeguro: 0, adicionais: 0,
     valorFrete, tarifa: valorFrete, sacas: quantidade, precoSaca: valorFrete / quantidade, vpo: false, observacoes: "",
     criadoPor: "Ana", criadoEm: AGORA, origemLancamento: "importacao" });
-  return { versao: 1, salvoEm: "2026-10-28T09:00:00.000Z", salvoPor: "Ana", log: [], lixeira: [],
+  return { versao: 1, corte: null, salvoEm: "2026-10-28T09:00:00.000Z", salvoPor: "Ana", log: [], lixeira: [],
     // base v1 real: nenhum CNPJ tem produto padrão; a migração semeia pelo nome
     cnpjs: [{ cnpj: "44209336003583", nome: "USINA ALTA MOGIANA S/A" }, { cnpj: "55555555000100", nome: "EISA" },
       { cnpj: "66666666000100", nome: "COLOMBARI SERVIÇOS DE TRANSPORTES LTDA" }, { cnpj: T1, nome: "TRANSPORTES UM" }],

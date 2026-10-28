@@ -7,15 +7,15 @@ import { fmtQuando } from "./formato.js";
 export const ARQ_DADOS = "radar-carga-solta-dados.js";
 export const PASTA_BKP = "backups";
 export const MAX_BKP = 60;
-/* A marca mudou na base v2: um painel antigo ainda aberto (que procura a marca antiga) recusa gravar
-   — "ilegível, nada foi gravado" — em vez de apagar produto, unidade e peso que ele não conhece. */
-export const MARCA = "window.RADAR_CS2=";
-const MARCA_ANTIGA = "window.RADAR_CS=";
+/* A marca muda a cada versão da base: um painel antigo ainda aberto (que procura a marca dele) recusa gravar
+   — "ilegível, nada foi gravado" — em vez de apagar campos que ele não conhece. */
+export const MARCA = "window.RADAR_CS3=";
+const MARCAS_ANTIGAS = ["window.RADAR_CS2=", "window.RADAR_CS="];
 const PREFIXO_BKP = "radar-carga-solta-dados ";
 
 export function lerDadosJs(texto) {
   const t = String(texto ?? "");
-  const marca = t.includes(MARCA) ? MARCA : MARCA_ANTIGA, i = t.indexOf(marca);
+  const marca = [MARCA, ...MARCAS_ANTIGAS].find(m => t.includes(m)) || MARCA, i = t.indexOf(marca);
   if (i < 0) return null;
   const corpo = t.slice(i + marca.length).trim().replace(/;\s*$/, "");
   try {
@@ -44,9 +44,10 @@ export const podar = (nomes, max = MAX_BKP) => nomes.filter(ehBackup).sort().sli
 
 /* O que esta página mudou desde a última gravação. */
 /* toques: quantas vezes cada CT-e foi mexido nesta página; uma gravação só tira da sessão o que não mudou depois dela.
-   cadastro: cnpj → registro do cadastro como está na tela; listas: "produto:ID" | "unidade:ID" → item da lista. */
-export const novaSessao = () => ({ alterados: new Set(), excluidos: new Set(), restaurados: new Set(), cadastro: new Map(), listas: new Map(), log: [], toques: new Map() });
-export const sessaoVazia = s => !s.alterados.size && !s.excluidos.size && !s.restaurados.size && !s.cadastro.size && !s.listas?.size && !s.log.length;
+   cadastro: cnpj → registro do cadastro como está na tela; listas: "produto:ID" | "unidade:ID" → item da lista;
+   config: campo da base → valor (a data de corte). */
+export const novaSessao = () => ({ alterados: new Set(), excluidos: new Set(), restaurados: new Set(), cadastro: new Map(), listas: new Map(), config: new Map(), log: [], toques: new Map() });
+export const sessaoVazia = s => !s.alterados.size && !s.excluidos.size && !s.restaurados.size && !s.cadastro.size && !s.listas?.size && !s.config?.size && !s.log.length;
 
 /* Parte do arquivo e aplica por cima só o que esta página mudou; cada CT-e tocado
    vai para onde está na tela (base ou lixeira). */
@@ -70,6 +71,7 @@ export function juntar(arquivo, tela, sessao) {
     const i = lista.findIndex(x => x.id === item.id);
     if (i >= 0) lista[i] = structuredClone(item); else lista.push(structuredClone(item));
   }
+  for (const [k, v] of sessao.config || []) r[k] = v;
   r.log = [...(r.log || []), ...sessao.log].slice(-MAX_LOG);
   return r;
 }
@@ -82,7 +84,7 @@ export function resumoConflito(arquivo, tela, sessao) {
     porChave.get(c.chave) !== JSON.stringify(c)).length;
   const noArquivo = new Set(arquivo.ctes.map(c => c.chave));
   const saem = tela.ctes.filter(c => !noArquivo.has(c.chave) && !sessao.alterados.has(c.chave) && !sessao.restaurados.has(c.chave)).length;
-  const minhas = sessao.alterados.size + sessao.excluidos.size + sessao.restaurados.size + sessao.cadastro.size + (sessao.listas?.size || 0);
+  const minhas = sessao.alterados.size + sessao.excluidos.size + sessao.restaurados.size + sessao.cadastro.size + (sessao.listas?.size || 0) + (sessao.config?.size || 0);
   const quem = (arquivo.salvoPor ? arquivo.salvoPor + " gravou" : "Alguém gravou") +
     (arquivo.salvoEm ? ` em ${fmtQuando(arquivo.salvoEm)}` : "");
   const partes = [];

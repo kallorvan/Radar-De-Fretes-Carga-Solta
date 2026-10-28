@@ -15,8 +15,10 @@ export const UNIDADES_INICIAIS = [
 ];
 export const PRODUTOS_INICIAIS = [{ id: "CAFE", nome: "Café" }, { id: "ACUCAR", nome: "Açúcar" }];
 
+export const CORTE_PADRAO = "2026-08-01";
+
 export const novaBase = () => ({
-  versao: 2, salvoEm: null, salvoPor: null, ctes: [], cnpjs: [], lixeira: [], log: [],
+  versao: 3, corte: CORTE_PADRAO, salvoEm: null, salvoPor: null, ctes: [], cnpjs: [], lixeira: [], log: [],
   produtos: structuredClone(PRODUTOS_INICIAIS), unidades: structuredClone(UNIDADES_INICIAIS),
 });
 
@@ -49,7 +51,23 @@ export function migrarBase(d) {
   };
   r.ctes = r.ctes.map(normaliza);
   r.lixeira = r.lixeira.map(l => ({ ...l, cte: normaliza(l.cte) }));
+  if ((r.versao || 1) < 3) {
+    if (r.corte === undefined) r.corte = CORTE_PADRAO;
+    r.versao = 3;
+  }
   return r;
+}
+
+/* CT-e antes da data de corte ficam na base, mas fora da análise (sem CT-e em mãos para classificar). */
+export const noCorte = (d, cte) => !d.corte || String(cte.emissao) >= d.corte;
+export const ctesNoCorte = d => d.ctes.filter(c => noCorte(d, c));
+
+export function definirCorte(d, valor, quem, agora) {
+  const v = valor ? String(valor) : null;
+  if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return { ok: false };
+  d.corte = v;
+  registrar(d, "corte", quem, agora, "", v ? `data de corte ${v.split("-").reverse().join("/")}` : "sem data de corte");
+  return { ok: true, corte: v };
 }
 
 export const unidadeDe = (d, id) => (d.unidades || []).find(u => u.id === id) || null;

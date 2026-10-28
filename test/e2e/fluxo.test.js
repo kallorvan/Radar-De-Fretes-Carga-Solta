@@ -14,7 +14,7 @@ after(async () => { await browser?.close(); });
 const FAKE = readFileSync(new URL("../fakes/pasta-falsa.js", import.meta.url), "utf8").replace(/^export /gm, "");
 const lerPasta = page => page.evaluate(() => {
   const t = window.__pasta.arquivos.get("radar-carga-solta-dados.js");
-  return { dados: JSON.parse(t.slice(t.indexOf("window.RADAR_CS2=") + 17).trim().replace(/;$/, "")), backups: window.__pasta.pastas.get("backups")?.arquivos.size || 0 };
+  return { dados: JSON.parse(t.slice(t.indexOf("window.RADAR_CS3=") + 17).trim().replace(/;$/, "")), backups: window.__pasta.pastas.get("backups")?.arquivos.size || 0 };
 });
 const esperarGravado = (page, fn) => page.waitForFunction(fn, null, { timeout: 8000 });
 
@@ -36,7 +36,7 @@ test("fluxo completo com pasta simulada", async () => {
   await page.setInputFiles("#arq-planilha", { name: "Radar.xlsx", mimeType: "application/octet-stream", buffer: buf });
   await esperarGravado(page, () => window.__pasta.arquivos.get("radar-carga-solta-dados.js").includes('"numero":903'));
   assert.equal((await lerPasta(page)).dados.ctes.length, 10);
-  assert.equal((await lerPasta(page)).dados.versao, 2);
+  assert.equal((await lerPasta(page)).dados.versao, 3);
 
   // classificar o que veio da planilha
   await page.waitForSelector("#classificar tbody tr");
@@ -79,10 +79,10 @@ test("fluxo completo com pasta simulada", async () => {
   // outra pessoa grava; esta página altera e encontra o conflito
   await page.evaluate(() => {
     const p = window.__pasta, t = p.arquivos.get("radar-carga-solta-dados.js");
-    const d = JSON.parse(t.slice(t.indexOf("window.RADAR_CS2=") + 17).trim().replace(/;$/, ""));
+    const d = JSON.parse(t.slice(t.indexOf("window.RADAR_CS3=") + 17).trim().replace(/;$/, ""));
     const outro = { ...d.ctes[0], chave: "9".repeat(44), numero: 777, criadoPor: "Bia" };
     d.ctes.push(outro); d.salvoEm = new Date(Date.now() + 1000).toISOString(); d.salvoPor = "Bia";
-    p.arquivos.set("radar-carga-solta-dados.js", "window.RADAR_CS2=" + JSON.stringify(d) + ";");
+    p.arquivos.set("radar-carga-solta-dados.js", "window.RADAR_CS3=" + JSON.stringify(d) + ";");
   });
   await page.click("#abas button[data-aba=lancamentos]");
   await page.fill("#busca", "99999");

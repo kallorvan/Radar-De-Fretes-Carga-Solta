@@ -105,8 +105,8 @@ async function acaoGravacao(acao) {
 }
 
 async function iniciar() {
-  // base gravada por um painel antigo (v1) é atualizada aqui; a pasta só recebe a v2 na próxima gravação
-  const lido = window.RADAR_CS2 || window.RADAR_CS;
+  // base gravada por um painel antigo (v1 ou v2) é atualizada aqui; a pasta só recebe a v3 na próxima gravação
+  const lido = window.RADAR_CS3 || window.RADAR_CS2 || window.RADAR_CS;
   const arquivo = lido ? migrarBase({ versao: 1, cnpjs: [], lixeira: [], log: [], ...lido }) : novaBase();
   App.dados = arquivo;
   App.gravador = criarGravador({

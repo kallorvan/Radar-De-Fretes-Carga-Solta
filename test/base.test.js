@@ -63,9 +63,9 @@ test("big bag exige peso", () => {
   assert.equal(validarCampos(d, campos({ pesoInformado: true, pesoKg: 0 })).erros.pesoKg, "Informe o peso total do CT-e (kg).");
 });
 
-test("listas iniciais e versão 2", () => {
+test("listas iniciais e versão 3", () => {
   const d = novaBase();
-  assert.equal(d.versao, 2);
+  assert.equal(d.versao, 3);
   assert.deepEqual(unidadeDe(d, "SC60"), { id: "SC60", nome: "Saca 60 kg", kg: 60, saca: true });
   assert.equal(unidadeDe(d, "BAG").kg, null);
   assert.equal(produtoDe(d, "ACUCAR").nome, "Açúcar");
@@ -132,7 +132,7 @@ test("migrarBase converte v1 sem perder nada", () => {
     ctes: [{ chave: "a", numero: 1, sacas: 50, tarifa: 8750, precoSaca: 175 }],
     lixeira: [{ cte: { chave: "b", numero: 2, sacas: 20, tarifa: 100, precoSaca: 5 }, excluidoPor: "Bia", excluidoEm: "y" }] };
   const d = migrarBase(v1);
-  assert.equal(d.versao, 2);
+  assert.equal(d.versao, 3);
   assert.equal(d.ctes.length, 1);
   assert.deepEqual([d.ctes[0].quantidade, d.ctes[0].produto, d.ctes[0].unidade, d.ctes[0].pesoKg, d.ctes[0].precoTonelada, d.ctes[0].precoSaca],
     [50, null, null, null, null, null]);

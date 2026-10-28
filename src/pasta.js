@@ -22,11 +22,11 @@ export function idbNavegador(nome = "radar-carga-solta") {
   return { get: k => op("readonly", st => st.get(k)), put: (k, v) => op("readwrite", st => st.put(v, k)), del: k => op("readwrite", st => st.delete(k)) };
 }
 
-const serSessao = s => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], cadastro: [...s.cadastro], listas: [...(s.listas || [])], log: [...s.log], toques: [...(s.toques || [])] });
+const serSessao = s => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], cadastro: [...s.cadastro], listas: [...(s.listas || [])], config: [...(s.config || [])], log: [...s.log], toques: [...(s.toques || [])] });
 const desSessao = s => ({ alterados: new Set(s.alterados), excluidos: new Set(s.excluidos), restaurados: new Set(s.restaurados), 
   // sessões antigas guardavam só o nome do CNPJ
   cadastro: new Map((s.cadastro || []).map(([k, v]) => [k, typeof v === "string" ? { nome: v } : v])),
-  listas: new Map(s.listas || []), log: s.log, toques: new Map(s.toques || []) });
+  listas: new Map(s.listas || []), config: new Map(s.config || []), log: s.log, toques: new Map(s.toques || []) });
 
 export function criarGravador({ obterTela, obterSessao, obterQuem, aoSalvar, aoMudar = () => {}, idb, env = globalThis, atraso = 1000 }) {
   const g = {
@@ -114,6 +114,7 @@ export function criarGravador({ obterTela, obterSessao, obterQuem, aoSalvar, aoM
     const igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     for (const [cnpj, reg] of foto.cadastro) if (igual(s.cadastro.get(cnpj), reg)) s.cadastro.delete(cnpj);
     for (const [k, item] of foto.listas || []) if (igual(s.listas?.get(k), item)) s.listas.delete(k);
+    for (const [k, v] of foto.config || []) if (s.config?.has(k) && igual(s.config.get(k), v)) s.config.delete(k);
     s.log.splice(0, foto.log.length);
   }
 

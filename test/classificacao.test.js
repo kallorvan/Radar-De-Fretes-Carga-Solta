@@ -11,7 +11,7 @@ function baseV1() {
   const cte = (n, cli, quantidade, valorFrete) => ({ chave: String(n).padStart(44, "0"), numero: n, emissao: "2026-07-01", cnpjCliente: cli,
     cnpjTransportador: "99999999000100", origem: "A", destino: "B", valorAssegurado: 0, taxaSeguro: 0, valorSeguro: 0, adicionais: 0,
     valorFrete, tarifa: valorFrete, sacas: quantidade, precoSaca: valorFrete / quantidade });
-  const d = migrarBase({ versao: 1, cnpjs: [], lixeira: [], log: [], ctes: [
+  const d = migrarBase({ versao: 1, corte: null, cnpjs: [], lixeira: [], log: [], ctes: [
     cte(1, USINA, 50, 8750), cte(2, USINA, 1080, 9612), cte(3, EISA, 20, 10836.81), cte(4, EISA, 540, 17353.56), cte(5, COLOMBARI, 50, 6900)] });
   cadastrarCnpj(d, USINA, "USINA ALTA MOGIANA S/A", "Ana", AGORA);
   cadastrarCnpj(d, EISA, "EISA", "Ana", AGORA);

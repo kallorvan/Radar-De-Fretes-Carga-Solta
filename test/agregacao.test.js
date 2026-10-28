@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { novaBase, incluir, cadastrarCnpj } from "../src/base.js";
+import { novaBase as baseNova, incluir, cadastrarCnpj } from "../src/base.js";
+/* CT-e de exemplo são de antes da data de corte padrão: aqui a base não tem corte. */
+const novaBase = () => ({ ...baseNova(), corte: null });
 import {
   mediana, filtrar, mesesEntre, valorMetrica, serieMensal, resumoGeral, resumoRotas,
   transportadoresNaRota, excecoes, produtosDaRota,
