@@ -9,20 +9,24 @@ O painel é um arquivo HTML só. Ele fica numa pasta compartilhada do SharePoint
 3. Abra o HTML **a partir da pasta sincronizada**, com duplo clique, no **Chrome ou no Edge**.
 4. Informe o seu nome quando o painel pedir. Ele fica guardado no navegador e vai junto com cada lançamento, correção e exclusão.
 5. Vá em **Dados → Conectar a pasta** e escolha a pasta do passo 1. Como ela ainda não tem o `radar-carga-solta-dados.js`, o painel pergunta **"Criar a base nesta pasta?"**: confirme.
-6. Em **Dados → Importar planilha**, escolha a `Radar_Fretes_Concorrentes_v2.10.xlsm`. O painel lê só as abas *BASE CARGA SOLTA 2026* e *BASE DE DADOS CNPJ*. Com a versão 2.10 o resultado esperado é **195 CT-e incluídos, 0 rejeitados e 125 CNPJ cadastrados**.
-   - Um CT-e (nº 257219) tem o seguro digitado como R$ 193,00, e a conta dá R$ 193,07. Ele entra com o valor da planilha e aparece em **Exceções a tratar**.
-7. Em **Dados → Classificar CT-e**, revise produto e unidade de cada CT-e importado (a planilha não tem esses campos). O painel já sugere:
+6. Em **Dados → Importar planilha**, escolha a `Radar_Fretes_Concorrentes_v2.10.xlsm`. O painel lê só as abas *BASE CARGA SOLTA 2026* e *BASE DE DADOS CNPJ*. Com a versão 2.10 o resultado esperado é **195 CT-e incluídos, 0 rejeitados, 125 CNPJ cadastrados e nenhuma divergência**.
+   - O CNPJ do transportador vem da chave de acesso e o cód. itinerário vem do cadastro do Rodopar (abas LINHA SANTOS e LINHA GUARUJÁ). Na v2.10, 45 CT-e ganham itinerário; os outros 150 são de cidades fora dessas abas e ficam com o código em branco.
+7. **Data de corte.** A base começa com corte em **01/08/2026**: os CT-e emitidos antes dessa data (155 dos 195) ficam na base, mas fora da Evolução, das Rotas, das exceções e da classificação, porque não há CT-e em mãos para saber produto e unidade. A data pode ser mudada em **Dados → Data de corte**; vazia, todos entram.
+8. Em **Dados → Classificar CT-e**, revise produto e unidade dos CT-e a partir do corte (a planilha não tem esses campos). O painel já sugere:
    - **produto** pelo cliente (café: EISA, Stonex, Olam, Louis Dreyfus…; açúcar: usinas, U.S.J., Coplasa…);
    - **unidade** pela quantidade (até 100 = toneladas; acima, saca de 60 kg para café e de 50 kg para açúcar).
    
-   Com a v2.10, a regra sugere 164 dos 195 CT-e. Os 31 restantes são de clientes que são transportadoras (Colombari, R S G, Agius…): escolha produto e unidade nessas linhas, ou defina o *produto padrão* do cliente na aba **Cadastro**. Confira também o CT-e **22875** (EISA, LEM → Machado): são 35 **sacas**, não toneladas. Ele aparece em "R$/t fora da faixa da rota".
-8. A gravação é automática: a barra abaixo do menu mostra **Tudo salvo** quando o arquivo da pasta está em dia.
+   Com a v2.10, a regra sugere os 40 CT-e de agosto. Confira cada linha contra o CT-e antes de clicar em **Aplicar marcados**.
+9. A gravação é automática: a barra abaixo do menu mostra **Tudo salvo** quando o arquivo da pasta está em dia.
 
 ## Uso no dia a dia
 
+- No lançamento, digite o **valor assegurado** e o **valor do seguro** como vêm no CT-e; a taxa do seguro é calculada só para conferência. O **CNPJ do transportador** sai da chave de acesso e o **cód. itinerário** sai da origem e do destino (cadastro do Rodopar): os dois campos ficam travados.
 - O preço principal é **R$/t**: tarifa (frete − seguro − adicionais) ÷ peso. O peso sai da quantidade × kg da unidade (saca de 60 kg, saca de 50 kg, tonelada). Para big bag, ou quando o CT-e traz outro peso, marque **Usar o peso do CT-e** e digite o peso bruto.
 - Produtos e unidades novos são incluídos na aba **Cadastro**. O peso de uma unidade já usada não muda: para outro peso, crie outra unidade.
 - Ao comparar uma rota que leva mais de um produto, escolha o produto no recorte. O painel avisa quando a rota mistura produtos.
+- Na **Evolução**, cada ponto do gráfico é um CT-e, na data de emissão, com a cor do azul (mais barato) ao rosa (mais caro). A linha tracejada é a mediana do mês e pode ser desligada. Clique num ponto para abrir o CT-e.
+- Em **Exceções a tratar**, o botão **Abrir na base** leva direto à correção do CT-e (ou ao CNPJ no Cadastro, ou à classificação).
 
 - Cada pessoa abre o HTML pela pasta sincronizada no Chrome ou no Edge.
 - Na primeira vez em cada computador, é preciso clicar em **Conectar a pasta** (aba Dados). Depois disso o navegador lembra.
@@ -36,7 +40,7 @@ O painel é um arquivo HTML só. Ele fica numa pasta compartilhada do SharePoint
 
 Troque só o HTML na pasta pela versão nova de `dist/index.html`. Os dados ficam no `radar-carga-solta-dados.js` e não mudam.
 
-Depois de trocar, todos devem **fechar as abas do painel antigo e abrir o HTML de novo**. A partir da versão com produto e unidade, o arquivo de dados é gravado num formato que o painel antigo não lê: uma aba antiga esquecida aberta mostra "ilegível, nada foi gravado" em vez de apagar os campos novos.
+Depois de trocar, todos devem **fechar as abas do painel antigo e abrir o HTML de novo**. A cada versão que muda o arquivo de dados (a última: seguro informado, itinerário e data de corte), ele passa a ser gravado num formato que o painel antigo não lê: uma aba antiga esquecida aberta mostra "ilegível, nada foi gravado" em vez de apagar os campos novos. A base existente é atualizada sozinha na primeira abertura: o seguro de cada CT-e fica como está, a taxa é recalculada a partir dele, os itinerários em branco são preenchidos e a data de corte começa em 01/08/2026.
 
 ## Restaurar um backup
 
@@ -60,4 +64,8 @@ npm test                 # testes de unidade
 npm run montar           # gera dist/index.html
 npm run test:e2e         # testes no navegador (Chromium/Playwright)
 node scripts/conferir-planilha.mjs caminho/Radar_Fretes_Concorrentes.xlsm   # confere a importação (a planilha não vai para o repositório)
+node scripts/extrair-itinerarios.mjs caminho/Radar_Fretes_Concorrentes.xlsm  # regera src/dados-itinerarios.js (abas LINHA SANTOS e LINHA GUARUJÁ)
+python3 scripts/montar-logos.py                                              # regera a assinatura Dínamo | Tóliman
 ```
+
+Quando o Rodopar ganhar cidade nova, rode `extrair-itinerarios` com a planilha atualizada, depois `npm run montar`, e troque o HTML na pasta. Quatro cidades aparecem duas vezes nas abas, com códigos diferentes (Boa Esperança, Campestre, Itapeva e São Simão: homônimas de estados diferentes, e as abas não trazem a UF); para elas o código fica em branco.
