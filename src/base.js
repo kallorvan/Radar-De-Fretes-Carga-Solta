@@ -180,7 +180,7 @@ export function classificar(d, chave, { produto, unidade, pesoKg = null, pesoInf
   if (Object.keys(erros).length) return { ok: false, erros };
   const antes = { valorSeguro: cte.valorSeguro, tarifa: cte.tarifa };
   Object.assign(cte, { produto, unidade, pesoInformado: c.pesoInformado, pesoKg: c.pesoKg }, calcular(d, c), { alteradoPor: quem, alteradoEm: agora });
-  if (cte.divergencia) Object.assign(cte, antes);   // na divergência vale o número da planilha
+  if (cte.divergencia) { Object.assign(cte, antes); precosDaTarifa(d, cte); }   // na divergência vale o número da planilha
   registrar(d, "classificar", quem, agora, chave, `${resumoCte(cte)} · ${produtoDe(d, produto).nome} · ${unidadeDe(d, unidade).nome}`);
   return { ok: true, cte };
 }
@@ -218,4 +218,12 @@ export function definirProdutoPadrao(d, cnpj, produto, quem, agora) {
   c.produtoPadrao = produto || null;
   registrar(d, "cadastro", quem, agora, "", `${fmtCnpj(n)} · produto padrão ${produto ? produtoDe(d, produto).nome : "nenhum"}`);
   return { ok: true, cnpj: n, nome: c.nome, produtoPadrao: c.produtoPadrao };
+}
+
+/* Preços a partir da tarifa que está no CT-e (a da planilha, quando ela diverge da conta). */
+export function precosDaTarifa(d, cte) {
+  const u = unidadeDe(d, cte.unidade), r2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+  cte.precoTonelada = cte.pesoKg > 0 ? r2(cte.tarifa / (cte.pesoKg / 1000)) : null;
+  cte.precoSaca = u?.saca && cte.quantidade > 0 ? r2(cte.tarifa / cte.quantidade) : null;
+  return cte;
 }

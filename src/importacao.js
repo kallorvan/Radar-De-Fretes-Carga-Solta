@@ -1,8 +1,9 @@
 // Importação da planilha Radar_Fretes_Concorrentes (abas BASE CARGA SOLTA 2026 e BASE DE DADOS CNPJ)
 // e exportação no mesmo layout. O SheetJS (XLSX) é recebido como argumento.
 
-import { normalizarCnpj, numeroBR, calcularCte } from "./calculos.js";
-import { validarCampos, incluir, cadastrarCnpj, nomeDoCnpj, registrar } from "./base.js";
+import { normalizarCnpj, numeroBR } from "./calculos.js";
+import { validarCampos, incluir, cadastrarCnpj, nomeDoCnpj, registrar, unidadeDe, produtoDe, precosDaTarifa } from "./base.js";
+import { semeiaProdutosPadrao } from "./classificacao.js";
 
 export const ABA_BASE = "BASE CARGA SOLTA 2026";
 export const ABA_CNPJ = "BASE DE DADOS CNPJ";
@@ -13,10 +14,17 @@ const COL = {
   cnpjTransportador: "CNPJ DO TRANSPORTADOR", transportador: "TRANSPORTADOR",
   cnpjCliente: "CNPJ DO CLIENTE", cliente: "CLIENTE", origem: "CIDADE ORIGEM", destino: "CIDADE DESTINO",
   itinerario: "COD. ITINERÁRIO", valorAssegurado: "VALOR ASSEGURADO", taxaSeguro: "TAXA DO SEGURO",
-  valorSeguro: "VALOR DO SEGURO", valorFrete: "VALOR DO FRETE", adicionais: "ADICIONAIS", sacas: "QT. SACAS",
+  valorSeguro: "VALOR DO SEGURO", valorFrete: "VALOR DO FRETE", adicionais: "ADICIONAIS", quantidade: "QT. SACAS",
   precoSaca: "PREÇO POR SACAS", tarifa: "TARIFA DO FRETE", vpo: "VPO", observacoes: "OBSERVAÇÕES",
 };
+const COL_NOVAS = { produto: "PRODUTO", unidade: "UNIDADE", pesoKg: "PESO (KG)", precoTonelada: "PREÇO POR TONELADA" };
 const chaveCab = s => String(s ?? "").trim().replace(/\s+/g, " ").toUpperCase();
+const semAcento = s => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
+/* Nome da planilha ("Café", "saca 60 kg", "BAG") → id da lista, comparando sem acento; desconhecido = null. */
+const acharNaLista = (lista, valor) => {
+  const v = semAcento(valor);
+  return v ? lista.find(x => semAcento(x.id) === v || semAcento(x.nome) === v)?.id ?? null : null;
+};
 
 /* Data da planilha (série do Excel, Date ou "dd/mm/aaaa") → "aaaa-mm-dd". */
 function dataISO(v) {
@@ -49,19 +57,24 @@ export function lerPlanilha(XLSX, dados) {
 
 const vazia = l => Object.values(l).every(v => v == null || String(v).trim() === "");
 
-export function normalizarLinha(linhaBruta, numLinha) {
+export function normalizarLinha(d, linhaBruta, numLinha) {
   const l = Object.fromEntries(Object.entries(linhaBruta).map(([k, v]) => [chaveCab(k), v]));
-  const g = k => l[COL[k]];
+  const g = k => k === "quantidade" ? l["QUANTIDADE"] ?? l["QT. SACAS"] : l[COL[k] ?? COL_NOVAS[k]];
+  const produto = acharNaLista(d.produtos, g("produto")), unidade = acharNaLista(d.unidades, g("unidade"));
+  const quantidade = numeroBR(g("quantidade")), pesoLido = numeroBR(g("pesoKg")), u = unidadeDe(d, unidade);
+  // o peso da planilha só conta como "do CT-e" quando difere do calculado pela unidade
+  const pesoInformado = pesoLido > 0 && !(u?.kg > 0 && quantidade > 0 && Math.abs(pesoLido - quantidade * u.kg) < 0.5);
   const campos = {
     chave: String(g("chave") ?? "").replace(/\D/g, ""), numero: g("numero"), emissao: dataISO(g("emissao")),
     cnpjTransportador: normalizarCnpj(g("cnpjTransportador")), cnpjCliente: normalizarCnpj(g("cnpjCliente")),
     origem: g("origem") ?? "", destino: g("destino") ?? "", itinerario: g("itinerario") ?? "",
     valorAssegurado: numeroBR(g("valorAssegurado")), taxaSeguro: numeroBR(g("taxaSeguro")),
-    valorFrete: numeroBR(g("valorFrete")), adicionais: numeroBR(g("adicionais")), sacas: numeroBR(g("sacas")),
+    valorFrete: numeroBR(g("valorFrete")), adicionais: numeroBR(g("adicionais")), quantidade,
+    produto, unidade, pesoKg: pesoInformado ? pesoLido : null, pesoInformado,
     vpo: String(g("vpo") ?? "").trim().toUpperCase() === "SIM",
     observacoes: g("observacoes") ?? "",
   };
-  const v = validarCampos(campos);
+  const v = validarCampos(d, campos, { exigirClassificacao: false });
   if (!v.ok) return { ok: false, numLinha, motivo: Object.values(v.erros).join(" ") };
   return {
     ok: true, numLinha, campos: v.campos,
@@ -72,47 +85,59 @@ export function normalizarLinha(linhaBruta, numLinha) {
 
 export function aplicarImportacao(d, resultado, quem, agora) {
   const logAntes = d.log.slice();
-  const r = { incluidos: 0, pulados: 0, rejeitados: [], cadastrados: 0, divergentes: 0 };
+  const r = { incluidos: 0, pulados: 0, rejeitados: [], cadastrados: 0, divergentes: 0, aClassificar: 0 };
   const cadastra = (cnpj, nome) => {
     if (cnpj && nome && !nomeDoCnpj(d, cnpj) && cadastrarCnpj(d, cnpj, nome, quem, agora).ok) r.cadastrados++;
   };
   for (const c of resultado.cnpjs || []) cadastra(c.cnpj, c.nome);
   (resultado.linhas || []).forEach((bruta, i) => {
     if (vazia(bruta)) return;
-    const n = normalizarLinha(bruta, i + 2);
+    const n = normalizarLinha(d, bruta, i + 2);
     if (!n.ok) { r.rejeitados.push({ numLinha: n.numLinha, motivo: n.motivo }); return; }
     cadastra(n.campos.cnpjTransportador, n.nomes.transportador);
     cadastra(n.campos.cnpjCliente, n.nomes.cliente);
-    const inc = incluir(d, n.campos, quem, agora, "importacao");
+    // sem produto/unidade válidos (ou big bag sem peso) entra mesmo assim, para classificar depois
+    const classificado = !Object.keys(validarCampos(d, n.campos).erros).length;
+    const inc = incluir(d, n.campos, quem, agora, "importacao", { exigirClassificacao: false });
     if (!inc.ok) { r.pulados++; return; }
     r.incluidos++;
-    const calc = calcularCte(n.campos);
-    const difere = Object.keys(calc).some(k => n.planilha[k] != null && calc[k] != null &&
-      Math.abs(calc[k] - n.planilha[k]) > TOLERANCIA);
+    if (!classificado) {   // fica só o produto, se ele for conhecido; unidade e peso voltam na classificação
+      Object.assign(inc.cte, { unidade: null, pesoKg: null, pesoInformado: false, precoTonelada: null, precoSaca: null });
+      r.aClassificar++;
+    }
+    const calc = { valorSeguro: inc.cte.valorSeguro, tarifa: inc.cte.tarifa };
+    const ehSaca = unidadeDe(d, inc.cte.unidade)?.saca;
+    const conferir = { ...calc, ...(ehSaca ? { precoSaca: inc.cte.precoSaca } : {}) };
+    const difere = Object.keys(conferir).some(k => n.planilha[k] != null && conferir[k] != null &&
+      Math.abs(conferir[k] - n.planilha[k]) > TOLERANCIA);
     if (difere) {
       const planilha = {};
-      for (const k of Object.keys(calc)) if (n.planilha[k] != null) { planilha[k] = n.planilha[k]; inc.cte[k] = n.planilha[k]; }
-      inc.cte.divergencia = { calculado: calc, planilha };
+      for (const k of ["valorSeguro", "tarifa"]) if (n.planilha[k] != null) { planilha[k] = n.planilha[k]; inc.cte[k] = n.planilha[k]; }
+      if (n.planilha.precoSaca != null) planilha.precoSaca = n.planilha.precoSaca;
+      inc.cte.divergencia = { calculado: { ...calc, precoSaca: inc.cte.precoSaca }, planilha };
+      precosDaTarifa(d, inc.cte);
       r.divergentes++;
     }
   });
+  semeiaProdutosPadrao(d);
   // um registro só para a importação inteira
   d.log.splice(0, d.log.length, ...logAntes);
   registrar(d, "importar", quem, agora, "",
     `${r.incluidos} incluídos, ${r.pulados} já existiam, ${r.rejeitados.length} rejeitados, ${r.cadastrados} CNPJ cadastrados` +
-    (r.divergentes ? `, ${r.divergentes} com cálculo divergente` : ""));
+    (r.divergentes ? `, ${r.divergentes} com cálculo divergente` : "") + (r.aClassificar ? `, ${r.aClassificar} a classificar` : ""));
   return r;
 }
 
 /* A base no mesmo layout da planilha (abas BASE CARGA SOLTA 2026 e BASE DE DADOS CNPJ). */
 export function exportarXlsx(d, XLSX) {
-  const COLS = Object.values(COL).map(c => c === "N° CT-E" ? "N° CT-e" : c === "EMISSÃO CT-E" ? "EMISSÃO CT-e" : c);
+  const COLS = [...Object.values(COL).map(c => c === "N° CT-E" ? "N° CT-e" : c === "EMISSÃO CT-E" ? "EMISSÃO CT-e" : c), ...Object.values(COL_NOVAS)];
   const serie = iso => (Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) - Date.UTC(1899, 11, 30)) / 864e5;
   const linhas = [...d.ctes].sort((a, b) => a.emissao.localeCompare(b.emissao) || a.numero - b.numero).map(c => [
     c.chave, c.numero, serie(c.emissao), c.cnpjTransportador, nomeDoCnpj(d, c.cnpjTransportador) || "",
     c.cnpjCliente, nomeDoCnpj(d, c.cnpjCliente) || "", c.origem, c.destino, c.itinerario || null,
-    c.valorAssegurado, c.taxaSeguro, c.valorSeguro, c.valorFrete, c.adicionais, c.sacas, c.precoSaca, c.tarifa,
+    c.valorAssegurado, c.taxaSeguro, c.valorSeguro, c.valorFrete, c.adicionais, c.quantidade, c.precoSaca, c.tarifa,
     c.vpo ? "SIM" : null, c.observacoes || null,
+    produtoDe(d, c.produto)?.nome ?? null, unidadeDe(d, c.unidade)?.nome ?? null, c.pesoKg ?? null, c.precoTonelada ?? null,
   ]);
   const base = XLSX.utils.aoa_to_sheet([COLS, ...linhas]);
   for (let i = 0; i < linhas.length; i++) { const cel = base[XLSX.utils.encode_cell({ r: i + 1, c: 2 })]; if (cel) cel.z = "dd/mm/yyyy"; }

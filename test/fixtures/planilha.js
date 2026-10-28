@@ -21,7 +21,10 @@ export const linhaPadrao = (n, extra = {}) => ({
 export function gerarPlanilha(linhas, cnpjs = [[5780969000146, "JF PEREIRA TRANSPORTES E SERVIÇOS LTDA"]], { semAbaBase = false } = {}) {
   const wb = XLSX.utils.book_new();
   if (!semAbaBase) {
-    const aoa = [CABECALHO, ...linhas.map(l => CABECALHO.map(h => l[h] ?? null))];
+    // colunas além das da planilha atual (PRODUTO, QUANTIDADE…) vão no fim; "QT. SACAS": undefined tira a coluna
+    const extras = [...new Set(linhas.flatMap(Object.keys))].filter(h => !CABECALHO.includes(h));
+    const cab = [...CABECALHO.filter(h => !linhas.length || linhas.some(l => l[h] !== undefined)), ...extras];
+    const aoa = [cab, ...linhas.map(l => cab.map(h => l[h] ?? null))];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "BASE CARGA SOLTA 2026");
   }
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["CNPJ", "TRANSPORTADOR/CLIENTE"], ...cnpjs]), "BASE DE DADOS CNPJ");

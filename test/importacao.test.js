@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import XLSX from "xlsx";
-import { novaBase, nomeDoCnpj } from "../src/base.js";
+import { novaBase, nomeDoCnpj, classificar } from "../src/base.js";
 import { lerPlanilha, normalizarLinha, aplicarImportacao } from "../src/importacao.js";
 import { gerarPlanilha, linhaPadrao } from "./fixtures/planilha.js";
 
@@ -16,7 +16,9 @@ test("importa as linhas e cadastra os CNPJ", () => {
   assert.equal(r.rejeitados.length, 0);
   assert.equal(d.ctes[0].emissao, "2026-01-10");
   assert.equal(d.ctes[0].origemLancamento, "importacao");
-  assert.equal(d.ctes[2].precoSaca, 125);
+  assert.equal(d.ctes[2].quantidade, 70);
+  assert.equal(d.ctes[2].produto, null);
+  assert.equal(r.aClassificar, 3);
   assert.equal(nomeDoCnpj(d, "05780969000146"), "JF PEREIRA TRANSPORTES E SERVIÇOS LTDA");
   assert.equal(nomeDoCnpj(d, "44209336003583"), "USINA ALTA MOGIANA");
   assert.equal(r.cadastrados, 2);
@@ -41,11 +43,11 @@ test("rejeita linha sem chave e sem sacas com o motivo", () => {
   assert.equal(r.rejeitados[0].numLinha, 2);
   assert.match(r.rejeitados[0].motivo, /Chave de acesso/);
   assert.equal(r.rejeitados[1].numLinha, 3);
-  assert.match(r.rejeitados[1].motivo, /sacas/);
+  assert.match(r.rejeitados[1].motivo, /Informe a quantidade/);
 });
 
 test("normalizarLinha aceita texto pt-BR e CNPJ numérico", () => {
-  const r = normalizarLinha(linhaPadrao(1, {
+  const r = normalizarLinha(novaBase(), linhaPadrao(1, {
     "VALOR DO FRETE": "8.750,00", "CNPJ DO CLIENTE": 44209336003583, "EMISSÃO CT-e": "13/01/2026",
     "TAXA DO SEGURO": "0,0005", "VPO": "SIM",
   }), 2);
@@ -59,8 +61,8 @@ test("normalizarLinha aceita texto pt-BR e CNPJ numérico", () => {
 });
 
 test("normalizarLinha converte número de série do Excel", () => {
-  assert.equal(normalizarLinha(linhaPadrao(1, { "EMISSÃO CT-e": 46032 }), 2).campos.emissao, "2026-01-10");
-  assert.equal(normalizarLinha(linhaPadrao(1, { "EMISSÃO CT-e": 46053.75 }), 2).campos.emissao, "2026-01-31");
+  assert.equal(normalizarLinha(novaBase(), linhaPadrao(1, { "EMISSÃO CT-e": 46032 }), 2).campos.emissao, "2026-01-10");
+  assert.equal(normalizarLinha(novaBase(), linhaPadrao(1, { "EMISSÃO CT-e": 46053.75 }), 2).campos.emissao, "2026-01-31");
 });
 
 test("divergência mantém o número da planilha", () => {
@@ -69,8 +71,12 @@ test("divergência mantém o número da planilha", () => {
   const r = aplicarImportacao(d, lerPlanilha(XLSX, buf), "Ana", AGORA);
   assert.equal(r.divergentes, 1);
   assert.equal(d.ctes[0].tarifa, 8700);
-  assert.equal(d.ctes[0].precoSaca, 174);
   assert.equal(d.ctes[0].divergencia.calculado.tarifa, 8750);
+  // ao classificar, os preços saem da tarifa da planilha
+  classificar(d, d.ctes[0].chave, { produto: "ACUCAR", unidade: "SC50" }, "Ana", AGORA);
+  assert.equal(d.ctes[0].tarifa, 8700);
+  assert.equal(d.ctes[0].precoSaca, 174);
+  assert.equal(d.ctes[0].precoTonelada, 3480);
 });
 
 test("diferença de até 5 centavos não é divergência", () => {
@@ -105,10 +111,51 @@ test("exportarXlsx usa as colunas da planilha", async () => {
   const cab = XLSX.utils.sheet_to_json(wb.Sheets["BASE CARGA SOLTA 2026"], { header: 1 })[0];
   assert.equal(cab[1], "N° CT-e");
   assert.equal(cab[16], "PREÇO POR SACAS");
+  assert.deepEqual(cab.slice(20), ["PRODUTO", "UNIDADE", "PESO (KG)", "PREÇO POR TONELADA"]);
   const d2 = novaBase();
   const r = aplicarImportacao(d2, lerPlanilha(XLSX, buf), "Ana", AGORA);
   assert.equal(r.incluidos, 3);
   assert.equal(r.divergentes, 0);
   assert.deepEqual(d2.ctes.map(c => [c.chave, c.emissao, c.precoSaca, c.cnpjCliente]), d.ctes.map(c => [c.chave, c.emissao, c.precoSaca, c.cnpjCliente]));
   assert.equal(nomeDoCnpj(d2, "05780969000146"), "JF PEREIRA TRANSPORTES E SERVIÇOS LTDA");
+});
+
+test("semeia produto padrão dos clientes conhecidos", () => {
+  const d = novaBase();
+  aplicarImportacao(d, lerPlanilha(XLSX, tres()), "Ana", AGORA);
+  assert.equal(d.cnpjs.find(c => c.cnpj === "44209336003583").produtoPadrao, "ACUCAR");
+});
+
+test("aceita QUANTIDADE no lugar de QT. SACAS", () => {
+  const d = novaBase();
+  const buf = gerarPlanilha([linhaPadrao(1, { "QT. SACAS": undefined, "QUANTIDADE": 33 })]);
+  aplicarImportacao(d, lerPlanilha(XLSX, buf), "Ana", AGORA);
+  assert.equal(d.ctes[0].quantidade, 33);
+});
+
+test("importa colunas PRODUTO UNIDADE PESO quando existem", () => {
+  const d = novaBase();
+  const buf = gerarPlanilha([
+    linhaPadrao(1, { "QT. SACAS": 540, "VALOR DO FRETE": 17353.56, "TARIFA DO FRETE": 17353.56, "PREÇO POR SACAS": 32.14, "PRODUTO": "Café", "UNIDADE": "saca 60 kg", "PESO (KG)": null }),
+    linhaPadrao(2, { "PRODUTO": "acucar", "UNIDADE": "BAG", "PESO (KG)": 25000 }),
+    linhaPadrao(3, { "PRODUTO": "Soja", "UNIDADE": "Caixa" }),
+  ]);
+  const r = aplicarImportacao(d, lerPlanilha(XLSX, buf), "Ana", AGORA);
+  assert.equal(r.incluidos, 3);
+  assert.deepEqual([d.ctes[0].produto, d.ctes[0].unidade, d.ctes[0].pesoKg, d.ctes[0].precoTonelada], ["CAFE", "SC60", 32400, 535.6]);
+  assert.deepEqual([d.ctes[1].produto, d.ctes[1].unidade, d.ctes[1].pesoKg, d.ctes[1].pesoInformado, d.ctes[1].precoTonelada], ["ACUCAR", "BAG", 25000, true, 350]);
+  assert.deepEqual([d.ctes[2].produto, d.ctes[2].unidade], [null, null], "nome desconhecido fica a classificar");
+  assert.equal(r.aClassificar, 1);
+  assert.equal(r.divergentes, 0);
+});
+
+test("exportar e reimportar preserva produto, unidade e peso", async () => {
+  const { exportarXlsx } = await import("../src/importacao.js");
+  const d = novaBase();
+  aplicarImportacao(d, lerPlanilha(XLSX, tres()), "Ana", AGORA);
+  classificar(d, d.ctes[0].chave, { produto: "ACUCAR", unidade: "TON" }, "Ana", AGORA);
+  classificar(d, d.ctes[1].chave, { produto: "ACUCAR", unidade: "BAG", pesoKg: 30000, pesoInformado: true }, "Ana", AGORA);
+  const d2 = novaBase();
+  aplicarImportacao(d2, lerPlanilha(XLSX, exportarXlsx(d, XLSX)), "Ana", AGORA);
+  assert.deepEqual(d2.ctes.map(c => [c.produto, c.unidade, c.pesoKg, c.precoTonelada]), d.ctes.map(c => [c.produto, c.unidade, c.pesoKg, c.precoTonelada]));
 });

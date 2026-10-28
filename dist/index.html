@@ -749,6 +749,12 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     const escolhido = doGrupo.find((c) => ehMatriz(c.cnpj)) || doGrupo[0];
     return { raiz, nome: escolhido ? escolhido.nome : "CNPJ " + fmtCnpj(normalizarCnpj(cnpj)) };
   }
+  function precosDaTarifa(d, cte) {
+    const u = unidadeDe(d, cte.unidade), r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+    cte.precoTonelada = cte.pesoKg > 0 ? r2(cte.tarifa / (cte.pesoKg / 1e3)) : null;
+    cte.precoSaca = u?.saca && cte.quantidade > 0 ? r2(cte.tarifa / cte.quantidade) : null;
+    return cte;
+  }
 
   // src/arquivo.js
   var ARQ_DADOS = "radar-carga-solta-dados.js";
@@ -1053,6 +1059,30 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     restaurar: () => restaurar2
   });
 
+  // src/classificacao.js
+  var CLIENTES = {
+    CAFE: ["EISA", "STONEX", "OLAM", "LOUIS DREYFUS", "SUCAFINA", "EXPOCACER", "UNICAFE", "COFCO", "RS TRADE", "NOVO RUMO", "ALTO CAFEZAL"],
+    ACUCAR: ["USINA", "ACUCAR", "COPLASA", "CENTRAL ENERGETICA", "BIOENERGETICA", "COLOMBO AGROINDUSTRIA", "NARDINI"]
+  };
+  var semAcento = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
+  function sugerirProdutoCliente(nome) {
+    const n = semAcento(nome);
+    for (const [produto, chaves] of Object.entries(CLIENTES)) if (chaves.some((k) => n.includes(k))) return produto;
+    return null;
+  }
+  function semeiaProdutosPadrao(d) {
+    let n = 0;
+    for (const c of d.cnpjs) {
+      if (c.produtoPadrao !== void 0 && c.produtoPadrao !== null) continue;
+      const p = sugerirProdutoCliente(c.nome);
+      if (p) {
+        c.produtoPadrao = p;
+        n++;
+      }
+    }
+    return n;
+  }
+
   // src/importacao.js
   var ABA_BASE = "BASE CARGA SOLTA 2026";
   var ABA_CNPJ = "BASE DE DADOS CNPJ";
@@ -1073,13 +1103,19 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     valorSeguro: "VALOR DO SEGURO",
     valorFrete: "VALOR DO FRETE",
     adicionais: "ADICIONAIS",
-    sacas: "QT. SACAS",
+    quantidade: "QT. SACAS",
     precoSaca: "PREÇO POR SACAS",
     tarifa: "TARIFA DO FRETE",
     vpo: "VPO",
     observacoes: "OBSERVAÇÕES"
   };
+  var COL_NOVAS = { produto: "PRODUTO", unidade: "UNIDADE", pesoKg: "PESO (KG)", precoTonelada: "PREÇO POR TONELADA" };
   var chaveCab = (s) => String(s ?? "").trim().replace(/\s+/g, " ").toUpperCase();
+  var semAcento2 = (s) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
+  var acharNaLista = (lista, valor) => {
+    const v = semAcento2(valor);
+    return v ? lista.find((x) => semAcento2(x.id) === v || semAcento2(x.nome) === v)?.id ?? null : null;
+  };
   function dataISO(v) {
     if (v == null || v === "") return "";
     if (typeof v === "number") {
@@ -1104,9 +1140,12 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     return { linhas, cnpjs };
   }
   var vazia = (l) => Object.values(l).every((v) => v == null || String(v).trim() === "");
-  function normalizarLinha(linhaBruta, numLinha) {
+  function normalizarLinha(d, linhaBruta, numLinha) {
     const l = Object.fromEntries(Object.entries(linhaBruta).map(([k, v2]) => [chaveCab(k), v2]));
-    const g = (k) => l[COL[k]];
+    const g = (k) => k === "quantidade" ? l["QUANTIDADE"] ?? l["QT. SACAS"] : l[COL[k] ?? COL_NOVAS[k]];
+    const produto = acharNaLista(d.produtos, g("produto")), unidade = acharNaLista(d.unidades, g("unidade"));
+    const quantidade = numeroBR(g("quantidade")), pesoLido = numeroBR(g("pesoKg")), u = unidadeDe(d, unidade);
+    const pesoInformado = pesoLido > 0 && !(u?.kg > 0 && quantidade > 0 && Math.abs(pesoLido - quantidade * u.kg) < 0.5);
     const campos = {
       chave: String(g("chave") ?? "").replace(/\D/g, ""),
       numero: g("numero"),
@@ -1120,11 +1159,15 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
       taxaSeguro: numeroBR(g("taxaSeguro")),
       valorFrete: numeroBR(g("valorFrete")),
       adicionais: numeroBR(g("adicionais")),
-      sacas: numeroBR(g("sacas")),
+      quantidade,
+      produto,
+      unidade,
+      pesoKg: pesoInformado ? pesoLido : null,
+      pesoInformado,
       vpo: String(g("vpo") ?? "").trim().toUpperCase() === "SIM",
       observacoes: g("observacoes") ?? ""
     };
-    const v = validarCampos(campos);
+    const v = validarCampos(d, campos, { exigirClassificacao: false });
     if (!v.ok) return { ok: false, numLinha, motivo: Object.values(v.erros).join(" ") };
     return {
       ok: true,
@@ -1136,38 +1179,48 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
   }
   function aplicarImportacao(d, resultado, quem, agora) {
     const logAntes = d.log.slice();
-    const r = { incluidos: 0, pulados: 0, rejeitados: [], cadastrados: 0, divergentes: 0 };
+    const r = { incluidos: 0, pulados: 0, rejeitados: [], cadastrados: 0, divergentes: 0, aClassificar: 0 };
     const cadastra = (cnpj, nome) => {
       if (cnpj && nome && !nomeDoCnpj(d, cnpj) && cadastrarCnpj(d, cnpj, nome, quem, agora).ok) r.cadastrados++;
     };
     for (const c of resultado.cnpjs || []) cadastra(c.cnpj, c.nome);
     (resultado.linhas || []).forEach((bruta, i) => {
       if (vazia(bruta)) return;
-      const n = normalizarLinha(bruta, i + 2);
+      const n = normalizarLinha(d, bruta, i + 2);
       if (!n.ok) {
         r.rejeitados.push({ numLinha: n.numLinha, motivo: n.motivo });
         return;
       }
       cadastra(n.campos.cnpjTransportador, n.nomes.transportador);
       cadastra(n.campos.cnpjCliente, n.nomes.cliente);
-      const inc = incluir(d, n.campos, quem, agora, "importacao");
+      const classificado = !Object.keys(validarCampos(d, n.campos).erros).length;
+      const inc = incluir(d, n.campos, quem, agora, "importacao", { exigirClassificacao: false });
       if (!inc.ok) {
         r.pulados++;
         return;
       }
       r.incluidos++;
-      const calc = calcularCte(n.campos);
-      const difere = Object.keys(calc).some((k) => n.planilha[k] != null && calc[k] != null && Math.abs(calc[k] - n.planilha[k]) > TOLERANCIA);
+      if (!classificado) {
+        Object.assign(inc.cte, { unidade: null, pesoKg: null, pesoInformado: false, precoTonelada: null, precoSaca: null });
+        r.aClassificar++;
+      }
+      const calc = { valorSeguro: inc.cte.valorSeguro, tarifa: inc.cte.tarifa };
+      const ehSaca = unidadeDe(d, inc.cte.unidade)?.saca;
+      const conferir = { ...calc, ...ehSaca ? { precoSaca: inc.cte.precoSaca } : {} };
+      const difere = Object.keys(conferir).some((k) => n.planilha[k] != null && conferir[k] != null && Math.abs(conferir[k] - n.planilha[k]) > TOLERANCIA);
       if (difere) {
         const planilha = {};
-        for (const k of Object.keys(calc)) if (n.planilha[k] != null) {
+        for (const k of ["valorSeguro", "tarifa"]) if (n.planilha[k] != null) {
           planilha[k] = n.planilha[k];
           inc.cte[k] = n.planilha[k];
         }
-        inc.cte.divergencia = { calculado: calc, planilha };
+        if (n.planilha.precoSaca != null) planilha.precoSaca = n.planilha.precoSaca;
+        inc.cte.divergencia = { calculado: { ...calc, precoSaca: inc.cte.precoSaca }, planilha };
+        precosDaTarifa(d, inc.cte);
         r.divergentes++;
       }
     });
+    semeiaProdutosPadrao(d);
     d.log.splice(0, d.log.length, ...logAntes);
     registrar(
       d,
@@ -1175,12 +1228,12 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
       quem,
       agora,
       "",
-      `${r.incluidos} incluídos, ${r.pulados} já existiam, ${r.rejeitados.length} rejeitados, ${r.cadastrados} CNPJ cadastrados` + (r.divergentes ? `, ${r.divergentes} com cálculo divergente` : "")
+      `${r.incluidos} incluídos, ${r.pulados} já existiam, ${r.rejeitados.length} rejeitados, ${r.cadastrados} CNPJ cadastrados` + (r.divergentes ? `, ${r.divergentes} com cálculo divergente` : "") + (r.aClassificar ? `, ${r.aClassificar} a classificar` : "")
     );
     return r;
   }
   function exportarXlsx(d, XLSX) {
-    const COLS = Object.values(COL).map((c) => c === "N° CT-E" ? "N° CT-e" : c === "EMISSÃO CT-E" ? "EMISSÃO CT-e" : c);
+    const COLS = [...Object.values(COL).map((c) => c === "N° CT-E" ? "N° CT-e" : c === "EMISSÃO CT-E" ? "EMISSÃO CT-e" : c), ...Object.values(COL_NOVAS)];
     const serie = (iso) => (Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10)) - Date.UTC(1899, 11, 30)) / 864e5;
     const linhas = [...d.ctes].sort((a, b) => a.emissao.localeCompare(b.emissao) || a.numero - b.numero).map((c) => [
       c.chave,
@@ -1198,11 +1251,15 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
       c.valorSeguro,
       c.valorFrete,
       c.adicionais,
-      c.sacas,
+      c.quantidade,
       c.precoSaca,
       c.tarifa,
       c.vpo ? "SIM" : null,
-      c.observacoes || null
+      c.observacoes || null,
+      produtoDe(d, c.produto)?.nome ?? null,
+      unidadeDe(d, c.unidade)?.nome ?? null,
+      c.pesoKg ?? null,
+      c.precoTonelada ?? null
     ]);
     const base = XLSX.utils.aoa_to_sheet([COLS, ...linhas]);
     for (let i = 0; i < linhas.length; i++) {
@@ -1359,7 +1416,7 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
   var FAIXA_EXCECAO = 3;
   var MIN_ROTA_EXCECAO = 3;
   var valorMetrica = (c, metrica) => {
-    const v = metrica === "tarifa" ? c.tarifa : c.precoSaca;
+    const v = metrica === "tarifa" ? c.tarifa : metrica === "saca" ? c.precoSaca : c.precoTonelada;
     return v == null || !Number.isFinite(v) ? null : v;
   };
   function mediana(nums) {
@@ -1381,7 +1438,7 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     return out;
   }
   function filtrar(d, f = {}) {
-    return d.ctes.filter((c) => (!f.rota || rotaDe(c) === f.rota) && (!f.transportador || raizCnpj(c.cnpjTransportador) === f.transportador) && (!f.cliente || raizCnpj(c.cnpjCliente) === f.cliente) && (!f.itinerario || c.itinerario === f.itinerario) && (!f.mesIni || mesDe(c.emissao) >= f.mesIni) && (!f.mesFim || mesDe(c.emissao) <= f.mesFim));
+    return d.ctes.filter((c) => (!f.rota || rotaDe(c) === f.rota) && (!f.transportador || raizCnpj(c.cnpjTransportador) === f.transportador) && (!f.cliente || raizCnpj(c.cnpjCliente) === f.cliente) && (!f.itinerario || c.itinerario === f.itinerario) && (!f.produto || c.produto === f.produto) && (!f.mesIni || mesDe(c.emissao) >= f.mesIni) && (!f.mesFim || mesDe(c.emissao) <= f.mesFim));
   }
   function porMes(ctes, metrica) {
     var _a;
@@ -1426,7 +1483,7 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     return {
       ...ultimoEAnterior(medianasPorMes(ctes, metrica)),
       nCtes: ctes.length,
-      nSacas: ctes.reduce((s, c) => s + (c.sacas || 0), 0),
+      pesoT: Math.round(ctes.reduce((s, c) => s + (c.pesoKg || 0), 0) / 10) / 100,
       nTransportadores: new Set(ctes.map((c) => raizCnpj(c.cnpjTransportador))).size,
       nRotas: new Set(ctes.map(rotaDe)).size
     };
@@ -1476,21 +1533,22 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
   }
   function excecoes(d) {
     const out = [];
-    const porRota = /* @__PURE__ */ new Map();
+    const grupos = /* @__PURE__ */ new Map();
     for (const c of d.ctes) {
-      if (c.precoSaca == null) {
-        out.push({ tipo: "sem-sacas", cte: c, detalhe: "Sem sacas: fica fora do preço por saca e conta na tarifa." });
+      if (!c.produto || !c.unidade || !(c.pesoKg > 0) || c.precoTonelada == null) {
+        out.push({ tipo: "a-classificar", cte: c, detalhe: "Sem produto, unidade ou peso: fica fora do R$/t e conta na tarifa." });
         continue;
       }
-      const r = rotaDe(c);
-      if (!porRota.has(r)) porRota.set(r, []);
-      porRota.get(r).push(c);
+      const k = rotaDe(c) + " · " + c.produto;
+      if (!grupos.has(k)) grupos.set(k, []);
+      grupos.get(k).push(c);
     }
-    for (const [, cs] of porRota) {
+    for (const [, cs] of grupos) {
       if (cs.length < MIN_ROTA_EXCECAO) continue;
-      const m = mediana(cs.map((c) => c.precoSaca));
-      for (const c of cs) if (c.precoSaca > m * FAIXA_EXCECAO || c.precoSaca < m / FAIXA_EXCECAO)
-        out.push({ tipo: "preco-fora", cte: c, detalhe: `Preço por saca fora da faixa da rota (mediana ${m.toFixed(2).replace(".", ",")}).` });
+      const m = mediana(cs.map((c) => c.precoTonelada));
+      const nome = produtoDe(d, cs[0].produto)?.nome || cs[0].produto;
+      for (const c of cs) if (c.precoTonelada > m * FAIXA_EXCECAO || c.precoTonelada < m / FAIXA_EXCECAO)
+        out.push({ tipo: "preco-fora", cte: c, detalhe: `R$/t fora da faixa de ${nome} na rota (mediana ${m.toFixed(2).replace(".", ",")}).` });
     }
     const semNome = /* @__PURE__ */ new Set();
     for (const c of d.ctes) for (const cnpj of [c.cnpjTransportador, c.cnpjCliente])
