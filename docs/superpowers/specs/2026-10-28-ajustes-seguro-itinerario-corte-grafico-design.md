@@ -12,7 +12,7 @@ Data: 2026-10-28 · Status: aguardando revisão · Altera: `2026-10-28-radar-car
 | 4 | Corte de agosto | CT-e emitidos antes de **01/08/2026** ficam na base, em Lançamentos, na exportação e no cadastro. Ficam **fora** da Evolução, das Rotas, das exceções e de Classificar CT-e, e aparecem na base com o selo "antes do corte". A data de corte é ajustável em Dados e vale para todos. |
 | 5 | Exceções → base | Cada exceção ganha o botão **Abrir na base**. Exceção de um CT-e abre esse CT-e para correção em Lançamentos. Exceção de CNPJ abre o Cadastro com esse CNPJ. |
 | 6 | Gráfico da Evolução | **Um ponto por CT-e**: data de emissão no eixo horizontal, a métrica escolhida no vertical. Os pontos usam um gradiente de cor, do azul-marinho (frete barato) ao rosa Tóliman (frete caro). A mediana do mês aparece como uma linha fina e clara, que pode ser desligada. |
-| 7 | Logos | A linha do topo fica espelhada: **símbolo Dínamo + nome Dínamo** abrem a linha à esquerda; **nome Tóliman + símbolo Tóliman** fecham a linha à direita. Entre elas, o nome do painel e as abas. As duas com a mesma altura. Rodapé: mesma ordem. |
+| 7 | Logos | Assinatura única, no formato da referência enviada: **símbolo Dínamo + nome Dínamo**, um fio vertical, **nome Tóliman + símbolo Tóliman** (espelhado), fechando o bloco. "Dínamo" e "Tóliman" com a mesma altura de letra. Depois vêm o nome do painel e as abas. Rodapé: a mesma assinatura em branco. |
 
 ## 2. Detalhes
 
@@ -60,13 +60,16 @@ Data: 2026-10-28 · Status: aguardando revisão · Altera: `2026-10-28-radar-car
 - **Saem:** a faixa mín–máx e as linhas por transportador. A tabela de transportadores logo abaixo continua com as medianas mensais.
 
 ### Logos (7)
-- **Dínamo:** fica como já está; o símbolo já vem antes do nome.
-- **Tóliman horizontal:** montada a partir da versão empilhada que você enviou (940 × 516). O nome ("Tóliman / TRANSPORTES") vem à esquerda e o símbolo das três lâminas à direita.
-  - O símbolo é recortado sem distorção e escalado para a altura da palavra "Tóliman".
-  - A Tóliman fica com a mesma altura total da Dínamo.
-  - O script `scripts/montar-logo-toliman.py` gera `logo-toliman-cor.png` e `logo-toliman-branco.png` (pixels coloridos → branco, mantendo a transparência) em `referencia/toliman-paineis/`.
-- **Topo:** Dínamo, nome do painel e abas à esquerda; Tóliman encostada na direita. As duas com 40 px de altura, 32 px com a barra rolada.
-- **Rodapé:** Dínamo à esquerda e Tóliman à direita, com 26 px.
+- **Uma imagem só**, `logos-cor.png`, gerada pelo script `scripts/montar-logos.py` a partir da Dínamo atual e da Tóliman empilhada enviada (940 × 516):
+  - **Dínamo** como está;
+  - **fio vertical** navy, a 35% de opacidade;
+  - **Tóliman horizontal:** o nome ("Tóliman / TRANSPORTES") e, à direita dele, o símbolo das três lâminas espelhado, com 70% da altura das letras e centrado nelas.
+- **Alinhamento:** a Tóliman é escalada para que a altura das letras de "Tóliman" seja igual à de "Dínamo". O acento do "ó" sobe acima da linha.
+- **Versão branca:** `logos-branco.png`, a mesma imagem com os pixels em branco, mantendo a transparência. Vai no rodapé.
+- **Arquivos:** os dois PNG ficam em `referencia/toliman-paineis/` e substituem os quatro logos separados no `montar.mjs`.
+- **Topo:** a assinatura com 44 px de altura (34 px com a barra rolada), depois o fio, o nome do painel e as abas.
+- **Rodapé:** a assinatura com 28 px de altura.
+- **Modo escuro:** continua o filtro que deixa a imagem clara.
 
 ## 3. Arquivo de dados
 
