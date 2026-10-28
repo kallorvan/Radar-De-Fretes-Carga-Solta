@@ -2,15 +2,19 @@
 // Mês sem CT-e não vira zero: fica ausente, e as variações comparam com o último mês com dados.
 
 import { rotaDe, mesDe, raizCnpj, normalizarCnpj } from "./calculos.js";
-import { grupoDoCnpj, nomeDoCnpj } from "./base.js";
+import { grupoDoCnpj, nomeDoCnpj, produtoDe } from "./base.js";
 
 export const FAIXA_EXCECAO = 3;        // fora de [mediana/3, mediana×3]
-export const MIN_ROTA_EXCECAO = 3;     // CT-e com preço por saca na rota para avaliar a faixa
+export const MIN_ROTA_EXCECAO = 3;     // CT-e com R$/t no grupo rota + produto para avaliar a faixa
 
+/* "tonelada" (padrão), "saca" (só CT-e em unidade de saca) ou "tarifa". */
 export const valorMetrica = (c, metrica) => {
-  const v = metrica === "tarifa" ? c.tarifa : c.precoSaca;
+  const v = metrica === "tarifa" ? c.tarifa : metrica === "saca" ? c.precoSaca : c.precoTonelada;
   return v == null || !Number.isFinite(v) ? null : v;
 };
+
+export const produtosDaRota = (d, rota) =>
+  [...new Set(d.ctes.filter(c => rotaDe(c) === rota && c.produto).map(c => c.produto))].sort();
 
 export function mediana(nums) {
   if (!nums.length) return null;
@@ -35,6 +39,7 @@ export function filtrar(d, f = {}) {
     (!f.transportador || raizCnpj(c.cnpjTransportador) === f.transportador) &&
     (!f.cliente || raizCnpj(c.cnpjCliente) === f.cliente) &&
     (!f.itinerario || c.itinerario === f.itinerario) &&
+    (!f.produto || c.produto === f.produto) &&
     (!f.mesIni || mesDe(c.emissao) >= f.mesIni) &&
     (!f.mesFim || mesDe(c.emissao) <= f.mesFim));
 }
@@ -87,7 +92,7 @@ export function resumoGeral(ctes, metrica) {
   return {
     ...ultimoEAnterior(medianasPorMes(ctes, metrica)),
     nCtes: ctes.length,
-    nSacas: ctes.reduce((s, c) => s + (c.sacas || 0), 0),
+    pesoT: Math.round(ctes.reduce((s, c) => s + (c.pesoKg || 0), 0) / 10) / 100,
     nTransportadores: new Set(ctes.map(c => raizCnpj(c.cnpjTransportador))).size,
     nRotas: new Set(ctes.map(rotaDe)).size,
   };
@@ -136,18 +141,22 @@ export function transportadoresNaRota(d, ctes, metrica) {
 /* Registros que pedem atenção. Todos continuam valendo nos totais. */
 export function excecoes(d) {
   const out = [];
-  const porRota = new Map();
+  const grupos = new Map();   // rota + produto: café e açúcar na mesma rota têm preços diferentes
   for (const c of d.ctes) {
-    if (c.precoSaca == null) { out.push({ tipo: "sem-sacas", cte: c, detalhe: "Sem sacas: fica fora do preço por saca e conta na tarifa." }); continue; }
-    const r = rotaDe(c);
-    if (!porRota.has(r)) porRota.set(r, []);
-    porRota.get(r).push(c);
+    if (!c.produto || !c.unidade || !(c.pesoKg > 0) || c.precoTonelada == null) {
+      out.push({ tipo: "a-classificar", cte: c, detalhe: "Sem produto, unidade ou peso: fica fora do R$/t e conta na tarifa." });
+      continue;
+    }
+    const k = rotaDe(c) + " · " + c.produto;
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(c);
   }
-  for (const [, cs] of porRota) {
+  for (const [, cs] of grupos) {
     if (cs.length < MIN_ROTA_EXCECAO) continue;
-    const m = mediana(cs.map(c => c.precoSaca));
-    for (const c of cs) if (c.precoSaca > m * FAIXA_EXCECAO || c.precoSaca < m / FAIXA_EXCECAO)
-      out.push({ tipo: "preco-fora", cte: c, detalhe: `Preço por saca fora da faixa da rota (mediana ${m.toFixed(2).replace(".", ",")}).` });
+    const m = mediana(cs.map(c => c.precoTonelada));
+    const nome = produtoDe(d, cs[0].produto)?.nome || cs[0].produto;
+    for (const c of cs) if (c.precoTonelada > m * FAIXA_EXCECAO || c.precoTonelada < m / FAIXA_EXCECAO)
+      out.push({ tipo: "preco-fora", cte: c, detalhe: `R$/t fora da faixa de ${nome} na rota (mediana ${m.toFixed(2).replace(".", ",")}).` });
   }
   const semNome = new Set();
   for (const c of d.ctes) for (const cnpj of [c.cnpjTransportador, c.cnpjCliente])

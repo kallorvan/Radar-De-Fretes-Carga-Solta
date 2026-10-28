@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { novaBase, incluir, cadastrarCnpj } from "../src/base.js";
 import {
   mediana, filtrar, mesesEntre, valorMetrica, serieMensal, resumoGeral, resumoRotas,
-  transportadoresNaRota, excecoes,
+  transportadoresNaRota, excecoes, produtosDaRota,
 } from "../src/agregacao.js";
 import { campos, chaveN } from "./ajuda.js";
 
@@ -50,7 +50,7 @@ test("filtrar por rota, raiz e período", () => {
 
 test("serieMensal agrupa filiais na mesma série", () => {
   const d = baseAB();
-  const s = serieMensal(d, filtrar(d, { rota: "A → B" }), "saca");
+  const s = serieMensal(d, filtrar(d, { rota: "A → B" }), "tonelada");
   assert.deepEqual(s.meses, ["2026-01", "2026-02", "2026-03", "2026-04"]);
   assert.equal(s.series.length, 3);
   const um = s.series[0];
@@ -62,40 +62,57 @@ test("serieMensal agrupa filiais na mesma série", () => {
 
 test("variacao pula meses vazios", () => {
   const d = baseAB();
-  const r = resumoGeral(filtrar(d, { rota: "A → B" }), "saca");
+  const r = resumoGeral(filtrar(d, { rota: "A → B" }), "tonelada");
   assert.equal(r.ultimoMes, "2026-04");
   assert.equal(r.valor, 190);
   assert.equal(r.mesAnterior, "2026-02");
   assert.equal(r.variacao, 190 / 170 - 1);
   assert.equal(r.nCtes, 6);
-  assert.equal(r.nSacas, 300);
+  assert.equal(r.pesoT, 300);
   assert.equal(r.nTransportadores, 3);
   assert.equal(r.nRotas, 1);
 });
 
 test("resumoGeral sem dados não quebra", () => {
-  const r = resumoGeral([], "saca");
+  const r = resumoGeral([], "tonelada");
   assert.equal(r.valor, null);
   assert.equal(r.variacao, null);
   assert.equal(r.nCtes, 0);
 });
 
-test("sem sacas fica fora da métrica saca e dentro da tarifa", () => {
+test("sem peso fica fora da tonelada e dentro da tarifa", () => {
   const d = baseAB();
   const cte = lanca(d, { cnpjTransportador: T2, emissao: "2026-04-03", valorFrete: 7000 });
-  cte.sacas = 0; cte.precoSaca = null;
-  assert.equal(valorMetrica(cte, "saca"), null);
+  cte.pesoKg = null; cte.precoTonelada = null;
+  assert.equal(valorMetrica(cte, "tonelada"), null);
+  assert.equal(valorMetrica(cte, "saca"), null, "tonelada não é saca");
   assert.equal(valorMetrica(cte, "tarifa"), 7000);
   const ctes = filtrar(d, { rota: "A → B" });
   const dois = s => s.series.find(x => x.raiz === "22222222");
-  assert.equal(dois(serieMensal(d, ctes, "saca")).pontos["2026-04"], undefined);
+  assert.equal(dois(serieMensal(d, ctes, "tonelada")).pontos["2026-04"], undefined);
   assert.equal(dois(serieMensal(d, ctes, "tarifa")).pontos["2026-04"].mediana, 7000);
+});
+
+test("métrica saca só com unidade de saca", () => {
+  const d = baseAB();
+  const c = lanca(d, { cnpjTransportador: T2, emissao: "2026-04-03", valorFrete: 17353.56, quantidade: 540, unidade: "SC60", produto: "CAFE" });
+  assert.equal(valorMetrica(c, "saca"), 32.14);
+  assert.equal(valorMetrica(c, "tonelada"), 535.6);
+});
+
+test("filtrar por produto e produtos da rota", () => {
+  const d = baseAB();
+  lanca(d, { cnpjTransportador: T2, emissao: "2026-04-03", valorFrete: 17353.56, quantidade: 540, unidade: "SC60", produto: "CAFE" });
+  assert.equal(filtrar(d, { rota: "A → B", produto: "CAFE" }).length, 1);
+  assert.equal(filtrar(d, { rota: "A → B", produto: "ACUCAR" }).length, 6);
+  assert.deepEqual(produtosDaRota(d, "A → B"), ["ACUCAR", "CAFE"]);
+  assert.deepEqual(produtosDaRota(d, "C → B"), []);
 });
 
 test("resumoRotas ordena por CT-e e traz porMes", () => {
   const d = baseAB();
   lanca(d, { cnpjTransportador: T1, emissao: "2026-01-05", origem: "C", destino: "B" });
-  const r = resumoRotas(d, "saca");
+  const r = resumoRotas(d, "tonelada");
   assert.equal(r[0].rota, "A → B");
   assert.equal(r[0].nCtes, 6);
   assert.equal(r[0].nTransportadores, 3);
@@ -106,7 +123,7 @@ test("resumoRotas ordena por CT-e e traz porMes", () => {
 
 test("transportadoresNaRota", () => {
   const d = baseAB();
-  const t = transportadoresNaRota(d, filtrar(d, { rota: "A → B" }), "saca");
+  const t = transportadoresNaRota(d, filtrar(d, { rota: "A → B" }), "tonelada");
   const um = t.find(x => x.raiz === "11111111");
   assert.equal(um.nCtes, 4);
   assert.deepEqual(um.ultimo, { valor: 190, emissao: "2026-04-02" });
@@ -125,17 +142,35 @@ test("excecao preço fora só com 3 ou mais na rota", () => {
   lanca(d, { cnpjTransportador: T1, valorFrete: 9000 });
   const fora = excecoes(d).filter(e => e.tipo === "preco-fora");
   assert.equal(fora.length, 1);
-  assert.equal(fora[0].cte.precoSaca, 900);
+  assert.equal(fora[0].cte.precoTonelada, 900);
 });
 
-test("excecao sem cadastro e sem sacas", () => {
+test("exceção por rota e produto", () => {
+  const d = novaBase();
+  const cafe = f => lanca(d, { cnpjTransportador: T1, valorFrete: f, quantidade: 540, unidade: "SC60", produto: "CAFE" });
+  const acucar = f => lanca(d, { cnpjTransportador: T1, valorFrete: f });
+  [17353.56, 17300, 17400].forEach(cafe);   // ~R$ 536/t
+  [8750, 8700, 8800].forEach(acucar);       // ~R$ 175/t
+  assert.equal(excecoes(d).filter(e => e.tipo === "preco-fora").length, 0);
+  cafe(64800);                              // R$ 2.000/t
+  const fora = excecoes(d).filter(e => e.tipo === "preco-fora");
+  assert.equal(fora.length, 1);
+  assert.equal(fora[0].cte.precoTonelada, 2000);
+  assert.match(fora[0].detalhe, /Café/);
+});
+
+test("a classificar quando falta produto ou peso", () => {
   const d = novaBase();
   cadastrarCnpj(d, T1, "UM", "Ana", AGORA);
-  const c = lanca(d, { cnpjTransportador: T1 });
-  c.sacas = 0; c.precoSaca = null;
+  const a = lanca(d, { cnpjTransportador: T1 });
+  const b = lanca(d, { cnpjTransportador: T1 });
+  a.produto = null;
+  b.pesoKg = null; b.precoTonelada = null;
   const ex = excecoes(d);
   assert.deepEqual(ex.filter(e => e.tipo === "sem-cadastro").map(e => e.cnpj), ["44209336003583"]);
-  assert.equal(ex.filter(e => e.tipo === "sem-sacas").length, 1);
+  assert.equal(ex.filter(e => e.tipo === "a-classificar").length, 2);
+  const r = resumoGeral(d.ctes, "tonelada");
+  assert.ok(!/Infinity|NaN/.test(JSON.stringify(r)));
 });
 
 test("excecao diverge-planilha vem da marca do CT-e", () => {
