@@ -267,14 +267,14 @@ test("migrar v2 → v3 preenche o itinerário vazio e mantém o preenchido", () 
 
 test("corrigir não apaga o itinerário guardado quando a rota não muda e a regra dá em branco", () => {
   const d = novaBase();
-  const { cte } = incluir(d, campos({ origem: "Boa Esperança", destino: "Santos" }), "Ana", AGORA);
-  assert.equal(cte.itinerario, "", "homônima: a regra não escolhe");
-  cte.itinerario = "BLOSAN";   // código que veio da base antiga
-  corrigir(d, cte.chave, campos({ origem: "Boa Esperança", destino: "Santos", quantidade: 60 }), "Ana", AGORA);
-  assert.equal(d.ctes[0].itinerario, "BLOSAN");
+  const { cte } = incluir(d, campos({ origem: "Cacoal", destino: "Santos" }), "Ana", AGORA);
+  assert.equal(cte.itinerario, "", "cidade fora do cadastro: a regra não tem código");
+  cte.itinerario = "CCLSAN";   // código que veio da base antiga
+  corrigir(d, cte.chave, campos({ origem: "Cacoal", destino: "Santos", quantidade: 60 }), "Ana", AGORA);
+  assert.equal(d.ctes[0].itinerario, "CCLSAN");
   corrigir(d, cte.chave, campos({ origem: "Araras", destino: "Santos" }), "Ana", AGORA);
   assert.equal(d.ctes[0].itinerario, "ARRSAN", "rota mudou: vale a regra");
-  corrigir(d, cte.chave, campos({ origem: "Boa Esperança", destino: "Santos" }), "Ana", AGORA);
+  corrigir(d, cte.chave, campos({ origem: "Cacoal", destino: "Santos" }), "Ana", AGORA);
   assert.equal(d.ctes[0].itinerario, "", "rota mudou para cidade sem código");
 });
 
@@ -300,4 +300,13 @@ test("salvar a mesma data de corte não vira alteração", () => {
   assert.equal(r.ok, true);
   assert.equal(r.mudou, false);
   assert.equal(d.log.length, antes);
+});
+
+test("base v3 aberta preenche o itinerário em branco que a tabela atual já sabe", () => {
+  const cte = { chave: "a", numero: 1, emissao: "2026-08-02", origem: "MACHADO", destino: "VARGINHA", itinerario: "", valorAssegurado: 0, valorSeguro: 0,
+    valorFrete: 1000, adicionais: 0, tarifa: 1000, quantidade: 1, produto: null, unidade: null, pesoKg: null, pesoInformado: false };
+  const r = migrarBase({ ...novaBase(), ctes: [cte, { ...cte, chave: "b", itinerario: "OUTRO" }], lixeira: [{ cte: { ...cte, chave: "c" } }] });
+  assert.equal(r.ctes[0].itinerario, "MCHVGH");
+  assert.equal(r.ctes[1].itinerario, "OUTRO");
+  assert.equal(r.lixeira[0].cte.itinerario, "MCHVGH");
 });

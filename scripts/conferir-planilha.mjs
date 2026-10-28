@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import XLSX from "xlsx";
 import { novaBase, classificar, grupoDoCnpj, ctesNoCorte } from "../src/base.js";
-import { CIDADES_AMBIGUAS } from "../src/dados-itinerarios.js";
+import { CIDADES_HOMONIMAS } from "../src/dados-itinerarios.js";
 import { excecoes } from "../src/agregacao.js";
 import { sugerirClassificacao, pendentesDeClassificacao } from "../src/classificacao.js";
 import { lerPlanilha, aplicarImportacao } from "../src/importacao.js";
@@ -29,8 +29,8 @@ console.log(JSON.stringify({ comItinerario: d.ctes.filter(c => c.itinerario).len
 const semCod = {};
 for (const c of noCorte) if (!c.itinerario) { const k = `${c.origem} → ${c.destino}`; semCod[k] = (semCod[k] || 0) + 1; }
 console.log("rotas sem itinerário no corte:", JSON.stringify(semCod));
-const amb = d.ctes.filter(c => CIDADES_AMBIGUAS[c.origem] || CIDADES_AMBIGUAS[c.destino]).length;
-console.log("CT-e com cidade homônima (sem código):", amb);
+const amb = d.ctes.filter(c => CIDADES_HOMONIMAS[c.origem] || CIDADES_HOMONIMAS[c.destino]).length;
+console.log("CT-e com cidade homônima (código da UF de mais itinerários):", amb);
 for (const c of div) if (!("tarifa" in c.divergencia.planilha)) console.log("diverge", c.numero, JSON.stringify(c.divergencia));
 // aplica as sugestões da regra, como o botão "Aplicar marcados" faria
 let aplicadas = 0;

@@ -58,12 +58,15 @@ export function migrarBase(d) {
     const taxaV3 = c => !(c.valorAssegurado > 0) ? null
       : c.taxaSeguro > 0 && arred2(c.valorAssegurado * c.taxaSeguro) === arred2(c.valorSeguro || 0) ? c.taxaSeguro
       : arred6((c.valorSeguro || 0) / c.valorAssegurado);
-    const v3 = c => ({ ...c, taxaSeguro: taxaV3(c),
-      itinerario: c.itinerario || codigoItinerario(c.origem, c.destino) });
+    const v3 = c => ({ ...c, taxaSeguro: taxaV3(c) });
     r.ctes = r.ctes.map(v3);
     r.lixeira = r.lixeira.map(l => ({ ...l, cte: v3(l.cte) }));
     r.versao = 3;
   }
+  // itinerário em branco que a tabela do Rodopar (atualizada a cada versão do painel) já sabe montar
+  const comItinerario = c => c.itinerario ? c : { ...c, itinerario: codigoItinerario(c.origem, c.destino) };
+  r.ctes = r.ctes.map(comItinerario);
+  r.lixeira = r.lixeira.map(l => ({ ...l, cte: comItinerario(l.cte) }));
   return r;
 }
 

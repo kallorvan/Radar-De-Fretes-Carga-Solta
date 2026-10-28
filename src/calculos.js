@@ -62,12 +62,9 @@ export const normalizarCidade = s => String(s ?? "")
 export const rotaDe = c => `${normalizarCidade(c.origem)} → ${normalizarCidade(c.destino)}`;
 export const mesDe = iso => String(iso ?? "").slice(0, 7);
 
-/* Cód. itinerário do cadastro do Rodopar: código da cidade + código do porto (ou o contrário).
-   Cidade fora das abas LINHA SANTOS / LINHA GUARUJÁ é itinerário que a Tóliman não faz: fica em branco. */
-export const PORTOS = { SANTOS: "SAN", GUARUJA: "GJA" };
+/* Cód. itinerário do cadastro do Rodopar: código da cidade de origem + código da cidade de destino.
+   Vale para qualquer par de cidades cadastradas, mesmo sem itinerário próprio; cidade fora do cadastro deixa em branco. */
 export function codigoItinerario(origem, destino) {
-  const o = normalizarCidade(origem), d = normalizarCidade(destino);
-  if (PORTOS[d] && CODIGOS_CIDADE[o]) return CODIGOS_CIDADE[o] + PORTOS[d];
-  if (PORTOS[o] && CODIGOS_CIDADE[d]) return PORTOS[o] + CODIGOS_CIDADE[d];
-  return "";
+  const o = CODIGOS_CIDADE[normalizarCidade(origem)], d = CODIGOS_CIDADE[normalizarCidade(destino)];
+  return o && d ? o + d : "";
 }

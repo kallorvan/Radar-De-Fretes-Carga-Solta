@@ -10,7 +10,7 @@ O painel é um arquivo HTML só. Ele fica numa pasta compartilhada do SharePoint
 4. Informe o seu nome quando o painel pedir. Ele fica guardado no navegador e vai junto com cada lançamento, correção e exclusão.
 5. Vá em **Dados → Conectar a pasta** e escolha a pasta do passo 1. Como ela ainda não tem o `radar-carga-solta-dados.js`, o painel pergunta **"Criar a base nesta pasta?"**: confirme.
 6. Em **Dados → Importar planilha**, escolha a `Radar_Fretes_Concorrentes_v2.10.xlsm`. O painel lê só as abas *BASE CARGA SOLTA 2026* e *BASE DE DADOS CNPJ*. Com a versão 2.10 o resultado esperado é **195 CT-e incluídos, 0 rejeitados, 125 CNPJ cadastrados e nenhuma divergência**.
-   - O CNPJ do transportador vem da chave de acesso e o cód. itinerário vem do cadastro do Rodopar (abas LINHA SANTOS e LINHA GUARUJÁ). Na v2.10, 45 CT-e ganham itinerário; os outros 150 são de cidades fora dessas abas e ficam com o código em branco.
+   - O CNPJ do transportador vem da chave de acesso. O cód. itinerário é o código da cidade de origem + o da cidade de destino, pelo cadastro de itinerários do Rodopar, mesmo quando o par não tem itinerário próprio (ex.: Machado → Varginha = MCHVGH). Na v2.10, 86 CT-e ganham itinerário; os outros 109 têm cidade fora do cadastro (São Joaquim da Barra, Luís Eduardo Magalhães, Pontal…) e ficam com o código em branco.
 7. **Data de corte.** A base começa com corte em **01/08/2026**: os CT-e emitidos antes dessa data (155 dos 195) ficam na base, mas fora da Evolução, das Rotas, das exceções e da classificação, porque não há CT-e em mãos para saber produto e unidade. A data pode ser mudada em **Dados → Data de corte**; vazia, todos entram.
 8. Em **Dados → Classificar CT-e**, revise produto e unidade dos CT-e a partir do corte (a planilha não tem esses campos). O painel já sugere:
    - **produto** pelo cliente (café: EISA, Stonex, Olam, Louis Dreyfus…; açúcar: usinas, U.S.J., Coplasa…);
@@ -64,8 +64,8 @@ npm test                 # testes de unidade
 npm run montar           # gera dist/index.html
 npm run test:e2e         # testes no navegador (Chromium/Playwright)
 node scripts/conferir-planilha.mjs caminho/Radar_Fretes_Concorrentes.xlsm   # confere a importação (a planilha não vai para o repositório)
-node scripts/extrair-itinerarios.mjs caminho/Radar_Fretes_Concorrentes.xlsm  # regera src/dados-itinerarios.js (abas LINHA SANTOS e LINHA GUARUJÁ)
+node scripts/extrair-itinerarios.mjs caminho/itinerarios.xlsx                  # regera src/dados-itinerarios.js (relatório de itinerários do Rodopar)
 python3 scripts/montar-logos.py                                              # regera a assinatura Dínamo | Tóliman
 ```
 
-Quando o Rodopar ganhar cidade nova, rode `extrair-itinerarios` com a planilha atualizada, depois `npm run montar`, e troque o HTML na pasta. Quatro cidades aparecem duas vezes nas abas, com códigos diferentes (Boa Esperança, Campestre, Itapeva e São Simão: homônimas de estados diferentes, e as abas não trazem a UF); para elas o código fica em branco.
+Quando o Rodopar ganhar cidade nova, exporte de novo o relatório de itinerários, rode `extrair-itinerarios` com ele, depois `npm run montar`, e troque o HTML na pasta. Ao abrir, o painel preenche sozinho o itinerário dos CT-e que estavam em branco e agora têm as duas cidades no cadastro. Quatro cidades existem em duas UF (Boa Esperança, Campestre, Itapeva e São Simão); como o CT-e não guarda a UF, vale o código da UF com mais itinerários cadastrados (Boa Esperança/MG, Campestre/MG, Itapeva/MG e São Simão/SP).

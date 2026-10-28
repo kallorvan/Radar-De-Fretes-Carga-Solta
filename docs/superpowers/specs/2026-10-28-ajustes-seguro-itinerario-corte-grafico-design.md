@@ -111,3 +111,7 @@ Data: 2026-10-28 · Status: aguardando revisão · Altera: `2026-10-28-radar-car
 - quantos ficam fora pelo corte (155 esperados);
 - quantos ficam a classificar depois do corte;
 - quantas exceções sobram.
+
+## 5. Revisão (2026-10-28, depois da entrega)
+
+- **Itinerário:** a fonte passa a ser o relatório de itinerários do Rodopar (`itinerarios.xlsx`, 1.321 itinerários, 344 cidades com UF). O código é **origem + destino sempre que as duas cidades estão no cadastro**, mesmo sem itinerário próprio e sem porto. Homônimas em duas UF ficam com a UF de mais itinerários (no empate, a UF mais usada no relatório). Ao abrir a base, itinerários em branco que a tabela atual sabe montar são preenchidos.

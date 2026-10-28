@@ -79,14 +79,21 @@ test("numeroBR", () => {
   assert.equal(numeroBR("12.5"), 12.5);
 });
 
-test("codigoItinerario: cidade das abas do Rodopar + porto", () => {
+test("codigoItinerario: código da origem + código do destino do cadastro do Rodopar", () => {
   assert.equal(codigoItinerario("Araras", "Santos"), "ARRSAN");
   assert.equal(codigoItinerario("SANTOS", "ALFENAS"), "SANALF");
   assert.equal(codigoItinerario("Alfenas", "Guarujá"), "ALFGJA");
-  assert.equal(codigoItinerario("São Joaquim da Barra", "Santos"), "", "fora das abas: itinerário que a Tóliman não faz");
-  assert.equal(codigoItinerario("Araras", "Alfenas"), "", "sem porto não há código");
-  assert.equal(codigoItinerario("Itapeva", "Santos"), "", "homônima com dois códigos fica em branco");
+  assert.equal(codigoItinerario("Machado", "Varginha"), "MCHVGH", "sem porto: junta os dois códigos");
+  assert.equal(codigoItinerario("Araras", "Alfenas"), "ARRALF", "itinerário sem cadastro próprio, mas com as duas cidades");
+  assert.equal(codigoItinerario("Sooretama", "Machado"), "YGEMCH");
+  assert.equal(codigoItinerario("São Joaquim da Barra", "Santos"), "", "cidade fora do cadastro");
   assert.equal(codigoItinerario("", "Santos"), "");
+});
+
+test("codigoItinerario: homônima fica com a UF de mais itinerários cadastrados", () => {
+  assert.equal(codigoItinerario("Boa Esperança", "Santos"), "BLPSAN", "MG (16 itinerários) e não ES (1)");
+  assert.equal(codigoItinerario("Campestre", "Machado"), "BYVMCH", "MG");
+  assert.equal(codigoItinerario("Itapeva", "Santos"), "INOSAN", "MG (3) e não SP (1)");
 });
 
 test("cnpjDaChave: posições 7 a 20", () => {
