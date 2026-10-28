@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { novaBase, incluir } from "../src/base.js";
+import { novaBase } from "../src/base.js";
+import * as A from "../src/acoes.js";
 import { novaSessao, montarDadosJs, lerDadosJs, ARQ_DADOS, PASTA_BKP } from "../src/arquivo.js";
 import { criarGravador, podeGravar } from "../src/pasta.js";
 import { PastaFalsa, idbFalso } from "./fakes/pasta-falsa.js";
@@ -16,12 +17,8 @@ function pagina(pasta, quem = "Ana") {
     aoSalvar: dados => { if (dados) p.dados = dados; },
     idb: idbFalso(), atraso: 0,
   });
-  p.lanca = n => {
-    const antes = p.dados.log.length;
-    incluir(p.dados, campos({ chave: chaveN(n), numero: n }), p.quem, AGORA);
-    p.sessao.alterados.add(chaveN(n));
-    p.sessao.log.push(...p.dados.log.slice(antes));
-  };
+  p.lanca = n => A.incluir(p.dados, p.sessao, campos({ chave: chaveN(n), numero: n }), p.quem, AGORA);
+  p.corrige = (n, extra) => A.corrigir(p.dados, p.sessao, chaveN(n), campos({ chave: chaveN(n), numero: n, ...extra }), p.quem, AGORA);
   return p;
 }
 function pastaComBase() {
@@ -161,4 +158,63 @@ test("podeGravar é falso fora de file:", () => {
   assert.equal(podeGravar({ location: { protocol: "https:" }, showDirectoryPicker() {} }), false);
   assert.equal(podeGravar({ location: { protocol: "file:" } }), false);
   assert.equal(podeGravar({ location: { protocol: "file:" }, showDirectoryPicker() {} }), true);
+});
+
+test("corrigir o mesmo CT-e durante a gravação continua pendente", async () => {
+  const pasta = pastaComBase(), p = pagina(pasta);
+  await p.g.conectar(pasta);
+  p.lanca(1);
+  const salvando = p.g.salvar({ manual: true });
+  await new Promise(r => setTimeout(r, 1));
+  p.corrige(1, { sacas: 999 });
+  assert.equal((await salvando).ok, true);
+  assert.equal(p.g.estado, "pendente");
+  assert.ok(p.sessao.alterados.has(chaveN(1)));
+  assert.equal(p.sessao.log.length, 1);
+  assert.equal((await p.g.salvar({})).ok, true);
+  assert.equal(lerArquivo(pasta).ctes[0].sacas, 999);
+});
+
+test("o que se lança durante Juntar e salvar fica na tela e vai na próxima gravação", async () => {
+  const pasta = pastaComBase(), a = pagina(pasta, "Ana"), b = pagina(pasta, "Bia");
+  await a.g.conectar(pasta); await b.g.conectar(pasta);
+  a.lanca(1); await a.g.salvar({ manual: true });
+  b.lanca(2); await b.g.salvar({ manual: true });       // conflito
+  const juntando = b.g.salvar({ manual: true, juntar: true });
+  await new Promise(r => setTimeout(r, 1));
+  b.lanca(3);
+  assert.equal((await juntando).ok, true);
+  assert.deepEqual(b.dados.ctes.map(c => c.numero).sort(), [1, 2, 3]);
+  assert.equal(b.g.estado, "pendente");
+  assert.equal((await b.g.salvar({})).ok, true);
+  assert.deepEqual(lerArquivo(pasta).ctes.map(c => c.numero).sort(), [1, 2, 3]);
+});
+
+test("criarArquivoInicial recusa pasta que já tem base ou backups", async () => {
+  const comBkp = new PastaFalsa("sincronizando");
+  await comBkp.getDirectoryHandle("backups", { create: true });
+  const g = criarGravador({ obterTela: () => novaBase(), obterSessao: novaSessao, obterQuem: () => "Ana", aoSalvar() {}, idb: idbFalso() });
+  const r = await g.criarArquivoInicial(comBkp);
+  assert.equal(r.ok, false);
+  assert.match(r.msg, /backups/);
+  assert.equal(comBkp.arquivos.size, 0);
+  const comCopia = new PastaFalsa("copia");
+  comCopia.arquivos.set("radar-carga-solta-dados-PC01.js", "x");
+  assert.equal((await g.criarArquivoInicial(comCopia)).ok, false);
+});
+
+test("gravação de outra pessoa durante o backup vira conflito, sem sobrescrever", async () => {
+  const pasta = pastaComBase(), p = pagina(pasta);
+  await p.g.conectar(pasta);
+  const orig = pasta.getDirectoryHandle.bind(pasta);
+  pasta.getDirectoryHandle = async (...x) => {          // enquanto o backup é feito, Bia grava
+    const d = lerArquivo(pasta); d.salvoEm = "2026-10-28T11:11:11.000Z"; d.salvoPor = "Bia";
+    pasta.arquivos.set(ARQ_DADOS, montarDadosJs(d));
+    return orig(...x);
+  };
+  p.lanca(1);
+  const r = await p.g.salvar({ manual: true });
+  assert.equal(r.conflito, true);
+  assert.equal(lerArquivo(pasta).salvoPor, "Bia");
+  assert.equal(lerArquivo(pasta).ctes.length, 0);
 });

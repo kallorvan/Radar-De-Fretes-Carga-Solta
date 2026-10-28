@@ -21,8 +21,8 @@ export function idbNavegador(nome = "radar-carga-solta") {
   return { get: k => op("readonly", st => st.get(k)), put: (k, v) => op("readwrite", st => st.put(v, k)), del: k => op("readwrite", st => st.delete(k)) };
 }
 
-const serSessao = s => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], cadastro: [...s.cadastro], log: s.log });
-const desSessao = s => ({ alterados: new Set(s.alterados), excluidos: new Set(s.excluidos), restaurados: new Set(s.restaurados), cadastro: new Map(s.cadastro), log: s.log });
+const serSessao = s => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], cadastro: [...s.cadastro], log: [...s.log], toques: [...(s.toques || [])] });
+const desSessao = s => ({ alterados: new Set(s.alterados), excluidos: new Set(s.excluidos), restaurados: new Set(s.restaurados), cadastro: new Map(s.cadastro), log: s.log, toques: new Map(s.toques || []) });
 
 export function criarGravador({ obterTela, obterSessao, obterQuem, aoSalvar, aoMudar = () => {}, idb, env = globalThis, atraso = 1000 }) {
   const g = {
@@ -64,13 +64,25 @@ export function criarGravador({ obterTela, obterSessao, obterQuem, aoSalvar, aoM
     return true;
   };
 
+  /* Só para a primeira instalação: recusa pasta que já tem sinal de base (o OneDrive pode ainda não ter
+     baixado o arquivo de dados, e criar um vazio por cima perderia a base da equipe). */
   g.criarArquivoInicial = async (pasta) => {
+    try {
+      for await (const [nome, h] of pasta.entries()) {
+        if (h.kind === "directory" && nome === PASTA_BKP)
+          return { ok: false, msg: `A pasta ${pasta.name} já tem ${PASTA_BKP}/: a base existe e talvez ainda não tenha sincronizado. Espere o OneDrive terminar e conecte de novo.` };
+        if (h.kind === "file" && /^radar-carga-solta-dados.*\.js$/i.test(nome))
+          return { ok: false, msg: `A pasta ${pasta.name} já tem ${nome}. Confira com a equipe antes de criar uma base nova.` };
+      }
+    } catch (e) { return { ok: false, msg: "Não foi possível ler a pasta: " + (e?.message || e?.name) }; }
     const d = { ...obterTela(), salvoEm: new Date().toISOString(), salvoPor: obterQuem() };
-    const w = await (await pasta.getFileHandle(ARQ_DADOS, { create: true })).createWritable();
-    await w.write(montarDadosJs(d)); await w.close();
+    try {
+      const w = await (await pasta.getFileHandle(ARQ_DADOS, { create: true })).createWritable();
+      await w.write(montarDadosJs(d)); await w.close();
+    } catch (e) { return { ok: false, msg: "Não foi possível criar a base: " + (e?.message || e?.name) }; }
     g.pasta = pasta; g.baseSalvoEm = d.salvoEm;
     const s = obterSessao();
-    baixarDaSessao(s, { ...serSessao(s), cadastro: [...s.cadastro] });
+    baixarDaSessao(s, serSessao(s));
     await idb?.put("pasta", pasta);
     await idb?.del("pendentes");
     aoSalvar(d);
@@ -91,7 +103,10 @@ export function criarGravador({ obterTela, obterSessao, obterQuem, aoSalvar, aoM
 
   /* Tira da sessão só o que foi gravado; o que mudou durante a escrita continua pendente. */
   function baixarDaSessao(s, foto) {
-    for (const k of ["alterados", "excluidos", "restaurados"]) for (const c of foto[k]) s[k].delete(c);
+    const toquesFoto = new Map(foto.toques || []);
+    const mudouDepois = c => s.toques && (s.toques.get(c) || 0) !== (toquesFoto.get(c) || 0);
+    for (const k of ["alterados", "excluidos", "restaurados"]) for (const c of foto[k]) if (!mudouDepois(c)) s[k].delete(c);
+    if (s.toques) for (const [c, n] of toquesFoto) if (s.toques.get(c) === n) s.toques.delete(c);
     for (const [cnpj, nome] of foto.cadastro) if (s.cadastro.get(cnpj) === nome) s.cadastro.delete(cnpj);
     s.log.splice(0, foto.log.length);
   }
@@ -118,17 +133,24 @@ export function criarGravador({ obterTela, obterSessao, obterQuem, aoSalvar, aoM
         return { ok: false, conflito: true, msg: g.mensagem };
       }
       muda("salvando", "Gravando na pasta…");
-      const foto = { ...serSessao(sessao), cadastro: [...sessao.cadastro] };
+      const foto = serSessao(sessao);
       const base = conflito ? juntar(a.dados, tela, sessao) : JSON.parse(JSON.stringify(tela));
       base.salvoEm = new Date().toISOString();
       base.salvoPor = obterQuem();
       await guardarBackup(a.texto, a.dados.salvoEm);
+      // a trava de novo, logo antes de escrever: alguém pode ter gravado enquanto o backup era feito
+      const agoraNaPasta = lerDadosJs(await (await a.fh.getFile()).text());
+      if ((agoraNaPasta?.salvoEm || null) !== (a.dados.salvoEm || null)) {
+        muda("conflito", resumoConflito(agoraNaPasta || a.dados, tela, sessao));
+        return { ok: false, conflito: true, msg: g.mensagem };
+      }
       const w = await a.fh.createWritable();
       await w.write(montarDadosJs(base)); await w.close();
 
       g.baseSalvoEm = base.salvoEm;
       baixarDaSessao(sessao, foto);
-      if (conflito) aoSalvar(base);
+      // o que mudou na tela durante a junção vai por cima da base juntada
+      if (conflito) aoSalvar(sessaoVazia(sessao) ? base : juntar(base, obterTela(), sessao));
       else { tela.salvoEm = base.salvoEm; tela.salvoPor = base.salvoPor; aoSalvar(null); }
       const resto = sessaoVazia(sessao);
       await (resto ? idb?.del("pendentes") : guardarPendentes());

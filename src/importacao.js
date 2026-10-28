@@ -22,7 +22,7 @@ const chaveCab = s => String(s ?? "").trim().replace(/\s+/g, " ").toUpperCase();
 function dataISO(v) {
   if (v == null || v === "") return "";
   if (typeof v === "number") {
-    const d = new Date(Date.UTC(1899, 11, 30) + Math.round(v) * 864e5);
+    const d = new Date(Date.UTC(1899, 11, 30) + Math.floor(v) * 864e5);
     return d.toISOString().slice(0, 10);
   }
   if (v instanceof Date) return isNaN(v) ? "" : v.toISOString().slice(0, 10);

@@ -39,7 +39,8 @@ export const ehBackup = nome => /^radar-carga-solta-dados \d{4}-\d{2}-\d{2} \d{2
 export const podar = (nomes, max = MAX_BKP) => nomes.filter(ehBackup).sort().slice(0, Math.max(0, nomes.filter(ehBackup).length - max));
 
 /* O que esta página mudou desde a última gravação. */
-export const novaSessao = () => ({ alterados: new Set(), excluidos: new Set(), restaurados: new Set(), cadastro: new Map(), log: [] });
+/* toques: quantas vezes cada CT-e foi mexido nesta página; uma gravação só tira da sessão o que não mudou depois dela. */
+export const novaSessao = () => ({ alterados: new Set(), excluidos: new Set(), restaurados: new Set(), cadastro: new Map(), log: [], toques: new Map() });
 export const sessaoVazia = s => !s.alterados.size && !s.excluidos.size && !s.restaurados.size && !s.cadastro.size && !s.log.length;
 
 /* Parte do arquivo e aplica por cima só o que esta página mudou; cada CT-e tocado

@@ -10,6 +10,7 @@ export function numeroBR(v) {
   let s = String(v ?? "").trim().replace(/^R\$\s*/, "");
   if (!s) return null;
   if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");   // "8.750" é milhar, não decimal
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }

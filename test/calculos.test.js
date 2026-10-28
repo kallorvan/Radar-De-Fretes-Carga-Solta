@@ -49,4 +49,9 @@ test("numeroBR", () => {
   assert.equal(numeroBR(""), null);
   assert.equal(numeroBR(null), null);
   assert.equal(numeroBR("abc"), null);
+  assert.equal(numeroBR("8.750"), 8750);
+  assert.equal(numeroBR("1.080"), 1080);
+  assert.equal(numeroBR("1.234.567"), 1234567);
+  assert.equal(numeroBR("0.0005"), 0.0005);
+  assert.equal(numeroBR("12.5"), 12.5);
 });

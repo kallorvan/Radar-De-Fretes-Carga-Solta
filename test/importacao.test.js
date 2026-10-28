@@ -60,6 +60,7 @@ test("normalizarLinha aceita texto pt-BR e CNPJ numérico", () => {
 
 test("normalizarLinha converte número de série do Excel", () => {
   assert.equal(normalizarLinha(linhaPadrao(1, { "EMISSÃO CT-e": 46032 }), 2).campos.emissao, "2026-01-10");
+  assert.equal(normalizarLinha(linhaPadrao(1, { "EMISSÃO CT-e": 46053.75 }), 2).campos.emissao, "2026-01-31");
 });
 
 test("divergência mantém o número da planilha", () => {

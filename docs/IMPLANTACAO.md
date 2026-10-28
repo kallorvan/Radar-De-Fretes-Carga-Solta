@@ -20,6 +20,8 @@ O painel é um arquivo HTML só. Ele fica numa pasta compartilhada do SharePoint
 - Se o navegador pedir permissão para gravar, clique em **Salvar agora** na barra de gravação.
 - Se outra pessoa gravou depois que você abriu o painel, aparece o aviso **Outra pessoa gravou na pasta**. **Juntar e salvar** parte do arquivo da pasta e aplica por cima só o que você mudou: nada do que a outra pessoa lançou se perde.
 - Alterações que ainda não foram gravadas ficam guardadas no navegador e voltam quando o painel é aberto de novo.
+- O painel confere, imediatamente antes de gravar, se alguém gravou antes. Mas, se duas pessoas gravarem no mesmo minuto antes de o OneDrive sincronizar, o OneDrive pode criar uma cópia com o nome do computador (ex.: `radar-carga-solta-dados-PC01.js`). Se uma cópia assim aparecer na pasta, avise quem cuida do painel: o conteúdo dela precisa ser conferido e lançado de novo, e depois a cópia pode ser apagada.
+- Em um computador novo, espere o OneDrive terminar de sincronizar a pasta antes de **Conectar a pasta**. O painel se recusa a criar uma base nova numa pasta que já tem `backups/` ou outro arquivo de dados.
 
 ## Atualizar o painel
 

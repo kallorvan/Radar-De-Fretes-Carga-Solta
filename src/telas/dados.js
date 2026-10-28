@@ -96,8 +96,8 @@ async function conectar(App) {
   const r = await g.conectar();
   if (r.faltaArquivo) {
     if (await confirmar("Criar a base nesta pasta?", `A pasta ${r.handle.name} não tem o ${ARQ_DADOS}. O painel cria o arquivo com o que está na tela agora (${App.dados.ctes.length} CT-e). Use isto só na primeira instalação; se a base já existe, escolha a pasta onde ela está.`, "Criar a base")) {
-      await g.criarArquivoInicial(r.handle);
-      aviso("Base criada na pasta.");
+      const c = await g.criarArquivoInicial(r.handle);
+      if (c.ok) aviso("Base criada na pasta."); else aviso(c.msg, true);
     }
   } else if (r.ok) {
     // pasta com uma base mais nova que a desta página: sem alterações locais, a tela passa a mostrar a da pasta

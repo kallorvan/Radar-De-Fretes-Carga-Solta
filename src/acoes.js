@@ -14,24 +14,26 @@ function comLog(d, s, fn) {
   return r;
 }
 
+const tocar = (s, chave) => { if (s.toques) s.toques.set(chave, (s.toques.get(chave) || 0) + 1); };
+
 export function incluir(d, s, campos, quem, agora) {
   const r = comLog(d, s, () => B.incluir(d, campos, quem, agora));
-  if (r.ok) s.alterados.add(r.cte.chave);
+  if (r.ok) { s.alterados.add(r.cte.chave); tocar(s, r.cte.chave); }
   return r;
 }
 export function corrigir(d, s, chave, campos, quem, agora) {
   const r = comLog(d, s, () => B.corrigir(d, chave, campos, quem, agora));
-  if (r.ok) s.alterados.add(chave);
+  if (r.ok) { s.alterados.add(chave); tocar(s, chave); }
   return r;
 }
 export function excluir(d, s, chave, quem, agora) {
   const r = comLog(d, s, () => B.excluir(d, chave, quem, agora));
-  if (r.ok) { s.alterados.delete(chave); s.restaurados.delete(chave); s.excluidos.add(chave); }
+  if (r.ok) { s.alterados.delete(chave); s.restaurados.delete(chave); s.excluidos.add(chave); tocar(s, chave); }
   return r;
 }
 export function restaurar(d, s, chave, quem, agora) {
   const r = comLog(d, s, () => B.restaurar(d, chave, quem, agora));
-  if (r.ok) { s.excluidos.delete(chave); s.restaurados.add(chave); }
+  if (r.ok) { s.excluidos.delete(chave); s.restaurados.add(chave); tocar(s, chave); }
   return r;
 }
 export function cadastrar(d, s, cnpj, nome, quem, agora) {
@@ -43,7 +45,7 @@ export function importar(d, s, resultado, quem, agora) {
   const chaves = new Set(d.ctes.map(c => c.chave));
   const cnpjs = new Map(d.cnpjs.map(c => [c.cnpj, c.nome]));
   const r = comLog(d, s, () => aplicarImportacao(d, resultado, quem, agora));
-  for (const c of d.ctes) if (!chaves.has(c.chave)) s.alterados.add(c.chave);
+  for (const c of d.ctes) if (!chaves.has(c.chave)) { s.alterados.add(c.chave); tocar(s, c.chave); }
   for (const c of d.cnpjs) if (cnpjs.get(c.cnpj) !== c.nome) s.cadastro.set(c.cnpj, c.nome);
   return r;
 }
