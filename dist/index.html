@@ -544,11 +544,14 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     const n = Number(s);
     return Number.isFinite(n) ? n : null;
   }
-  function calcularCte({ valorAssegurado, taxaSeguro, valorFrete, adicionais, sacas }) {
+  function calcularCte({ valorAssegurado, taxaSeguro, valorFrete, adicionais, quantidade, unidade = null, pesoKg = null, pesoInformado = false }) {
     const valorSeguro = arred2((valorAssegurado || 0) * (taxaSeguro || 0));
     const tarifa = arred2((valorFrete || 0) - valorSeguro - (adicionais || 0));
-    const precoSaca = sacas > 0 ? arred2(tarifa / sacas) : null;
-    return { valorSeguro, tarifa, precoSaca };
+    const qtd = quantidade > 0 ? quantidade : null;
+    const peso = pesoInformado ? pesoKg > 0 ? pesoKg : null : qtd && unidade?.kg > 0 ? arred2(qtd * unidade.kg) : pesoKg > 0 ? pesoKg : null;
+    const precoTonelada = peso ? arred2(tarifa / (peso / 1e3)) : null;
+    const precoSaca = qtd && unidade?.saca ? arred2(tarifa / qtd) : null;
+    return { valorSeguro, tarifa, pesoKg: peso, precoTonelada, precoSaca };
   }
   function normalizarCnpj(v) {
     const d = soDigitos(v);
@@ -606,8 +609,27 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
 
   // src/base.js
   var MAX_LOG = 500;
-  var novaBase = () => ({ versao: 1, salvoEm: null, salvoPor: null, ctes: [], cnpjs: [], lixeira: [], log: [] });
-  var NUMERICOS = ["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "sacas"];
+  var UNIDADES_INICIAIS = [
+    { id: "SC60", nome: "Saca 60 kg", kg: 60, saca: true },
+    { id: "SC50", nome: "Saca 50 kg", kg: 50, saca: true },
+    { id: "TON", nome: "Tonelada", kg: 1e3, saca: false },
+    { id: "BAG", nome: "Big bag", kg: null, saca: false }
+  ];
+  var PRODUTOS_INICIAIS = [{ id: "CAFE", nome: "Café" }, { id: "ACUCAR", nome: "Açúcar" }];
+  var novaBase = () => ({
+    versao: 2,
+    salvoEm: null,
+    salvoPor: null,
+    ctes: [],
+    cnpjs: [],
+    lixeira: [],
+    log: [],
+    produtos: structuredClone(PRODUTOS_INICIAIS),
+    unidades: structuredClone(UNIDADES_INICIAIS)
+  });
+  var unidadeDe = (d, id) => (d.unidades || []).find((u) => u.id === id) || null;
+  var produtoDe = (d, id) => (d.produtos || []).find((p) => p.id === id) || null;
+  var NUMERICOS = ["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"];
   function normalizar(c) {
     const n = {
       chave: soDigitos(c.chave),
@@ -618,6 +640,9 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
       origem: normalizarCidade(c.origem),
       destino: normalizarCidade(c.destino),
       itinerario: String(c.itinerario ?? "").trim().toUpperCase(),
+      produto: c.produto ? String(c.produto) : null,
+      unidade: c.unidade ? String(c.unidade) : null,
+      pesoInformado: Boolean(c.pesoInformado),
       vpo: Boolean(c.vpo),
       observacoes: String(c.observacoes ?? "").trim()
     };
@@ -625,7 +650,16 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     for (const k of ["valorAssegurado", "taxaSeguro", "adicionais"]) if (n[k] == null) n[k] = 0;
     return n;
   }
-  function validarCampos(campos) {
+  var ERRO_PESO = "Informe o peso total do CT-e (kg).";
+  function errosClassificacao(d, c) {
+    const erros = {}, u = unidadeDe(d, c.unidade);
+    if (!produtoDe(d, c.produto)) erros.produto = "Escolha o produto.";
+    if (!u) erros.unidade = "Escolha a unidade.";
+    else if ((c.pesoInformado || !(u.kg > 0)) && !(c.pesoKg > 0)) erros.pesoKg = ERRO_PESO;
+    return erros;
+  }
+  var calcular = (d, c) => calcularCte({ ...c, unidade: unidadeDe(d, c.unidade), pesoInformado: c.pesoInformado || !(unidadeDe(d, c.unidade)?.kg > 0) });
+  function validarCampos(d, campos, { exigirClassificacao = true } = {}) {
     const c = normalizar(campos);
     const erros = {};
     if (!chaveValida(c.chave)) erros.chave = "Chave de acesso precisa ter 44 dígitos.";
@@ -636,7 +670,8 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     if (!c.origem) erros.origem = "Informe a cidade de origem.";
     if (!c.destino) erros.destino = "Informe a cidade de destino.";
     if (!(c.valorFrete > 0)) erros.valorFrete = "Informe o valor do frete.";
-    if (!(c.sacas > 0)) erros.sacas = "Informe as sacas.";
+    if (!(c.quantidade > 0)) erros.quantidade = "Informe a quantidade.";
+    if (exigirClassificacao) Object.assign(erros, errosClassificacao(d, c));
     return { ok: Object.keys(erros).length === 0, erros, campos: c };
   }
   function registrar(d, acao, quem, agora, chave, resumo) {
@@ -646,8 +681,8 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
   var acharCte = (d, chave) => d.ctes.find((c) => c.chave === chave);
   var acharLixo = (d, chave) => d.lixeira.find((l) => l.cte.chave === chave);
   var resumoCte = (c) => `CT-e ${c.numero} · ${c.origem} → ${c.destino}`;
-  function incluir(d, campos, quem, agora, origemLancamento = "formulario") {
-    const v = validarCampos(campos);
+  function incluir(d, campos, quem, agora, origemLancamento = "formulario", { exigirClassificacao = true } = {}) {
+    const v = validarCampos(d, campos, { exigirClassificacao });
     if (!v.ok) return { ok: false, erros: v.erros };
     const existente = acharCte(d, v.campos.chave);
     if (existente) return { ok: false, existente };
@@ -655,7 +690,7 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     if (lixo) return { ok: false, existente: lixo.cte, naLixeira: true };
     const cte = {
       ...v.campos,
-      ...calcularCte(v.campos),
+      ...calcular(d, v.campos),
       criadoPor: quem,
       criadoEm: agora,
       alteradoPor: null,
@@ -669,9 +704,9 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
   function corrigir(d, chave, campos, quem, agora) {
     const atual = acharCte(d, chave);
     if (!atual) return { ok: false, erros: { chave: "CT-e não encontrado na base." } };
-    const v = validarCampos({ ...campos, chave });
+    const v = validarCampos(d, { ...campos, chave });
     if (!v.ok) return { ok: false, erros: v.erros };
-    Object.assign(atual, v.campos, calcularCte(v.campos), { alteradoPor: quem, alteradoEm: agora });
+    Object.assign(atual, v.campos, calcular(d, v.campos), { alteradoPor: quem, alteradoEm: agora });
     delete atual.divergencia;
     registrar(d, "corrigir", quem, agora, chave, resumoCte(atual));
     return { ok: true, cte: atual };

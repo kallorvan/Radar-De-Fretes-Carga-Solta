@@ -15,12 +15,17 @@ export function numeroBR(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-/* Mesmas fórmulas da aba BASE CARGA SOLTA 2026, arredondando cada passo. */
-export function calcularCte({ valorAssegurado, taxaSeguro, valorFrete, adicionais, sacas }) {
+/* Fórmulas da aba BASE CARGA SOLTA 2026, mais peso e R$/t, arredondando cada passo.
+   unidade = { kg, saca } da lista de unidades; o peso informado (do CT-e) vale sobre o calculado. */
+export function calcularCte({ valorAssegurado, taxaSeguro, valorFrete, adicionais, quantidade, unidade = null, pesoKg = null, pesoInformado = false }) {
   const valorSeguro = arred2((valorAssegurado || 0) * (taxaSeguro || 0));
   const tarifa = arred2((valorFrete || 0) - valorSeguro - (adicionais || 0));
-  const precoSaca = sacas > 0 ? arred2(tarifa / sacas) : null;
-  return { valorSeguro, tarifa, precoSaca };
+  const qtd = quantidade > 0 ? quantidade : null;
+  const peso = pesoInformado ? (pesoKg > 0 ? pesoKg : null)
+    : qtd && unidade?.kg > 0 ? arred2(qtd * unidade.kg) : (pesoKg > 0 ? pesoKg : null);
+  const precoTonelada = peso ? arred2(tarifa / (peso / 1000)) : null;
+  const precoSaca = qtd && unidade?.saca ? arred2(tarifa / qtd) : null;
+  return { valorSeguro, tarifa, pesoKg: peso, precoTonelada, precoSaca };
 }
 
 /* A planilha guarda CNPJ como número em algumas abas: os zeros à esquerda voltam aqui. */

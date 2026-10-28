@@ -166,13 +166,13 @@ test("corrigir o mesmo CT-e durante a gravação continua pendente", async () =>
   p.lanca(1);
   const salvando = p.g.salvar({ manual: true });
   await new Promise(r => setTimeout(r, 1));
-  p.corrige(1, { sacas: 999 });
+  p.corrige(1, { quantidade: 999 });
   assert.equal((await salvando).ok, true);
   assert.equal(p.g.estado, "pendente");
   assert.ok(p.sessao.alterados.has(chaveN(1)));
   assert.equal(p.sessao.log.length, 1);
   assert.equal((await p.g.salvar({})).ok, true);
-  assert.equal(lerArquivo(pasta).ctes[0].sacas, 999);
+  assert.equal(lerArquivo(pasta).ctes[0].quantidade, 999);
 });
 
 test("o que se lança durante Juntar e salvar fica na tela e vai na próxima gravação", async () => {

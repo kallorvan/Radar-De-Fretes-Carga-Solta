@@ -21,7 +21,7 @@ test("acoes registram a sessão e o log da sessão", () => {
   A.restaurar(d, s, CHAVE, "Ana", AGORA);
   assert.deepEqual([...s.restaurados], [CHAVE]);
   assert.equal(s.excluidos.size, 0);
-  A.corrigir(d, s, CHAVE, campos({ sacas: 70 }), "Ana", AGORA);
+  A.corrigir(d, s, CHAVE, campos({ quantidade: 70 }), "Ana", AGORA);
   assert.ok(s.alterados.has(CHAVE));
   A.cadastrar(d, s, "07668709000109", "Atma", "Ana", AGORA);
   assert.equal(s.cadastro.get("07668709000109"), "ATMA");
@@ -30,7 +30,7 @@ test("acoes registram a sessão e o log da sessão", () => {
 
 test("acao com falha não mexe na sessão", () => {
   const d = novaBase(), s = novaSessao();
-  assert.equal(A.incluir(d, s, campos({ sacas: 0 }), "Ana", AGORA).ok, false);
+  assert.equal(A.incluir(d, s, campos({ quantidade: 0 }), "Ana", AGORA).ok, false);
   assert.equal(s.alterados.size + s.log.length, 0);
 });
 

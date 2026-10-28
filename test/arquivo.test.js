@@ -67,11 +67,11 @@ test("juntar aplica correção local sobre o arquivo", () => {
   const arquivo = novaBase();
   incluir(arquivo, campos({ chave: chaveN(1), numero: 1 }), "Ana", AGORA);
   const tela = clone(arquivo), s = novaSessao();
-  corrigir(tela, chaveN(1), campos({ sacas: 70 }), "Bia", AGORA); s.alterados.add(chaveN(1));
+  corrigir(tela, chaveN(1), campos({ quantidade: 70 }), "Bia", AGORA); s.alterados.add(chaveN(1));
   cadastrarCnpj(tela, "07668709000109", "ATMA", "Bia", AGORA); s.cadastro.set("07668709000109", "ATMA");
   const r = juntar(arquivo, tela, s);
   assert.equal(r.ctes.length, 1);
-  assert.equal(r.ctes[0].precoSaca, 125);
+  assert.equal(r.ctes[0].precoTonelada, 125);
   assert.deepEqual(r.cnpjs, [{ cnpj: "07668709000109", nome: "ATMA" }]);
 });
 
