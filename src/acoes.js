@@ -36,16 +36,38 @@ export function restaurar(d, s, chave, quem, agora) {
   if (r.ok) { s.excluidos.delete(chave); s.restaurados.add(chave); tocar(s, chave); }
   return r;
 }
+const anotarCnpj = (d, s, cnpj) => s.cadastro.set(cnpj, structuredClone(d.cnpjs.find(c => c.cnpj === cnpj)));
+
 export function cadastrar(d, s, cnpj, nome, quem, agora) {
   const r = comLog(d, s, () => B.cadastrarCnpj(d, cnpj, nome, quem, agora));
-  if (r.ok) s.cadastro.set(r.cnpj, r.nome);
+  if (r.ok) anotarCnpj(d, s, r.cnpj);
+  return r;
+}
+export function definirProdutoPadrao(d, s, cnpj, produto, quem, agora) {
+  const r = comLog(d, s, () => B.definirProdutoPadrao(d, cnpj, produto, quem, agora));
+  if (r.ok) anotarCnpj(d, s, r.cnpj);
+  return r;
+}
+export function classificar(d, s, chave, classe, quem, agora) {
+  const r = comLog(d, s, () => B.classificar(d, chave, classe, quem, agora));
+  if (r.ok) { s.alterados.add(chave); tocar(s, chave); }
+  return r;
+}
+export function cadastrarProduto(d, s, produto, quem, agora) {
+  const r = comLog(d, s, () => B.cadastrarProduto(d, produto, quem, agora));
+  if (r.ok) s.listas.set("produto:" + r.id, structuredClone(r.produto));
+  return r;
+}
+export function cadastrarUnidade(d, s, unidade, quem, agora) {
+  const r = comLog(d, s, () => B.cadastrarUnidade(d, unidade, quem, agora));
+  if (r.ok) s.listas.set("unidade:" + r.id, structuredClone(r.unidade));
   return r;
 }
 export function importar(d, s, resultado, quem, agora) {
   const chaves = new Set(d.ctes.map(c => c.chave));
-  const cnpjs = new Map(d.cnpjs.map(c => [c.cnpj, c.nome]));
+  const cnpjs = new Map(d.cnpjs.map(c => [c.cnpj, JSON.stringify(c)]));
   const r = comLog(d, s, () => aplicarImportacao(d, resultado, quem, agora));
   for (const c of d.ctes) if (!chaves.has(c.chave)) { s.alterados.add(c.chave); tocar(s, c.chave); }
-  for (const c of d.cnpjs) if (cnpjs.get(c.cnpj) !== c.nome) s.cadastro.set(c.cnpj, c.nome);
+  for (const c of d.cnpjs) if (cnpjs.get(c.cnpj) !== JSON.stringify(c)) anotarCnpj(d, s, c.cnpj);
   return r;
 }

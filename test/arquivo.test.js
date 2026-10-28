@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { novaBase, incluir, excluir, corrigir, cadastrarCnpj } from "../src/base.js";
+import { novaBase, incluir, excluir, corrigir, cadastrarCnpj, cadastrarProduto, cadastrarUnidade, definirProdutoPadrao } from "../src/base.js";
 import { lerDadosJs, montarDadosJs, nomeBackup, ehBackup, podar, novaSessao, juntar, resumoConflito, MARCA } from "../src/arquivo.js";
 import { campos, chaveN } from "./ajuda.js";
 
@@ -68,7 +68,7 @@ test("juntar aplica correção local sobre o arquivo", () => {
   incluir(arquivo, campos({ chave: chaveN(1), numero: 1 }), "Ana", AGORA);
   const tela = clone(arquivo), s = novaSessao();
   corrigir(tela, chaveN(1), campos({ quantidade: 70 }), "Bia", AGORA); s.alterados.add(chaveN(1));
-  cadastrarCnpj(tela, "07668709000109", "ATMA", "Bia", AGORA); s.cadastro.set("07668709000109", "ATMA");
+  cadastrarCnpj(tela, "07668709000109", "ATMA", "Bia", AGORA); s.cadastro.set("07668709000109", { cnpj: "07668709000109", nome: "ATMA" });
   const r = juntar(arquivo, tela, s);
   assert.equal(r.ctes.length, 1);
   assert.equal(r.ctes[0].precoTonelada, 125);
@@ -85,4 +85,46 @@ test("resumoConflito conta o que mudou", () => {
   assert.match(txt, /Bia/);
   assert.match(txt, /1 CT-e que você não tem na tela/);
   assert.match(txt, /1 alteração/);
+});
+
+test("lerDadosJs devolve a base migrada", () => {
+  const txt = MARCA + JSON.stringify({ versao: 1, ctes: [{ chave: "a", sacas: 10 }], cnpjs: [], lixeira: [], log: [] }) + ";";
+  const d = lerDadosJs(txt);
+  assert.equal(d.versao, 2);
+  assert.equal(d.ctes[0].quantidade, 10);
+  assert.equal(d.unidades.length, 4);
+});
+
+test("juntar com arquivo v1 migra antes", () => {
+  const v1 = { versao: 1, salvoEm: "x", ctes: [{ chave: "z", numero: 9, sacas: 30 }], cnpjs: [], lixeira: [], log: [] };
+  const tela = novaBase(), s = novaSessao();
+  incluir(tela, campos({ chave: chaveN(1), numero: 1 }), "Ana", AGORA); s.alterados.add(chaveN(1));
+  const r = juntar(v1, tela, s);
+  assert.equal(r.versao, 2);
+  assert.equal(r.ctes.find(c => c.numero === 9).quantidade, 30);
+  assert.equal(r.ctes.find(c => c.numero === 1).produto, "ACUCAR");
+});
+
+test("juntar une produtos e unidades", () => {
+  const arquivo = novaBase();
+  cadastrarProduto(arquivo, { nome: "Milho" }, "Bia", AGORA);                 // da outra pessoa
+  const tela = novaBase(), s = novaSessao();
+  const p = cadastrarProduto(tela, { nome: "Soja" }, "Ana", AGORA); s.listas.set("produto:" + p.id, p.produto);
+  const u = cadastrarUnidade(tela, { nome: "Fardo 200 kg", kg: 200, saca: false }, "Ana", AGORA); s.listas.set("unidade:" + u.id, u.unidade);
+  const r = juntar(arquivo, tela, s);
+  assert.deepEqual(r.produtos.map(x => x.id).sort(), ["ACUCAR", "CAFE", "MILHO", "SOJA"]);
+  assert.ok(r.unidades.some(x => x.id === "FARDO200KG" && x.kg === 200));
+});
+
+test("juntar preserva o produto padrão do arquivo e aplica o da tela", () => {
+  const arquivo = novaBase();
+  cadastrarCnpj(arquivo, "11111111000100", "EISA", "Bia", AGORA);
+  cadastrarCnpj(arquivo, "22222222000100", "USINA", "Bia", AGORA);
+  definirProdutoPadrao(arquivo, "11111111000100", "CAFE", "Bia", AGORA);
+  const tela = structuredClone(arquivo), s = novaSessao();
+  const r0 = definirProdutoPadrao(tela, "22222222000100", "ACUCAR", "Ana", AGORA);
+  s.cadastro.set(r0.cnpj, structuredClone(tela.cnpjs.find(c => c.cnpj === r0.cnpj)));
+  const r = juntar(arquivo, tela, s);
+  assert.equal(r.cnpjs.find(c => c.cnpj === "11111111000100").produtoPadrao, "CAFE");
+  assert.equal(r.cnpjs.find(c => c.cnpj === "22222222000100").produtoPadrao, "ACUCAR");
 });

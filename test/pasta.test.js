@@ -218,3 +218,15 @@ test("gravação de outra pessoa durante o backup vira conflito, sem sobrescreve
   assert.equal(lerArquivo(pasta).salvoPor, "Bia");
   assert.equal(lerArquivo(pasta).ctes.length, 0);
 });
+
+test("pendências v1 no IndexedDB voltam migradas", async () => {
+  const idb = idbFalso();
+  await idb.put("pendentes", { tela: { versao: 1, ctes: [{ chave: "a", sacas: 7 }], cnpjs: [], lixeira: [], log: [] },
+    sessao: { alterados: ["a"], excluidos: [], restaurados: [], cadastro: [["1", "X"]], log: [] } });
+  const g = criarGravador({ obterTela: () => novaBase(), obterSessao: novaSessao, obterQuem: () => "Ana", aoSalvar() {}, idb });
+  const p = await g.restaurarPendentes();
+  assert.equal(p.tela.versao, 2);
+  assert.equal(p.tela.ctes[0].quantidade, 7);
+  assert.equal(p.sessao.cadastro.get("1").nome, "X", "cadastro antigo (só nome) vira objeto");
+  assert.equal(p.sessao.listas.size, 0);
+});

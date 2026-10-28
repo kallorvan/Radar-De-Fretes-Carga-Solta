@@ -1,6 +1,6 @@
 // Ponto de entrada do painel: carrega os dados da pasta, guarda o estado da página e troca de tela.
 
-import { novaBase } from "./base.js";
+import { novaBase, migrarBase } from "./base.js";
 import { novaSessao, sessaoVazia, juntar } from "./arquivo.js";
 import { criarGravador, podeGravar, idbNavegador } from "./pasta.js";
 import { lerHash, escreverHash } from "./hash.js";
@@ -23,7 +23,7 @@ const App = {
   dados: novaBase(),
   sessao: novaSessao(),
   aba: "evolucao",
-  filtros: { metrica: "saca" },
+  filtros: { metrica: "tonelada" },
   somenteLeitura: !podeGravar(),
   quem: lerLS(LS_QUEM),
   gravador: null,
@@ -105,7 +105,8 @@ async function acaoGravacao(acao) {
 }
 
 async function iniciar() {
-  const arquivo = window.RADAR_CS ? { ...novaBase(), ...window.RADAR_CS } : novaBase();
+  // base gravada por um painel antigo (v1) é atualizada aqui; a pasta só recebe a v2 na próxima gravação
+  const arquivo = window.RADAR_CS ? migrarBase({ versao: 1, cnpjs: [], lixeira: [], log: [], ...window.RADAR_CS }) : novaBase();
   App.dados = arquivo;
   App.gravador = criarGravador({
     obterTela: () => App.dados, obterSessao: () => App.sessao, obterQuem: () => App.quem || "sem nome",

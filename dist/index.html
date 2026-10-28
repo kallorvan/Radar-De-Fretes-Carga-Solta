@@ -627,6 +627,33 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     produtos: structuredClone(PRODUTOS_INICIAIS),
     unidades: structuredClone(UNIDADES_INICIAIS)
   });
+  function migrarBase(d) {
+    const r = structuredClone(d);
+    r.produtos || (r.produtos = structuredClone(PRODUTOS_INICIAIS));
+    r.unidades || (r.unidades = structuredClone(UNIDADES_INICIAIS));
+    r.cnpjs || (r.cnpjs = []);
+    r.lixeira || (r.lixeira = []);
+    r.log || (r.log = []);
+    r.ctes || (r.ctes = []);
+    if ((d.versao || 1) >= 2) return r;
+    const migra = (c) => {
+      const { sacas, ...resto } = c;
+      return {
+        ...resto,
+        quantidade: sacas ?? resto.quantidade ?? null,
+        produto: null,
+        unidade: null,
+        pesoKg: null,
+        pesoInformado: false,
+        precoTonelada: null,
+        precoSaca: null
+      };
+    };
+    r.ctes = r.ctes.map(migra);
+    r.lixeira = r.lixeira.map((l) => ({ ...l, cte: migra(l.cte) }));
+    r.versao = 2;
+    return r;
+  }
   var unidadeDe = (d, id) => (d.unidades || []).find((u) => u.id === id) || null;
   var produtoDe = (d, id) => (d.produtos || []).find((p) => p.id === id) || null;
   var NUMERICOS = ["valorAssegurado", "taxaSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"];
@@ -749,6 +776,53 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     const escolhido = doGrupo.find((c) => ehMatriz(c.cnpj)) || doGrupo[0];
     return { raiz, nome: escolhido ? escolhido.nome : "CNPJ " + fmtCnpj(normalizarCnpj(cnpj)) };
   }
+  function classificar(d, chave, { produto, unidade, pesoKg = null, pesoInformado = false }, quem, agora) {
+    const cte = acharCte(d, chave);
+    if (!cte) return { ok: false, erros: { chave: "CT-e não encontrado na base." } };
+    const c = { ...cte, produto, unidade, pesoKg: numeroBR(pesoKg), pesoInformado: Boolean(pesoInformado) };
+    const erros = errosClassificacao(d, c);
+    if (Object.keys(erros).length) return { ok: false, erros };
+    const antes = { valorSeguro: cte.valorSeguro, tarifa: cte.tarifa };
+    Object.assign(cte, { produto, unidade, pesoInformado: c.pesoInformado, pesoKg: c.pesoKg }, calcular(d, c), { alteradoPor: quem, alteradoEm: agora });
+    if (cte.divergencia) {
+      Object.assign(cte, antes);
+      precosDaTarifa(d, cte);
+    }
+    registrar(d, "classificar", quem, agora, chave, `${resumoCte(cte)} · ${produtoDe(d, produto).nome} · ${unidadeDe(d, unidade).nome}`);
+    return { ok: true, cte };
+  }
+  var idDoNome = (nome) => String(nome).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  function cadastrarProduto(d, { id, nome }, quem, agora) {
+    const limpo = String(nome ?? "").trim().replace(/\s+/g, " ");
+    const pid = id || idDoNome(limpo);
+    if (!limpo || !pid) return { ok: false, erro: "Informe o nome do produto." };
+    const atual = produtoDe(d, pid);
+    if (atual) atual.nome = limpo;
+    else d.produtos.push({ id: pid, nome: limpo });
+    registrar(d, "produto", quem, agora, "", `${pid} = ${limpo}`);
+    return { ok: true, id: pid, produto: produtoDe(d, pid) };
+  }
+  function cadastrarUnidade(d, { id, nome, kg, saca }, quem, agora) {
+    const limpo = String(nome ?? "").trim().replace(/\s+/g, " ");
+    const uid = id || idDoNome(limpo);
+    const peso = kg === "" || kg == null ? null : numeroBR(kg);
+    if (!limpo || !uid) return { ok: false, erro: "Informe o nome da unidade." };
+    if (peso != null && !(peso > 0)) return { ok: false, erro: "O peso da unidade precisa ser maior que zero." };
+    const atual = unidadeDe(d, uid);
+    const emUso = [...d.ctes, ...d.lixeira.map((l) => l.cte)].some((c) => c.unidade === uid);
+    if (atual && emUso && (atual.kg !== peso || atual.saca !== Boolean(saca))) return { ok: false, erro: "Unidade em uso: crie outra para um peso diferente." };
+    if (atual) Object.assign(atual, { nome: limpo, kg: peso, saca: Boolean(saca) });
+    else d.unidades.push({ id: uid, nome: limpo, kg: peso, saca: Boolean(saca) });
+    registrar(d, "unidade", quem, agora, "", `${uid} = ${limpo}${peso ? ` (${peso} kg)` : ""}`);
+    return { ok: true, id: uid, unidade: unidadeDe(d, uid) };
+  }
+  function definirProdutoPadrao(d, cnpj, produto, quem, agora) {
+    const n = normalizarCnpj(cnpj), c = d.cnpjs.find((x) => x.cnpj === n);
+    if (!c || produto && !produtoDe(d, produto)) return { ok: false };
+    c.produtoPadrao = produto || null;
+    registrar(d, "cadastro", quem, agora, "", `${fmtCnpj(n)} · produto padrão ${produto ? produtoDe(d, produto).nome : "nenhum"}`);
+    return { ok: true, cnpj: n, nome: c.nome, produtoPadrao: c.produtoPadrao };
+  }
   function precosDaTarifa(d, cte) {
     const u = unidadeDe(d, cte.unidade), r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
     cte.precoTonelada = cte.pesoKg > 0 ? r2(cte.tarifa / (cte.pesoKg / 1e3)) : null;
@@ -769,7 +843,7 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     try {
       const d = JSON.parse(corpo);
       if (!d || !Array.isArray(d.ctes)) return null;
-      return { versao: 1, salvoEm: null, salvoPor: null, cnpjs: [], lixeira: [], log: [], ...d };
+      return migrarBase({ versao: 1, salvoEm: null, salvoPor: null, cnpjs: [], lixeira: [], log: [], ...d });
     } catch (e) {
       return null;
     }
@@ -785,10 +859,10 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
   }
   var ehBackup = (nome) => /^radar-carga-solta-dados \d{4}-\d{2}-\d{2} \d{2}h\d{2}m\d{2}s\.js$/.test(nome);
   var podar = (nomes, max = MAX_BKP) => nomes.filter(ehBackup).sort().slice(0, Math.max(0, nomes.filter(ehBackup).length - max));
-  var novaSessao = () => ({ alterados: /* @__PURE__ */ new Set(), excluidos: /* @__PURE__ */ new Set(), restaurados: /* @__PURE__ */ new Set(), cadastro: /* @__PURE__ */ new Map(), log: [], toques: /* @__PURE__ */ new Map() });
-  var sessaoVazia = (s) => !s.alterados.size && !s.excluidos.size && !s.restaurados.size && !s.cadastro.size && !s.log.length;
+  var novaSessao = () => ({ alterados: /* @__PURE__ */ new Set(), excluidos: /* @__PURE__ */ new Set(), restaurados: /* @__PURE__ */ new Set(), cadastro: /* @__PURE__ */ new Map(), listas: /* @__PURE__ */ new Map(), log: [], toques: /* @__PURE__ */ new Map() });
+  var sessaoVazia = (s) => !s.alterados.size && !s.excluidos.size && !s.restaurados.size && !s.cadastro.size && !s.listas?.size && !s.log.length;
   function juntar(arquivo, tela, sessao) {
-    const r = JSON.parse(JSON.stringify(arquivo));
+    const r = migrarBase(arquivo);
     const tocados = /* @__PURE__ */ new Set([...sessao.alterados, ...sessao.excluidos, ...sessao.restaurados]);
     r.ctes = r.ctes.filter((c) => !tocados.has(c.chave));
     r.lixeira = (r.lixeira || []).filter((l) => !tocados.has(l.cte.chave));
@@ -801,9 +875,16 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
       const l = tela.lixeira.find((x) => x.cte.chave === chave);
       if (l) r.lixeira.push(structuredClone(l));
     }
-    const cad = new Map((r.cnpjs || []).map((c) => [c.cnpj, c.nome]));
-    for (const [cnpj, nome] of sessao.cadastro) cad.set(cnpj, nome);
-    r.cnpjs = [...cad].map(([cnpj, nome]) => ({ cnpj, nome }));
+    const cad = new Map((r.cnpjs || []).map((c) => [c.cnpj, c]));
+    for (const [cnpj, reg] of sessao.cadastro)
+      cad.set(cnpj, typeof reg === "string" ? { ...cad.get(cnpj), cnpj, nome: reg } : structuredClone(reg));
+    r.cnpjs = [...cad.values()];
+    for (const [k, item] of sessao.listas || []) {
+      const lista = k.startsWith("produto:") ? r.produtos : r.unidades;
+      const i = lista.findIndex((x) => x.id === item.id);
+      if (i >= 0) lista[i] = structuredClone(item);
+      else lista.push(structuredClone(item));
+    }
     r.log = [...r.log || [], ...sessao.log].slice(-MAX_LOG);
     return r;
   }
@@ -814,7 +895,7 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     const mudaram = arquivo.ctes.filter((c) => porChave.has(c.chave) && !sessao.alterados.has(c.chave) && porChave.get(c.chave) !== JSON.stringify(c)).length;
     const noArquivo = new Set(arquivo.ctes.map((c) => c.chave));
     const saem = tela.ctes.filter((c) => !noArquivo.has(c.chave) && !sessao.alterados.has(c.chave) && !sessao.restaurados.has(c.chave)).length;
-    const minhas = sessao.alterados.size + sessao.excluidos.size + sessao.restaurados.size + sessao.cadastro.size;
+    const minhas = sessao.alterados.size + sessao.excluidos.size + sessao.restaurados.size + sessao.cadastro.size + (sessao.listas?.size || 0);
     const quem = (arquivo.salvoPor ? arquivo.salvoPor + " gravou" : "Alguém gravou") + (arquivo.salvoEm ? ` em ${fmtQuando(arquivo.salvoEm)}` : "");
     const partes = [];
     if (entram) partes.push(`${entram} CT-e que você não tem na tela`);
@@ -839,8 +920,17 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     })).catch(() => void 0);
     return { get: (k) => op("readonly", (st) => st.get(k)), put: (k, v) => op("readwrite", (st) => st.put(v, k)), del: (k) => op("readwrite", (st) => st.delete(k)) };
   }
-  var serSessao = (s) => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], cadastro: [...s.cadastro], log: [...s.log], toques: [...s.toques || []] });
-  var desSessao = (s) => ({ alterados: new Set(s.alterados), excluidos: new Set(s.excluidos), restaurados: new Set(s.restaurados), cadastro: new Map(s.cadastro), log: s.log, toques: new Map(s.toques || []) });
+  var serSessao = (s) => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], cadastro: [...s.cadastro], listas: [...s.listas || []], log: [...s.log], toques: [...s.toques || []] });
+  var desSessao = (s) => ({
+    alterados: new Set(s.alterados),
+    excluidos: new Set(s.excluidos),
+    restaurados: new Set(s.restaurados),
+    // sessões antigas guardavam só o nome do CNPJ
+    cadastro: new Map((s.cadastro || []).map(([k, v]) => [k, typeof v === "string" ? { cnpj: k, nome: v } : v])),
+    listas: new Map(s.listas || []),
+    log: s.log,
+    toques: new Map(s.toques || [])
+  });
   function criarGravador({ obterTela, obterSessao, obterQuem, aoSalvar, aoMudar = () => {
   }, idb, env = globalThis, atraso = 1e3 }) {
     const g = {
@@ -942,7 +1032,9 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
       if (s.toques) {
         for (const [c, n] of toquesFoto) if (s.toques.get(c) === n) s.toques.delete(c);
       }
-      for (const [cnpj, nome] of foto.cadastro) if (s.cadastro.get(cnpj) === nome) s.cadastro.delete(cnpj);
+      const igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+      for (const [cnpj, reg] of foto.cadastro) if (igual(s.cadastro.get(cnpj), reg)) s.cadastro.delete(cnpj);
+      for (const [k, item] of foto.listas || []) if (igual(s.listas?.get(k), item)) s.listas.delete(k);
       s.log.splice(0, foto.log.length);
     }
     g.salvar = async ({ juntar: deveJuntar = false, manual = false } = {}) => {
@@ -1027,7 +1119,7 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     };
     g.restaurarPendentes = async () => {
       const p = await idb?.get("pendentes");
-      return p ? { tela: p.tela, sessao: desSessao(p.sessao) } : null;
+      return p ? { tela: migrarBase(p.tela), sessao: desSessao(p.sessao) } : null;
     };
     g.descartarPendentes = () => idb?.del("pendentes");
     return g;
@@ -1035,16 +1127,17 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
 
   // src/hash.js
   var ABAS = ["evolucao", "rotas", "lancamentos", "cadastro", "dados"];
-  var CHAVES = ["rota", "transportador", "cliente", "itinerario", "mesIni", "mesFim", "metrica"];
+  var CHAVES = ["rota", "produto", "transportador", "cliente", "itinerario", "mesIni", "mesFim", "metrica"];
+  var METRICAS = ["tonelada", "saca", "tarifa"];
   function lerHash(hash) {
     const [aba, q = ""] = String(hash || "").replace(/^#/, "").split("?");
     const filtros = {};
     for (const [k, v] of new URLSearchParams(q)) if (CHAVES.includes(k) && v) filtros[k] = v;
-    if (filtros.metrica !== "tarifa") filtros.metrica = "saca";
+    if (!METRICAS.includes(filtros.metrica)) filtros.metrica = "tonelada";
     return { aba: ABAS.includes(aba) ? aba : "evolucao", filtros };
   }
   function escreverHash(aba, filtros = {}) {
-    const partes = CHAVES.filter((k) => filtros[k] && !(k === "metrica" && filtros[k] === "saca")).map((k) => `${k}=${encodeURIComponent(filtros[k])}`);
+    const partes = CHAVES.filter((k) => filtros[k] && !(k === "metrica" && filtros[k] === "tonelada")).map((k) => `${k}=${encodeURIComponent(filtros[k])}`);
     return "#" + aba + (partes.length ? "?" + partes.join("&") : "");
   }
 
@@ -1052,7 +1145,11 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
   var acoes_exports = {};
   __export(acoes_exports, {
     cadastrar: () => cadastrar,
+    cadastrarProduto: () => cadastrarProduto2,
+    cadastrarUnidade: () => cadastrarUnidade2,
+    classificar: () => classificar2,
     corrigir: () => corrigir2,
+    definirProdutoPadrao: () => definirProdutoPadrao2,
     excluir: () => excluir2,
     importar: () => importar,
     incluir: () => incluir2,
@@ -1320,20 +1417,44 @@ td .mono,.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--navy)}
     }
     return r;
   }
+  var anotarCnpj = (d, s, cnpj) => s.cadastro.set(cnpj, structuredClone(d.cnpjs.find((c) => c.cnpj === cnpj)));
   function cadastrar(d, s, cnpj, nome, quem, agora) {
     const r = comLog(d, s, () => cadastrarCnpj(d, cnpj, nome, quem, agora));
-    if (r.ok) s.cadastro.set(r.cnpj, r.nome);
+    if (r.ok) anotarCnpj(d, s, r.cnpj);
+    return r;
+  }
+  function definirProdutoPadrao2(d, s, cnpj, produto, quem, agora) {
+    const r = comLog(d, s, () => definirProdutoPadrao(d, cnpj, produto, quem, agora));
+    if (r.ok) anotarCnpj(d, s, r.cnpj);
+    return r;
+  }
+  function classificar2(d, s, chave, classe, quem, agora) {
+    const r = comLog(d, s, () => classificar(d, chave, classe, quem, agora));
+    if (r.ok) {
+      s.alterados.add(chave);
+      tocar(s, chave);
+    }
+    return r;
+  }
+  function cadastrarProduto2(d, s, produto, quem, agora) {
+    const r = comLog(d, s, () => cadastrarProduto(d, produto, quem, agora));
+    if (r.ok) s.listas.set("produto:" + r.id, structuredClone(r.produto));
+    return r;
+  }
+  function cadastrarUnidade2(d, s, unidade, quem, agora) {
+    const r = comLog(d, s, () => cadastrarUnidade(d, unidade, quem, agora));
+    if (r.ok) s.listas.set("unidade:" + r.id, structuredClone(r.unidade));
     return r;
   }
   function importar(d, s, resultado, quem, agora) {
     const chaves = new Set(d.ctes.map((c) => c.chave));
-    const cnpjs = new Map(d.cnpjs.map((c) => [c.cnpj, c.nome]));
+    const cnpjs = new Map(d.cnpjs.map((c) => [c.cnpj, JSON.stringify(c)]));
     const r = comLog(d, s, () => aplicarImportacao(d, resultado, quem, agora));
     for (const c of d.ctes) if (!chaves.has(c.chave)) {
       s.alterados.add(c.chave);
       tocar(s, c.chave);
     }
-    for (const c of d.cnpjs) if (cnpjs.get(c.cnpj) !== c.nome) s.cadastro.set(c.cnpj, c.nome);
+    for (const c of d.cnpjs) if (cnpjs.get(c.cnpj) !== JSON.stringify(c)) anotarCnpj(d, s, c.cnpj);
     return r;
   }
 

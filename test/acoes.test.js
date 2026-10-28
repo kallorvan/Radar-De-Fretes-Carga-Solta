@@ -24,8 +24,10 @@ test("acoes registram a sessão e o log da sessão", () => {
   A.corrigir(d, s, CHAVE, campos({ quantidade: 70 }), "Ana", AGORA);
   assert.ok(s.alterados.has(CHAVE));
   A.cadastrar(d, s, "07668709000109", "Atma", "Ana", AGORA);
-  assert.equal(s.cadastro.get("07668709000109"), "ATMA");
-  assert.equal(s.log.length, 5);
+  assert.equal(s.cadastro.get("07668709000109").nome, "ATMA");
+  A.definirProdutoPadrao(d, s, "07668709000109", "CAFE", "Ana", AGORA);
+  assert.equal(s.cadastro.get("07668709000109").produtoPadrao, "CAFE");
+  assert.equal(s.log.length, 6);
 });
 
 test("acao com falha não mexe na sessão", () => {
@@ -41,4 +43,18 @@ test("importar registra todas as chaves e cadastros", () => {
   assert.equal(s.alterados.size, 2);
   assert.equal(s.cadastro.size, 2);
   assert.equal(s.log.length, 1);
+});
+
+test("acao classificar e listas registram a sessão", () => {
+  const d = novaBase(), s = novaSessao();
+  A.incluir(d, s, campos({ unidade: "SC50", quantidade: 1080 }), "Ana", AGORA);
+  const antes = s.toques.get(CHAVE);
+  assert.equal(A.classificar(d, s, CHAVE, { produto: "ACUCAR", unidade: "TON" }, "Ana", AGORA).ok, true);
+  assert.ok(s.alterados.has(CHAVE));
+  assert.equal(s.toques.get(CHAVE), antes + 1);
+  const p = A.cadastrarProduto(d, s, { nome: "Soja" }, "Ana", AGORA);
+  assert.equal(s.listas.get("produto:SOJA").nome, "Soja");
+  A.cadastrarUnidade(d, s, { nome: "Fardo", kg: 200, saca: false }, "Ana", AGORA);
+  assert.equal(s.listas.get("unidade:FARDO").kg, 200);
+  assert.equal(p.ok, true);
 });
