@@ -19,3 +19,14 @@ test("casca abre, troca de aba e não tem erro", async () => {
   assert.deepEqual(erros, []);
   await ctx.close();
 });
+
+test("assinatura Dínamo | Tóliman no topo com 44 px e no rodapé em branco", async () => {
+  const { page, ctx } = await abrir(browser);
+  await page.waitForSelector("#conteudo .sec-head");
+  const topo = page.locator(".logos-cor img");
+  assert.equal(await topo.count(), 1);
+  assert.equal(await topo.getAttribute("alt"), "Grupo Dínamo e Tóliman Transportes");
+  assert.equal(Math.round((await topo.boundingBox()).height), 44);
+  assert.equal(await page.locator(".logos-branco img").count(), 1);
+  await ctx.close();
+});

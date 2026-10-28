@@ -17,10 +17,10 @@ body{background:var(--paper);overflow-x:hidden}
 button,input,select,textarea{font:inherit;color:inherit}
 
 /* cabeçalho */
-.logos-cor{display:flex;align-items:center;gap:18px}
-/* as duas marcas com a mesma altura (as duas imagens têm a assinatura e a linha de baixo) */
-.logos-cor img{height:32px;width:auto}
-.stickytop.scrolled .logos-cor img{height:26px}
+/* assinatura Dínamo | Tóliman: uma imagem só, com as letras das duas marcas na mesma altura */
+.logos-cor{display:flex;align-items:center}
+.logos-cor img{height:44px;width:auto;display:block}
+.stickytop.scrolled .logos-cor img{height:34px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .logos-cor img{filter:brightness(0) invert(.92)}}
 :root[data-theme="dark"] .logos-cor img{filter:brightness(0) invert(.92)}
 .top .who b{display:block}
@@ -28,8 +28,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .abas button{background:none;border:0;padding:0 0 2px;color:var(--steel);cursor:pointer;border-bottom:2px solid transparent}
 .abas button:hover,.abas button[aria-selected="true"]{color:var(--accent-d);border-color:var(--accent)}
 .abas button[aria-selected="true"]{color:var(--navy)}
-.logos-branco{display:flex;gap:14px;align-items:center}
-.logos-branco img{height:22px;width:auto}
+.logos-branco{display:flex;align-items:center}
+.logos-branco img{height:28px;width:auto;display:block}
 
 /* barra de gravação */
 .estado-gravacao{font-size:12.5px;color:var(--steel)}

@@ -16,10 +16,9 @@ const css = [ler("build/tokens.css"), ler("referencia/toliman-paineis/bundle.css
 const html = ler("src/index.template.html")
   .replace("/*CSS*/", () => css)
   .replace("/*JS*/", () => js.split("</script").join("<\\/script"))
-  .replace("{{LOGO_DINAMO_COR}}", png("referencia/toliman-paineis/logo-dinamo-cor.png"))
-  .replace("{{LOGO_TOLIMAN_COR}}", png("referencia/toliman-paineis/logo-toliman-cor.png"))
-  .replace("{{LOGO_DINAMO}}", png("referencia/toliman-paineis/logo-dinamo-branco.png"))
-  .replace("{{LOGO_TOLIMAN}}", png("referencia/toliman-paineis/logo-toliman-branco.png"));
+  // assinatura Dínamo | Tóliman gerada por scripts/montar-logos.py
+  .replace("{{LOGOS_COR}}", png("referencia/toliman-paineis/logos-cor.png"))
+  .replace("{{LOGOS_BRANCO}}", png("referencia/toliman-paineis/logos-branco.png"));
 
 mkdirSync(new URL("dist/", raiz), { recursive: true });
 writeFileSync(new URL("dist/index.html", raiz), html);

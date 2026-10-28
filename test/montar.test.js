@@ -10,7 +10,9 @@ test("montar gera dist/index.html num arquivo só", () => {
   assert.match(html, /--accent:\s*#e4536c/);
   assert.match(html, /<script src="radar-carga-solta-dados\.js"><\/script>/);
   assert.match(html, /cdnjs\.cloudflare\.com\/ajax\/libs\/xlsx\/0\.18\.5\/xlsx\.full\.min\.js/);
-  assert.match(html, /data:image\/png;base64,/);
+  // a assinatura Dínamo | Tóliman é uma imagem só: colorida no topo, branca no rodapé
+  assert.equal((html.match(/<img src="data:image\/png;base64,/g) || []).length, 2);
+  assert.match(html, /<img[^>]+alt="Grupo Dínamo e Tóliman Transportes"/);
   assert.ok(!html.includes("/*CSS*/") && !html.includes("/*JS*/") && !html.includes("{{"));
   const app = html.slice(html.indexOf('<script id="app">'));
   assert.equal((app.match(/<\/script/g) || []).length, 1);
