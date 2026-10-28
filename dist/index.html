@@ -2328,7 +2328,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     unidade: "Unidade"
   };
   function escolhaDe(d, cte) {
-    if (!estado3.escolhas.has(cte.chave)) {
+    if (!estado3.escolhas.get(cte.chave)?.tocada) {
       const s = sugerirClassificacao(d, cte);
       estado3.escolhas.set(cte.chave, { produto: s.produto || "", unidade: s.unidade || "", peso: "", marcado: Boolean(s.produto && s.unidade), motivo: s.motivo });
     }
@@ -2416,6 +2416,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       else if (t.dataset.unidade !== void 0) e.unidade = t.value;
       else if (t.dataset.peso !== void 0) e.peso = t.value;
       else e.marcado = t.checked;
+      e.tocada = true;
       if (t.dataset.marcar === void 0) e.marcado = Boolean(e.produto && e.unidade);
       repintar();
     });

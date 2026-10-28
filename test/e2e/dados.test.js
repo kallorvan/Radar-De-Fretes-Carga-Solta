@@ -121,3 +121,18 @@ test("classificar aplica as sugestões marcadas", async () => {
   assert.deepEqual(erros, []);
   await ctx.close();
 });
+
+test("produto padrão definido no Cadastro atualiza a sugestão em Classificar", async () => {
+  const { page, ctx } = await abrir(browser, { dados: baseV1ParaClassificar(), hash: "#dados", ...opc });
+  await page.waitForSelector("#classificar tbody tr");
+  const linha = () => page.locator("#classificar tbody tr").filter({ hasText: "COLOMBARI" });
+  assert.match(await linha().textContent(), /sem produto padrão/);
+  await page.click("#abas button[data-aba=cadastro]");
+  await page.selectOption('select.produto-padrao[data-cnpj="66666666000100"]', "ACUCAR");
+  await page.waitForFunction(() => window.RADAR_APP.dados.cnpjs.find(c => c.cnpj === "66666666000100").produtoPadrao === "ACUCAR");
+  await page.click("#abas button[data-aba=dados]");
+  await page.waitForSelector("#classificar tbody tr");
+  assert.equal(await linha().locator("select[data-produto]").inputValue(), "ACUCAR");
+  assert.equal(await linha().locator("input[data-marcar]").isChecked(), true);
+  await ctx.close();
+});

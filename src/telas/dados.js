@@ -15,7 +15,8 @@ const ACAO = { incluir: "Lançou", corrigir: "Corrigiu", excluir: "Excluiu", res
 
 /* Linha da classificação: a sugestão da regra, com o que a pessoa trocou por cima. */
 function escolhaDe(d, cte) {
-  if (!estado.escolhas.has(cte.chave)) {
+  // linha que a pessoa ainda não mexeu segue a sugestão atual (o produto padrão pode ter mudado no Cadastro)
+  if (!estado.escolhas.get(cte.chave)?.tocada) {
     const s = sugerirClassificacao(d, cte);
     estado.escolhas.set(cte.chave, { produto: s.produto || "", unidade: s.unidade || "", peso: "", marcado: Boolean(s.produto && s.unidade), motivo: s.motivo });
   }
@@ -113,6 +114,7 @@ export function renderDados(raiz, App) {
     else if (t.dataset.unidade !== undefined) e.unidade = t.value;
     else if (t.dataset.peso !== undefined) e.peso = t.value;
     else e.marcado = t.checked;
+    e.tocada = true;
     if (t.dataset.marcar === undefined) e.marcado = Boolean(e.produto && e.unidade);
     repintar();
   });
