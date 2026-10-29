@@ -236,3 +236,24 @@ test("CT-e na lixeira: o formulário oferece Lançar de novo e lança com os dad
   assert.deepEqual(erros, []);
   await ctx.close();
 });
+
+test("cidade: sugere municípios ao digitar, escolhe com teclado e avisa nome fora da lista", async () => {
+  const { page, ctx, erros } = await abrirLanc();
+  await page.waitForSelector("#form-cte");
+  const origem = page.locator("#form-cte [name=origem]");
+  await origem.fill("são joaquim da b");
+  await page.waitForSelector("#form-cte .sugestoes button");
+  assert.match(await page.locator("#sug-origem").textContent(), /SAO JOAQUIM DA BARRA/);
+  await origem.press("ArrowDown");
+  await origem.press("Enter");
+  assert.equal(await origem.inputValue(), "SAO JOAQUIM DA BARRA");
+  assert.equal(await page.locator("#form-cte .sugestoes button").count(), 0);
+  assert.equal(await page.locator("#form-cte .cte-nao-encontrado, #form-cte [data-cidade-aviso=origem]:not(:empty)").count(), 0);
+  const destino = page.locator("#form-cte [name=destino]");
+  await destino.fill("Joaquim da Barra");
+  await destino.blur();
+  assert.match(await page.locator("#form-cte [data-cidade-aviso=destino]").textContent(), /não encontrada na lista de municípios/);
+  assert.equal(await page.evaluate(() => window.RADAR_APP.dados.ctes.length), 7, "Enter na sugestão não envia o formulário");
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});

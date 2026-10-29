@@ -4,6 +4,7 @@ import { validarCampos, nomeDoCnpj, grupoDoCnpj, unidadeDe, produtoDe, noCorte }
 import { calcularCte, numeroDaChave, cnpjDaChave, codigoItinerario, normalizarCidade, normalizarCnpj, numeroBR, rotaDe, soDigitos } from "../calculos.js";
 import { filtrar } from "../agregacao.js";
 import { listarPdfs, indexarPdfs, pdfDoCte, PASTA_PDFS } from "../pdfs.js";
+import { sugerirCidades, cidadeConhecida } from "../municipios.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
 import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 
@@ -57,7 +58,6 @@ function lerForm(form) {
 
 function formHtml(App, cte) {
   const v = cte || estado.rascunho || {};
-  const cidades = [...new Set(App.dados.ctes.flatMap(c => [c.origem, c.destino]))].sort();
   return `<form id="form-cte" class="card${cte ? " editando" : ""}" novalidate data-escreve>
     <div class="card-head"><div><h3>${cte ? "Corrigir lançamento" : "Lançar CT-e"}</h3>
       <p class="hint">${cte ? `Corrigindo o CT-e Nº ${esc(cte.numero)}, lançado por ${esc(cte.criadoPor)} em ${fmtQuando(cte.criadoEm)}. A chave não muda.` :
@@ -65,7 +65,8 @@ function formHtml(App, cte) {
     <div class="form-grid">
       ${CAMPOS.map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
         <input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
-          value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? 'list="cidades"' : ""} autocomplete="off">
+          value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? `role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sug-${k}"` : ""} autocomplete="off">
+        ${k === "origem" || k === "destino" ? `<div class="sugestoes" id="sug-${k}" role="listbox" hidden></div><span class="nota aviso-cidade" data-cidade-aviso="${k}"></span>` : ""}
         ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("")}
       <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App.dados.produtos, v.produto)}</select><span class="erro" data-erro="produto"></span></label>
       <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App.dados.unidades, v.unidade)}</select><span class="erro" data-erro="unidade"></span></label>
@@ -79,7 +80,6 @@ function formHtml(App, cte) {
       <label class="campo check"><input type="checkbox" name="vpo" ${v.vpo ? "checked" : ""}><span>VPO</span></label>
       <label class="campo w3"><span>Observações</span><input name="observacoes" value="${esc(v.observacoes || "")}" maxlength="300"></label>
     </div>
-    <datalist id="cidades">${cidades.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     ${cte && cte.cnpjTransportador !== cnpjDaChave(cte.chave) ? `<p class="aviso-campo" id="aviso-cnpj-chave">O CNPJ do transportador guardado neste CT-e (${fmtCnpj(cte.cnpjTransportador)}) não bate com a chave de acesso. Ao salvar a correção, vale o da chave: ${fmtCnpj(cnpjDaChave(cte.chave))}.</p>` : ""}
     <div id="form-msg"></div>
     <div class="botoes">${cte ? `${botaoPdf(cte, pdfDe(App, cte, new Map([[cte.numero, App.dados.ctes.filter(x => x.numero === cte.numero).length]]))).replace("btn mini", "btn")}
@@ -257,6 +257,34 @@ function pintarSelecao(raiz, linhas = null) {
   $("#sel-todos", raiz).checked = caixas.length > 0 && caixas.every(x => x.checked);
 }
 
+/* Sugestões de município sob os campos de origem e destino: setas escolhem, Enter confirma, Esc fecha.
+   Ao sair do campo, um nome fora da lista de municípios (e da base) ganha um aviso, sem impedir o lançamento. */
+function ligarCidades(form, App) {
+  const extras = [...new Set(App.dados.ctes.flatMap(c => [c.origem, c.destino]))];
+  for (const nome of ["origem", "destino"]) {
+    const inp = form.querySelector(`[name=${nome}]`), caixa = form.querySelector(`#sug-${nome}`), aviso = form.querySelector(`[data-cidade-aviso=${nome}]`);
+    let lista = [], ativo = -1;
+    const fechar = () => { lista = []; ativo = -1; caixa.hidden = true; caixa.innerHTML = ""; inp.setAttribute("aria-expanded", "false"); };
+    const pintar = () => {
+      caixa.innerHTML = lista.map((c, i) => `<button type="button" role="option" tabindex="-1" data-cidade="${esc(c)}" aria-selected="${i === ativo}">${esc(c)}</button>`).join("");
+      caixa.hidden = !lista.length; inp.setAttribute("aria-expanded", String(lista.length > 0));
+      caixa.style.top = `${inp.offsetTop + inp.offsetHeight + 2}px`;   // logo abaixo do campo, por cima das mensagens
+      caixa.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+    };
+    const avisar = () => { aviso.textContent = cidadeConhecida(inp.value, extras) ? "" : "Cidade não encontrada na lista de municípios. Confira o nome."; };
+    const escolher = c => { inp.value = c; fechar(); avisar(); inp.dispatchEvent(new Event("change", { bubbles: true })); };
+    inp.addEventListener("input", () => { lista = sugerirCidades(inp.value, { extras }); ativo = -1; aviso.textContent = ""; pintar(); });
+    inp.addEventListener("keydown", ev => {
+      if (!lista.length) return;
+      if (ev.key === "ArrowDown" || ev.key === "ArrowUp") { ev.preventDefault(); ativo = (ativo + (ev.key === "ArrowDown" ? 1 : -1) + lista.length) % lista.length; pintar(); }
+      else if (ev.key === "Enter" && ativo >= 0) { ev.preventDefault(); escolher(lista[ativo]); }
+      else if (ev.key === "Escape") fechar();
+    });
+    caixa.addEventListener("mousedown", ev => { const b = ev.target.closest("[data-cidade]"); if (b) { ev.preventDefault(); escolher(b.dataset.cidade); } });
+    inp.addEventListener("blur", () => { fechar(); avisar(); });
+  }
+}
+
 export function renderLancamentos(raiz, App) {
   const cte = estado.editando ? App.dados.ctes.find(c => c.chave === estado.editando) : null;
   if (!cte) estado.editando = null;
@@ -268,6 +296,7 @@ export function renderLancamentos(raiz, App) {
   const form = $("#form-cte", raiz);
   if (form) {
     atualizarForm(form, App);
+    ligarCidades(form, App);
     form.addEventListener("input", ev => {
       if (ev.target.name === "chave" && !estado.editando) {
         const n = numeroDaChave(ev.target.value), num = form.querySelector("[name=numero]");

@@ -167,3 +167,9 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 .barra-base>span{display:inline-flex;gap:12px;align-items:center;flex-wrap:wrap}
 .barra-base .caixa{display:inline-flex;gap:6px;align-items:center;font-size:13px}
 #tab-base button[data-pdf][disabled]{opacity:.4;cursor:not-allowed}
+/* sugestões de município sob origem e destino */
+#form-cte .campo{position:relative}
+.sugestoes{position:absolute;left:0;right:0;top:100%;z-index:20;background:var(--card);border:1px solid var(--hairline,#d8dee9);box-shadow:0 6px 18px rgba(17,35,70,.14);max-height:260px;overflow:auto}
+.sugestoes button{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 10px;font-size:13px;cursor:pointer;color:var(--ink,inherit)}
+.sugestoes button:hover,.sugestoes button[aria-selected="true"]{background:color-mix(in srgb, var(--accent) 12%, transparent)}
+.aviso-cidade:not(:empty){color:var(--accent-d)}

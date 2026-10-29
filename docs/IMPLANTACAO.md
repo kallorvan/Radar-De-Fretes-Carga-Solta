@@ -21,6 +21,7 @@ O painel é um arquivo HTML só. Ele fica numa pasta compartilhada do SharePoint
 - Ao comparar uma rota que leva mais de um produto, escolha o produto no recorte. O painel avisa quando a rota mistura produtos.
 - Na **Evolução**, cada ponto do gráfico é um CT-e, na data de emissão, com a cor do azul (mais barato) ao rosa (mais caro). A linha tracejada é a mediana do mês e pode ser desligada. Clique num ponto para abrir o CT-e.
 - **PDFs dos CT-e:** salve os PDFs na pasta **`PDFs Carga Solta`**, dentro da pasta do painel (pode ter subpastas), com o nome no formato `CTE 1234 - Oasis.pdf`. O botão **PDF** da base abre o arquivo do CT-e. Quando dois CT-e têm o mesmo número, o nome depois do traço é comparado com o transportador. Sem PDF, o botão fica apagado. Depois de salvar PDFs novos com o painel aberto, clique em **Atualizar PDFs**. Os PDFs só abrem para quem conectou a pasta (Chrome ou Edge pela pasta sincronizada).
+- **Cidades:** ao digitar a origem ou o destino, o painel sugere os municípios do Brasil (com ou sem acento); escolha com as setas e Enter, ou com o mouse. Um nome fora da lista ganha o aviso "Cidade não encontrada na lista de municípios", sem impedir o lançamento.
 - **Lançar de novo um CT-e excluído:** se a chave está na lixeira, o formulário avisa e oferece **Lançar de novo**: o lançamento antigo sai da lixeira e entra o novo, com os dados digitados. O histórico registra as duas coisas. Para trazer o lançamento antigo de volta como estava, use **Restaurar** na aba Dados.
 - **Exclusão em massa:** marque as caixas da base (ou **Selecionar todos**, que marca os CT-e da busca e do recorte na tela) e clique em **Excluir selecionados**. Tudo vai para a lixeira e pode ser restaurado na aba Dados.
 - Em **Exceções a tratar**, o botão **Abrir na base** leva direto à correção do CT-e (ou ao CNPJ no Cadastro, ou à classificação).
@@ -62,6 +63,7 @@ npm run montar           # gera dist/index.html
 npm run test:e2e         # testes no navegador (Chromium/Playwright)
 node scripts/conferir-planilha.mjs caminho/Radar_Fretes_Concorrentes.xlsm   # confere a importação (a planilha não vai para o repositório)
 node scripts/extrair-itinerarios.mjs caminho/itinerarios.xlsx                  # regera src/dados-itinerarios.js (relatório de itinerários do Rodopar)
+node scripts/extrair-municipios.mjs caminho/Radar_Fretes_Concorrentes.xlsm   # regera src/dados-municipios.js (aba MUNICÍPIOS)
 python3 scripts/montar-logos.py                                              # regera a assinatura Dínamo | Tóliman
 ```
 
