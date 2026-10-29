@@ -132,7 +132,7 @@ function mostrarErros(form, erros) {
   form.querySelector("[aria-invalid=true]")?.focus();
 }
 
-async function enviar(form, App) {
+async function enviar(form, App, { relancar = false } = {}) {
   const c = lerForm(form), msg = $("#form-msg", form);
   msg.innerHTML = "";
   const v = validarCampos(App.dados, c), erros = { ...v.erros };
@@ -140,20 +140,27 @@ async function enviar(form, App) {
   if (!nomeDoCnpj(App.dados, c.cnpjCliente) && v.campos.cnpjCliente.length === 14 && !c.nomeCliente) erros.nomeCliente = "Informe o nome do cliente para o cadastro.";
   if (Object.keys(erros).length) return mostrarErros(form, erros);
   const editando = estado.editando;
-  const existe = !editando && (App.dados.ctes.find(x => x.chave === v.campos.chave) || App.dados.lixeira.find(l => l.cte.chave === v.campos.chave)?.cte);
-  if (existe) {
-    const naLixeira = !App.dados.ctes.includes(existe);
+  const naBase = !editando && App.dados.ctes.find(x => x.chave === v.campos.chave);
+  const lixo = !editando && !naBase && App.dados.lixeira.find(l => l.cte.chave === v.campos.chave);
+  if (naBase) {
     msg.innerHTML = `<div class="exc existente"><span class="pill">Chave repetida</span><h4>Este CT-e já foi lançado</h4>
-      <p class="exc-act">Nº ${esc(existe.numero)} · emissão ${fmtData(existe.emissao)} · ${esc(grupoDoCnpj(App.dados, existe.cnpjTransportador).nome)} · lançado por ${esc(existe.criadoPor)} em ${fmtQuando(existe.criadoEm)}.
-      ${naLixeira ? "Ele está na lixeira: restaure na aba Dados." : ""}</p>
-      ${naLixeira ? "" : `<button class="btn" type="button" data-abrir="${esc(existe.chave)}">Abrir para corrigir</button>`}</div>`;
+      <p class="exc-act">Nº ${esc(naBase.numero)} · emissão ${fmtData(naBase.emissao)} · ${esc(grupoDoCnpj(App.dados, naBase.cnpjTransportador).nome)} · lançado por ${esc(naBase.criadoPor)} em ${fmtQuando(naBase.criadoEm)}.</p>
+      <button class="btn" type="button" data-abrir="${esc(naBase.chave)}">Abrir para corrigir</button></div>`;
+    return;
+  }
+  if (lixo && !relancar) {
+    msg.innerHTML = `<div class="exc existente"><span class="pill">Na lixeira</span><h4>Este CT-e está na lixeira</h4>
+      <p class="exc-act">Nº ${esc(lixo.cte.numero)} · lançado por ${esc(lixo.cte.criadoPor)} em ${fmtQuando(lixo.cte.criadoEm)} e excluído por ${esc(lixo.excluidoPor)} em ${fmtQuando(lixo.excluidoEm)}.
+      Lançar de novo tira o lançamento antigo da lixeira e grava este, com os dados digitados agora.</p>
+      <button class="btn primario" type="button" data-relancar>Lançar de novo</button></div>`;
     return;
   }
   estado.rascunho = editando ? null : c;
   const r = await App.alterar((d, s, quem, agora) => {
     if (c.nomeTransportador) App.acoes.cadastrar(d, s, c.cnpjTransportador, c.nomeTransportador, quem, agora);
     if (c.nomeCliente) App.acoes.cadastrar(d, s, c.cnpjCliente, c.nomeCliente, quem, agora);
-    return editando ? App.acoes.corrigir(d, s, editando, c, quem, agora) : App.acoes.incluir(d, s, c, quem, agora);
+    return editando ? App.acoes.corrigir(d, s, editando, c, quem, agora)
+      : lixo ? App.acoes.relancar(d, s, c, quem, agora) : App.acoes.incluir(d, s, c, quem, agora);
   });
   if (r?.ok) {
     estado.rascunho = null; estado.editando = null;
@@ -271,6 +278,7 @@ export function renderLancamentos(raiz, App) {
     form.addEventListener("change", () => atualizarForm(form, App));
     form.addEventListener("submit", ev => { ev.preventDefault(); enviar(form, App); });
     form.addEventListener("click", ev => {
+      if (ev.target.closest("[data-relancar]")) { enviar(form, App, { relancar: true }); return; }
       const abrirEx = ev.target.closest("[data-abrir]");
       if (abrirEx) { estado.editando = abrirEx.dataset.abrir; estado.rascunho = null; App.render(); scrollTo(0, 0); }
       if (ev.target.closest("[data-cancelar]")) { estado.editando = null; App.render(); }

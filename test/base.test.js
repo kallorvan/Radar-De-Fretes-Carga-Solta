@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   novaBase, validarCampos, incluir, corrigir, excluir, restaurar,
   cadastrarCnpj, nomeDoCnpj, grupoDoCnpj, registrar, migrarBase, classificar,
-  cadastrarProduto, cadastrarUnidade, definirProdutoPadrao, unidadeDe, produtoDe, definirCorte,
+  cadastrarProduto, cadastrarUnidade, definirProdutoPadrao, unidadeDe, produtoDe, definirCorte, relancar,
 } from "../src/base.js";
 import { CHAVE, campos, chaveN } from "./ajuda.js";
 
@@ -309,4 +309,28 @@ test("base v3 aberta preenche o itinerário em branco que a tabela atual já sab
   assert.equal(r.ctes[0].itinerario, "MCHVGH");
   assert.equal(r.ctes[1].itinerario, "OUTRO");
   assert.equal(r.lixeira[0].cte.itinerario, "MCHVGH");
+});
+
+test("relancar tira da lixeira e lança de novo com os dados novos, registrando as duas coisas", () => {
+  const d = novaBase();
+  incluir(d, campos({ valorFrete: 8750 }), "Ana", AGORA);
+  excluir(d, CHAVE, "Ana", AGORA);
+  assert.equal(incluir(d, campos({ valorFrete: 9000 }), "Bia", AGORA).naLixeira, true, "lançar direto continua avisando");
+  const r = relancar(d, campos({ valorFrete: 9000 }), "Bia", AGORA);
+  assert.equal(r.ok, true);
+  assert.equal(d.lixeira.length, 0);
+  assert.equal(d.ctes.length, 1);
+  assert.equal(d.ctes[0].tarifa, 9000);
+  assert.equal(d.ctes[0].criadoPor, "Bia");
+  assert.deepEqual(d.log.slice(-2).map(l => l.acao), ["tirar-lixeira", "incluir"]);
+});
+
+test("relancar com dados inválidos não mexe na lixeira", () => {
+  const d = novaBase();
+  incluir(d, campos(), "Ana", AGORA);
+  excluir(d, CHAVE, "Ana", AGORA);
+  const r = relancar(d, campos({ valorFrete: "" }), "Bia", AGORA);
+  assert.equal(r.ok, false);
+  assert.ok(r.erros.valorFrete);
+  assert.equal(d.lixeira.length, 1);
 });

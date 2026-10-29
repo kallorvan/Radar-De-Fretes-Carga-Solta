@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { chromium, abrir } from "./ajuda.js";
 import { baseExemplo } from "../fixtures/base-exemplo.js";
-import { gerarPlanilha, linhaPadrao } from "../fixtures/planilha.js";
+import { incluir } from "../../src/base.js";
+import { campos, chaveN } from "../ajuda.js";
 import { montarDadosJs } from "../../src/arquivo.js";
 
 let browser;
@@ -19,7 +20,9 @@ const lerPasta = page => page.evaluate(() => {
 const esperarGravado = (page, fn) => page.waitForFunction(fn, null, { timeout: 8000 });
 
 test("fluxo completo com pasta simulada", async () => {
+  // a base de exemplo + 3 CT-e sem unidade (como os do histórico importado no começo), para classificar
   const dados = baseExemplo();
+  for (const n of [901, 902, 903]) incluir(dados, campos({ chave: chaveN(n), numero: n, unidade: null }), "Ana", "2026-10-28T12:00:00.000Z", "importacao", { exigirClassificacao: false });
   const { page, ctx, erros } = await abrir(browser, {
     dados, hash: "#dados", quem: "Ana",
     antes: p => p.addInitScript(({ fake, texto }) => {
@@ -31,14 +34,7 @@ test("fluxo completo com pasta simulada", async () => {
   await page.click("[data-conectar]");
   await page.waitForFunction(() => /Conectado à pasta/.test(document.body.textContent));
 
-  // importar
-  const buf = Buffer.from(gerarPlanilha([linhaPadrao(901), linhaPadrao(902), linhaPadrao(903)]));
-  await page.setInputFiles("#arq-planilha", { name: "Radar.xlsx", mimeType: "application/octet-stream", buffer: buf });
-  await esperarGravado(page, () => window.__pasta.arquivos.get("radar-carga-solta-dados.js").includes('"numero":903'));
-  assert.equal((await lerPasta(page)).dados.ctes.length, 10);
-  assert.equal((await lerPasta(page)).dados.versao, 3);
-
-  // classificar o que veio da planilha
+  // classificar o que veio sem unidade
   await page.waitForSelector("#classificar tbody tr");
   assert.equal(await page.locator("#classificar tbody tr").count(), 3);
   await page.click("#aplicar-classificacao");
@@ -72,7 +68,7 @@ test("fluxo completo com pasta simulada", async () => {
   const p1 = await lerPasta(page);
   assert.equal(p1.dados.ctes.length, 11);
   assert.equal(p1.dados.ctes.find(c => c.numero === 99999).precoTonelada, 125);
-  assert.deepEqual(p1.dados.log.slice(-8).map(l => l.acao), ["importar", "classificar", "classificar", "classificar", "incluir", "corrigir", "excluir", "restaurar"]);
+  assert.deepEqual(p1.dados.log.slice(-8).map(l => l.acao), ["incluir", "classificar", "classificar", "classificar", "incluir", "corrigir", "excluir", "restaurar"]);
   assert.equal(p1.dados.salvoPor, "Ana");
   assert.ok(p1.backups >= 1);
 

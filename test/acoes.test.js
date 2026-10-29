@@ -72,3 +72,13 @@ test("excluirVarios manda os CT-e para a lixeira e anota cada um na sessão", as
   assert.equal(d.log.filter(l => l.acao === "excluir" && l.quem === "Bia").length, 2);
   assert.equal(A.excluirVarios(d, s, [], "Bia", AGORA).ok, false);
 });
+
+test("relancar anota o CT-e como alterado (não mais excluído) na sessão", () => {
+  const d = novaBase(), s = novaSessao();
+  A.incluir(d, s, campos(), "Ana", AGORA);
+  A.excluir(d, s, CHAVE, "Ana", AGORA);
+  assert.ok(s.excluidos.has(CHAVE));
+  assert.equal(A.relancar(d, s, campos({ valorFrete: 9000 }), "Ana", AGORA).ok, true);
+  assert.ok(!s.excluidos.has(CHAVE));
+  assert.ok(s.alterados.has(CHAVE));
+});

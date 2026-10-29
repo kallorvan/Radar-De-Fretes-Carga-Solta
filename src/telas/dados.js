@@ -1,6 +1,6 @@
-// Dados: a pasta compartilhada, importar a planilha, exportar para Excel, lixeira, histórico e o nome de quem lança.
+// Dados: a pasta compartilhada, exportar para Excel, data de corte, classificação, lixeira, histórico e o nome de quem lança.
 
-import { lerPlanilha, exportarXlsx } from "../importacao.js";
+import { exportarXlsx } from "../importacao.js";
 import { ARQ_DADOS, PASTA_BKP, sessaoVazia } from "../arquivo.js";
 import { grupoDoCnpj, unidadeDe } from "../base.js";
 import { rotaDe, calcularCte, numeroBR } from "../calculos.js";
@@ -9,8 +9,8 @@ import { esc, fmtData, fmtNum, fmtMoeda, fmtQuando } from "../formato.js";
 import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 
 // escolhas: o que a pessoa ajustou em cada linha da classificação, guardado entre redesenhos
-const estado = { resumo: null, erroImp: "", escolhas: new Map() };
-const ACAO = { incluir: "Lançou", corrigir: "Corrigiu", excluir: "Excluiu", restaurar: "Restaurou", importar: "Importou", cadastro: "Cadastro",
+const estado = { escolhas: new Map() };
+const ACAO = { incluir: "Lançou", corrigir: "Corrigiu", excluir: "Excluiu", restaurar: "Restaurou", "tirar-lixeira": "Tirou da lixeira", importar: "Importou", cadastro: "Cadastro",
   classificar: "Classificou", produto: "Produto", unidade: "Unidade", corte: "Data de corte" };
 
 /* Linha da classificação: a sugestão da regra, com o que a pessoa trocou por cima. */
@@ -50,16 +50,6 @@ function classificarHtml(App) {
       <button class="btn primario" type="button" id="aplicar-classificacao" ${marcados ? "" : "disabled"}>Aplicar marcados (${fmtNum(marcados)})</button></div>`;
 }
 
-function resumoHtml() {
-  if (estado.erroImp) return `<div class="exc"><span class="pill">Não importado</span><h4>${esc(estado.erroImp)}</h4></div>`;
-  const r = estado.resumo;
-  if (!r) return "";
-  return `<div class="resumo-imp"><p><b>${fmtNum(r.incluidos)}</b> CT-e incluídos · <b>${fmtNum(r.pulados)}</b> já existiam e ficaram como estavam ·
-    <b>${fmtNum(r.rejeitados.length)}</b> rejeitados · <b>${fmtNum(r.cadastrados)}</b> CNPJ cadastrados${r.divergentes ? ` · <b>${fmtNum(r.divergentes)}</b> com cálculo diferente da planilha (veja Exceções a tratar)` : ""}${r.aClassificar ? ` · <b>${fmtNum(r.aClassificar)}</b> a classificar: <a href="#" data-ir-classificar>veja Classificar CT-e</a>` : ""}.</p>
-    ${r.rejeitados.length ? `<div class="tabela"><table><thead><tr><th>Linha da planilha</th><th>Motivo</th></tr></thead><tbody>${r.rejeitados.map(x =>
-      `<tr><td class="mono">${x.numLinha}</td><td>${esc(x.motivo)}</td></tr>`).join("")}</tbody></table></div>` : ""}</div>`;
-}
-
 export function renderDados(raiz, App) {
   const d = App.dados, g = App.gravador;
   const pasta = App.somenteLeitura
@@ -74,13 +64,8 @@ export function renderDados(raiz, App) {
   raiz.innerHTML = `<section class="secao"><div class="wrap pilha">
     ${secHead("Dados", "Onde a base fica gravada, a importação do histórico e o registro de quem fez o quê.")}
     <div class="card"><h3>Pasta compartilhada</h3>${pasta}</div>
-    <div class="cols2">
-      <div class="card" data-escreve><h3>Importar planilha</h3><p class="hint">Lê as abas BASE CARGA SOLTA 2026 e BASE DE DADOS CNPJ da Radar_Fretes_Concorrentes (.xlsm ou .xlsx). CT-e já lançados ficam como estão.</p>
-        <label class="btn" style="display:inline-block">Escolher planilha<input id="arq-planilha" type="file" accept=".xlsm,.xlsx" hidden></label>
-        <div id="resumo-imp">${resumoHtml()}</div></div>
-      <div class="card"><h3>Exportar para Excel</h3><p class="hint">A base inteira no mesmo layout da planilha: ${fmtNum(d.ctes.length)} CT-e e ${fmtNum(d.cnpjs.length)} CNPJ.</p>
-        <button class="btn" type="button" data-exportar ${d.ctes.length ? "" : "disabled"}>Baixar .xlsx</button></div>
-    </div>
+    <div class="card"><h3>Exportar para Excel</h3><p class="hint">A base inteira no mesmo layout da planilha: ${fmtNum(d.ctes.length)} CT-e e ${fmtNum(d.cnpjs.length)} CNPJ.</p>
+      <button class="btn" type="button" data-exportar ${d.ctes.length ? "" : "disabled"}>Baixar .xlsx</button></div>
     <div class="card" data-escreve><h3>Data de corte</h3><p class="hint">CT-e emitidos antes desta data ficam na base, mas fora da Evolução, das Rotas, das exceções e da classificação. Vazio = todos entram.</p>
       <div class="form-linha"><label class="campo"><span>Data de corte</span><input id="corte" type="date" value="${esc(d.corte || "")}"></label>
         <button class="btn primario" type="button" data-salvar-corte>Salvar data de corte</button></div></div>
@@ -122,7 +107,6 @@ export function renderDados(raiz, App) {
     repintar();
   });
   secao.addEventListener("click", async ev => {
-    if (ev.target.closest("[data-ir-classificar]")) { ev.preventDefault(); $("#classificar", raiz).scrollIntoView({ block: "start" }); return; }
     const b = ev.target.closest("button");
     if (!b) return;
     if (b.hasAttribute("data-marcar-todos")) {
@@ -160,17 +144,7 @@ export function renderDados(raiz, App) {
       document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     } else if (b.hasAttribute("data-conectar")) await conectar(App);
   });
-  $("#arq-planilha", raiz)?.addEventListener("change", async ev => {
-    const arq = ev.target.files?.[0];
-    if (!arq) return;
-    estado.resumo = null; estado.erroImp = "";
-    if (!window.XLSX) { estado.erroImp = "A biblioteca de planilhas não carregou (precisa de internet)."; return App.render(); }
-    let lido;
-    try { lido = lerPlanilha(window.XLSX, await arq.arrayBuffer()); } catch (e) { lido = { erro: "Não foi possível ler o arquivo como planilha do Excel." }; }
-    if (lido.erro) { estado.erroImp = lido.erro; return App.render(); }
-    const r = await App.alterar((dd, s, quem, agora) => App.acoes.importar(dd, s, lido, quem, agora));
-    if (r) { estado.resumo = r; aviso(`${r.incluidos} CT-e importados.`); App.render(); }
-  });
+
 }
 
 async function conectar(App) {

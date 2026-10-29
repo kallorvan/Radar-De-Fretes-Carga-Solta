@@ -215,3 +215,24 @@ test("corrigir CT-e cujo CNPJ guardado não bate com a chave avisa a troca de tr
   assert.match(await page.locator("#aviso-cnpj-chave").textContent(), /22\.222\.222\/0001-00.*não bate com a chave.*11\.111\.111\/0001-00/);
   await ctx.close();
 });
+
+test("CT-e na lixeira: o formulário oferece Lançar de novo e lança com os dados digitados", async () => {
+  const d = baseExemplo();
+  const alvo = d.ctes[0];
+  const { excluir } = await import("../../src/base.js");
+  excluir(d, alvo.chave, "Ana", "2026-10-28T12:00:00.000Z");
+  const { page, ctx, erros } = await abrir(browser, { dados: d, hash: "#lancamentos", gravavel: true, quem: "Bia" });
+  await page.waitForSelector("#form-cte");
+  await preencher(page, { chave: alvo.chave, numero: String(alvo.numero), valorFrete: "9.000,00" });
+  await page.click("#form-cte button[type=submit]");
+  await page.waitForSelector("#form-msg [data-relancar]");
+  assert.match(await page.locator("#form-msg").textContent(), /está na lixeira/);
+  await page.click("#form-msg [data-relancar]");
+  await page.waitForFunction(k => window.RADAR_APP.dados.ctes.some(c => c.chave === k), alvo.chave);
+  const r = await page.evaluate(k => ({ lixo: window.RADAR_APP.dados.lixeira.length, c: window.RADAR_APP.dados.ctes.find(c => c.chave === k) }), alvo.chave);
+  assert.equal(r.lixo, 0);
+  assert.equal(r.c.tarifa, 9000);
+  assert.equal(r.c.criadoPor, "Bia");
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});

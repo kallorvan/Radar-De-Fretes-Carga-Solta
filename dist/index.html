@@ -1169,6 +1169,15 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     registrar(d, "incluir", quem, agora, cte.chave, resumoCte(cte));
     return { ok: true, cte };
   }
+  function relancar(d, campos, quem, agora) {
+    const v = validarCampos(d, campos);
+    if (!v.ok) return { ok: false, erros: v.erros };
+    const i = d.lixeira.findIndex((l) => l.cte.chave === v.campos.chave);
+    if (i < 0) return incluir(d, campos, quem, agora);
+    const [{ cte: antigo }] = d.lixeira.splice(i, 1);
+    registrar(d, "tirar-lixeira", quem, agora, antigo.chave, `${resumoCte(antigo)} · substituído por um lançamento novo`);
+    return incluir(d, campos, quem, agora);
+  }
   function corrigir(d, chave, campos, quem, agora) {
     const atual = acharCte(d, chave);
     if (!atual) return { ok: false, erros: { chave: "CT-e não encontrado na base." } };
@@ -1606,6 +1615,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     excluirVarios: () => excluirVarios,
     importar: () => importar,
     incluir: () => incluir2,
+    relancar: () => relancar2,
     restaurar: () => restaurar2
   });
 
@@ -1693,16 +1703,6 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
     m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
     return m ? m[0] : "";
-  }
-  function lerPlanilha(XLSX, dados) {
-    const wb = XLSX.read(new Uint8Array(dados), { type: "array", cellDates: false });
-    const nomeAba = (alvo) => wb.SheetNames.find((n) => chaveCab(n) === alvo);
-    const base = nomeAba(ABA_BASE);
-    if (!base) return { linhas: [], cnpjs: [], erro: `A planilha não tem a aba ${ABA_BASE}.` };
-    const linhas = XLSX.utils.sheet_to_json(wb.Sheets[base], { defval: null, raw: true, blankrows: true }).map((l) => Object.fromEntries(Object.entries(l).map(([k, v]) => [chaveCab(k), v])));
-    const abaCnpj = nomeAba(ABA_CNPJ);
-    const cnpjs = abaCnpj ? XLSX.utils.sheet_to_json(wb.Sheets[abaCnpj], { header: 1, defval: null, raw: true }).slice(1).map(([cnpj, nome]) => ({ cnpj: normalizarCnpj(cnpj), nome: String(nome ?? "").trim() })).filter((c) => c.cnpj.length === 14 && c.nome) : [];
-    return { linhas, cnpjs };
   }
   var vazia = (l) => Object.values(l).every((v) => v == null || String(v).trim() === "");
   function normalizarLinha(d, linhaBruta, numLinha) {
@@ -1867,6 +1867,16 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   function incluir2(d, s, campos, quem, agora) {
     const r = comLog(d, s, () => incluir(d, campos, quem, agora));
     if (r.ok) {
+      s.alterados.add(r.cte.chave);
+      tocar(s, r.cte.chave);
+    }
+    return r;
+  }
+  function relancar2(d, s, campos, quem, agora) {
+    const r = comLog(d, s, () => relancar(d, campos, quem, agora));
+    if (r.ok) {
+      s.excluidos.delete(r.cte.chave);
+      s.restaurados.delete(r.cte.chave);
       s.alterados.add(r.cte.chave);
       tocar(s, r.cte.chave);
     }
@@ -2312,9 +2322,8 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const d = App2.dados, f = App2.filtros, metrica = f.metrica;
     if (!d.ctes.length) {
       raiz.innerHTML = `<section class="secao"><div class="wrap">${secHead("Evolução")}
-      <div class="card vazio"><b>Nenhum CT-e lançado ainda</b>Lance os CT-e de concorrentes ou importe o histórico da planilha.
-      <div class="botoes" style="justify-content:flex-start"><button class="btn primario" type="button" data-ir="lancamentos">Lançar CT-e</button>
-      <button class="btn" type="button" data-ir="dados">Importar planilha</button></div></div></div></section>`;
+      <div class="card vazio"><b>Nenhum CT-e lançado ainda</b>Lance os CT-e de concorrentes na aba Lançamentos.
+      <div class="botoes" style="justify-content:flex-start"><button class="btn primario" type="button" data-ir="lancamentos">Lançar CT-e</button></div></div></div></section>`;
       $$("[data-ir]", raiz).forEach((b) => b.addEventListener("click", () => App2.irPara(b.dataset.ir)));
       return;
     }
@@ -2633,7 +2642,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     }
     form.querySelector("[aria-invalid=true]")?.focus();
   }
-  async function enviar(form, App2) {
+  async function enviar(form, App2, { relancar: relancar3 = false } = {}) {
     const c = lerForm(form), msg = $("#form-msg", form);
     msg.innerHTML = "";
     const v = validarCampos(App2.dados, c), erros = { ...v.erros };
@@ -2641,20 +2650,26 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     if (!nomeDoCnpj(App2.dados, c.cnpjCliente) && v.campos.cnpjCliente.length === 14 && !c.nomeCliente) erros.nomeCliente = "Informe o nome do cliente para o cadastro.";
     if (Object.keys(erros).length) return mostrarErros(form, erros);
     const editando = estado.editando;
-    const existe = !editando && (App2.dados.ctes.find((x) => x.chave === v.campos.chave) || App2.dados.lixeira.find((l) => l.cte.chave === v.campos.chave)?.cte);
-    if (existe) {
-      const naLixeira = !App2.dados.ctes.includes(existe);
+    const naBase = !editando && App2.dados.ctes.find((x) => x.chave === v.campos.chave);
+    const lixo = !editando && !naBase && App2.dados.lixeira.find((l) => l.cte.chave === v.campos.chave);
+    if (naBase) {
       msg.innerHTML = `<div class="exc existente"><span class="pill">Chave repetida</span><h4>Este CT-e já foi lançado</h4>
-      <p class="exc-act">Nº ${esc(existe.numero)} · emissão ${fmtData(existe.emissao)} · ${esc(grupoDoCnpj(App2.dados, existe.cnpjTransportador).nome)} · lançado por ${esc(existe.criadoPor)} em ${fmtQuando(existe.criadoEm)}.
-      ${naLixeira ? "Ele está na lixeira: restaure na aba Dados." : ""}</p>
-      ${naLixeira ? "" : `<button class="btn" type="button" data-abrir="${esc(existe.chave)}">Abrir para corrigir</button>`}</div>`;
+      <p class="exc-act">Nº ${esc(naBase.numero)} · emissão ${fmtData(naBase.emissao)} · ${esc(grupoDoCnpj(App2.dados, naBase.cnpjTransportador).nome)} · lançado por ${esc(naBase.criadoPor)} em ${fmtQuando(naBase.criadoEm)}.</p>
+      <button class="btn" type="button" data-abrir="${esc(naBase.chave)}">Abrir para corrigir</button></div>`;
+      return;
+    }
+    if (lixo && !relancar3) {
+      msg.innerHTML = `<div class="exc existente"><span class="pill">Na lixeira</span><h4>Este CT-e está na lixeira</h4>
+      <p class="exc-act">Nº ${esc(lixo.cte.numero)} · lançado por ${esc(lixo.cte.criadoPor)} em ${fmtQuando(lixo.cte.criadoEm)} e excluído por ${esc(lixo.excluidoPor)} em ${fmtQuando(lixo.excluidoEm)}.
+      Lançar de novo tira o lançamento antigo da lixeira e grava este, com os dados digitados agora.</p>
+      <button class="btn primario" type="button" data-relancar>Lançar de novo</button></div>`;
       return;
     }
     estado.rascunho = editando ? null : c;
     const r = await App2.alterar((d, s, quem, agora) => {
       if (c.nomeTransportador) App2.acoes.cadastrar(d, s, c.cnpjTransportador, c.nomeTransportador, quem, agora);
       if (c.nomeCliente) App2.acoes.cadastrar(d, s, c.cnpjCliente, c.nomeCliente, quem, agora);
-      return editando ? App2.acoes.corrigir(d, s, editando, c, quem, agora) : App2.acoes.incluir(d, s, c, quem, agora);
+      return editando ? App2.acoes.corrigir(d, s, editando, c, quem, agora) : lixo ? App2.acoes.relancar(d, s, c, quem, agora) : App2.acoes.incluir(d, s, c, quem, agora);
     });
     if (r?.ok) {
       estado.rascunho = null;
@@ -2774,6 +2789,10 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
         enviar(form, App2);
       });
       form.addEventListener("click", (ev) => {
+        if (ev.target.closest("[data-relancar]")) {
+          enviar(form, App2, { relancar: true });
+          return;
+        }
         const abrirEx = ev.target.closest("[data-abrir]");
         if (abrirEx) {
           estado.editando = abrirEx.dataset.abrir;
@@ -2972,12 +2991,13 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   }
 
   // src/telas/dados.js
-  var estado3 = { resumo: null, erroImp: "", escolhas: /* @__PURE__ */ new Map() };
+  var estado3 = { escolhas: /* @__PURE__ */ new Map() };
   var ACAO = {
     incluir: "Lançou",
     corrigir: "Corrigiu",
     excluir: "Excluiu",
     restaurar: "Restaurou",
+    "tirar-lixeira": "Tirou da lixeira",
     importar: "Importou",
     cadastro: "Cadastro",
     classificar: "Classificou",
@@ -3017,14 +3037,6 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     <div class="botoes" data-escreve><button class="btn" type="button" data-marcar-todos>Marcar todos com sugestão</button>
       <button class="btn primario" type="button" id="aplicar-classificacao" ${marcados ? "" : "disabled"}>Aplicar marcados (${fmtNum(marcados)})</button></div>`;
   }
-  function resumoHtml() {
-    if (estado3.erroImp) return `<div class="exc"><span class="pill">Não importado</span><h4>${esc(estado3.erroImp)}</h4></div>`;
-    const r = estado3.resumo;
-    if (!r) return "";
-    return `<div class="resumo-imp"><p><b>${fmtNum(r.incluidos)}</b> CT-e incluídos · <b>${fmtNum(r.pulados)}</b> já existiam e ficaram como estavam ·
-    <b>${fmtNum(r.rejeitados.length)}</b> rejeitados · <b>${fmtNum(r.cadastrados)}</b> CNPJ cadastrados${r.divergentes ? ` · <b>${fmtNum(r.divergentes)}</b> com cálculo diferente da planilha (veja Exceções a tratar)` : ""}${r.aClassificar ? ` · <b>${fmtNum(r.aClassificar)}</b> a classificar: <a href="#" data-ir-classificar>veja Classificar CT-e</a>` : ""}.</p>
-    ${r.rejeitados.length ? `<div class="tabela"><table><thead><tr><th>Linha da planilha</th><th>Motivo</th></tr></thead><tbody>${r.rejeitados.map((x) => `<tr><td class="mono">${x.numLinha}</td><td>${esc(x.motivo)}</td></tr>`).join("")}</tbody></table></div>` : ""}</div>`;
-  }
   function renderDados(raiz, App2) {
     const d = App2.dados, g = App2.gravador;
     const pasta = App2.somenteLeitura ? `<p class="hint">Aberto só para consulta. A gravação na pasta funciona no Chrome ou no Edge, abrindo o HTML direto da pasta compartilhada.</p>` : `<p class="hint">${g.pasta ? `Conectado à pasta <b>${esc(g.pasta.name)}</b>. Cada alteração é gravada sozinha em ${ARQ_DADOS}; a versão anterior fica em ${PASTA_BKP}/ (as 60 últimas).` : `Conecte uma vez a pasta compartilhada onde estão este painel e o ${ARQ_DADOS}. A partir daí, cada lançamento é gravado sozinho e quem abrir a pasta vê.`}</p>
@@ -3035,13 +3047,8 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     raiz.innerHTML = `<section class="secao"><div class="wrap pilha">
     ${secHead("Dados", "Onde a base fica gravada, a importação do histórico e o registro de quem fez o quê.")}
     <div class="card"><h3>Pasta compartilhada</h3>${pasta}</div>
-    <div class="cols2">
-      <div class="card" data-escreve><h3>Importar planilha</h3><p class="hint">Lê as abas BASE CARGA SOLTA 2026 e BASE DE DADOS CNPJ da Radar_Fretes_Concorrentes (.xlsm ou .xlsx). CT-e já lançados ficam como estão.</p>
-        <label class="btn" style="display:inline-block">Escolher planilha<input id="arq-planilha" type="file" accept=".xlsm,.xlsx" hidden></label>
-        <div id="resumo-imp">${resumoHtml()}</div></div>
-      <div class="card"><h3>Exportar para Excel</h3><p class="hint">A base inteira no mesmo layout da planilha: ${fmtNum(d.ctes.length)} CT-e e ${fmtNum(d.cnpjs.length)} CNPJ.</p>
-        <button class="btn" type="button" data-exportar ${d.ctes.length ? "" : "disabled"}>Baixar .xlsx</button></div>
-    </div>
+    <div class="card"><h3>Exportar para Excel</h3><p class="hint">A base inteira no mesmo layout da planilha: ${fmtNum(d.ctes.length)} CT-e e ${fmtNum(d.cnpjs.length)} CNPJ.</p>
+      <button class="btn" type="button" data-exportar ${d.ctes.length ? "" : "disabled"}>Baixar .xlsx</button></div>
     <div class="card" data-escreve><h3>Data de corte</h3><p class="hint">CT-e emitidos antes desta data ficam na base, mas fora da Evolução, das Rotas, das exceções e da classificação. Vazio = todos entram.</p>
       <div class="form-linha"><label class="campo"><span>Data de corte</span><input id="corte" type="date" value="${esc(d.corte || "")}"></label>
         <button class="btn primario" type="button" data-salvar-corte>Salvar data de corte</button></div></div>
@@ -3082,11 +3089,6 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       repintar();
     });
     secao.addEventListener("click", async (ev) => {
-      if (ev.target.closest("[data-ir-classificar]")) {
-        ev.preventDefault();
-        $("#classificar", raiz).scrollIntoView({ block: "start" });
-        return;
-      }
       const b = ev.target.closest("button");
       if (!b) return;
       if (b.hasAttribute("data-marcar-todos")) {
@@ -3138,32 +3140,6 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
         a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 2e3);
       } else if (b.hasAttribute("data-conectar")) await conectar(App2);
-    });
-    $("#arq-planilha", raiz)?.addEventListener("change", async (ev) => {
-      const arq = ev.target.files?.[0];
-      if (!arq) return;
-      estado3.resumo = null;
-      estado3.erroImp = "";
-      if (!window.XLSX) {
-        estado3.erroImp = "A biblioteca de planilhas não carregou (precisa de internet).";
-        return App2.render();
-      }
-      let lido;
-      try {
-        lido = lerPlanilha(window.XLSX, await arq.arrayBuffer());
-      } catch (e) {
-        lido = { erro: "Não foi possível ler o arquivo como planilha do Excel." };
-      }
-      if (lido.erro) {
-        estado3.erroImp = lido.erro;
-        return App2.render();
-      }
-      const r = await App2.alterar((dd, s, quem, agora) => App2.acoes.importar(dd, s, lido, quem, agora));
-      if (r) {
-        estado3.resumo = r;
-        aviso(`${r.incluidos} CT-e importados.`);
-        App2.render();
-      }
     });
   }
   async function conectar(App2) {

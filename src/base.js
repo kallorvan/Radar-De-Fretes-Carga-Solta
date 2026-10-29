@@ -167,6 +167,18 @@ export function incluir(d, campos, quem, agora, origemLancamento = "formulario",
   return { ok: true, cte };
 }
 
+/* Lançar de novo um CT-e que está na lixeira: o antigo sai da lixeira e entra o lançamento com os dados novos.
+   Com dados inválidos nada muda (a lixeira continua como estava). */
+export function relancar(d, campos, quem, agora) {
+  const v = validarCampos(d, campos);
+  if (!v.ok) return { ok: false, erros: v.erros };
+  const i = d.lixeira.findIndex(l => l.cte.chave === v.campos.chave);
+  if (i < 0) return incluir(d, campos, quem, agora);
+  const [{ cte: antigo }] = d.lixeira.splice(i, 1);
+  registrar(d, "tirar-lixeira", quem, agora, antigo.chave, `${resumoCte(antigo)} · substituído por um lançamento novo`);
+  return incluir(d, campos, quem, agora);
+}
+
 export function corrigir(d, chave, campos, quem, agora) {
   const atual = acharCte(d, chave);
   if (!atual) return { ok: false, erros: { chave: "CT-e não encontrado na base." } };

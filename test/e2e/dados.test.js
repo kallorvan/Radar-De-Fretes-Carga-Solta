@@ -5,26 +5,26 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium, abrir } from "./ajuda.js";
 import { baseExemplo, baseV1ParaClassificar } from "../fixtures/base-exemplo.js";
-import { gerarPlanilha, linhaPadrao } from "../fixtures/planilha.js";
-import { excluir } from "../../src/base.js";
+import { excluir, novaBase } from "../../src/base.js";
 
 let browser;
 before(async () => { browser = await chromium.launch(); });
 after(async () => { await browser?.close(); });
 const opc = { gravavel: true, quem: "Ana" };
 
-test("importa planilha e mostra o resumo", async () => {
+test("a aba Dados não tem mais a importação de planilha; a exportação continua", async () => {
   const { page, ctx, erros } = await abrir(browser, { dados: baseExemplo(), hash: "#dados", ...opc });
-  await page.waitForSelector("#arq-planilha", { state: "attached" });
-  const buf = Buffer.from(gerarPlanilha([linhaPadrao(901), linhaPadrao(902), linhaPadrao(903), linhaPadrao(904, { "QT. SACAS": null })]));
-  await page.setInputFiles("#arq-planilha", { name: "Radar.xlsx", mimeType: "application/octet-stream", buffer: buf });
-  await page.waitForSelector(".resumo-imp");
-  const txt = await page.locator(".resumo-imp").textContent();
-  assert.match(txt, /3 CT-e incluídos/);
-  assert.match(txt, /1 rejeitados/);
-  assert.match(txt, /Informe a quantidade/);
-  assert.equal(await page.evaluate(() => window.RADAR_APP.dados.ctes.length), 10);
+  await page.waitForSelector("[data-exportar]");
+  assert.equal(await page.locator("#arq-planilha").count(), 0);
+  assert.doesNotMatch(await page.locator("#conteudo").textContent(), /Importar planilha/);
   assert.deepEqual(erros, []);
+  await ctx.close();
+});
+
+test("Evolução vazia não oferece importar planilha", async () => {
+  const { page, ctx } = await abrir(browser, { dados: novaBase(), hash: "#evolucao", ...opc });
+  await page.waitForSelector("#conteudo .vazio");
+  assert.doesNotMatch(await page.locator("#conteudo").textContent(), /Importar planilha|importe/i);
   await ctx.close();
 });
 

@@ -21,6 +21,11 @@ export function incluir(d, s, campos, quem, agora) {
   if (r.ok) { s.alterados.add(r.cte.chave); tocar(s, r.cte.chave); }
   return r;
 }
+export function relancar(d, s, campos, quem, agora) {
+  const r = comLog(d, s, () => B.relancar(d, campos, quem, agora));
+  if (r.ok) { s.excluidos.delete(r.cte.chave); s.restaurados.delete(r.cte.chave); s.alterados.add(r.cte.chave); tocar(s, r.cte.chave); }
+  return r;
+}
 export function corrigir(d, s, chave, campos, quem, agora) {
   const r = comLog(d, s, () => B.corrigir(d, chave, campos, quem, agora));
   if (r.ok) { s.alterados.add(chave); tocar(s, chave); }

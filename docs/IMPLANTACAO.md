@@ -9,15 +9,9 @@ O painel é um arquivo HTML só. Ele fica numa pasta compartilhada do SharePoint
 3. Abra o HTML **a partir da pasta sincronizada**, com duplo clique, no **Chrome ou no Edge**.
 4. Informe o seu nome quando o painel pedir. Ele fica guardado no navegador e vai junto com cada lançamento, correção e exclusão.
 5. Vá em **Dados → Conectar a pasta** e escolha a pasta do passo 1. Como ela ainda não tem o `radar-carga-solta-dados.js`, o painel pergunta **"Criar a base nesta pasta?"**: confirme.
-6. Em **Dados → Importar planilha**, escolha a `Radar_Fretes_Concorrentes_v2.10.xlsm`. O painel lê só as abas *BASE CARGA SOLTA 2026* e *BASE DE DADOS CNPJ*. Com a versão 2.10 o resultado esperado é **195 CT-e incluídos, 0 rejeitados, 125 CNPJ cadastrados e nenhuma divergência**.
-   - O CNPJ do transportador vem da chave de acesso. O cód. itinerário é o código da cidade de origem + o da cidade de destino, pelo cadastro de itinerários do Rodopar, mesmo quando o par não tem itinerário próprio (ex.: Machado → Varginha = MCHVGH). Na v2.10, 86 CT-e ganham itinerário; os outros 109 têm cidade fora do cadastro (São Joaquim da Barra, Luís Eduardo Magalhães, Pontal…) e ficam com o código em branco.
-7. **Data de corte.** A base começa com corte em **01/08/2026**: os CT-e emitidos antes dessa data (155 dos 195) ficam na base, mas fora da Evolução, das Rotas, das exceções e da classificação, porque não há CT-e em mãos para saber produto e unidade. A data pode ser mudada em **Dados → Data de corte**; vazia, todos entram.
-8. Em **Dados → Classificar CT-e**, revise produto e unidade dos CT-e a partir do corte (a planilha não tem esses campos). O painel já sugere:
-   - **produto** pelo cliente (café: EISA, Stonex, Olam, Louis Dreyfus…; açúcar: usinas, U.S.J., Coplasa…);
-   - **unidade** pela quantidade (até 100 = toneladas; acima, saca de 60 kg para café e de 50 kg para açúcar).
-   
-   Com a v2.10, a regra sugere os 40 CT-e de agosto. Confira cada linha contra o CT-e antes de clicar em **Aplicar marcados**.
-9. A gravação é automática: a barra abaixo do menu mostra **Tudo salvo** quando o arquivo da pasta está em dia.
+6. **Data de corte.** A base começa com corte em **01/08/2026**: CT-e emitidos antes dessa data ficam na base, mas fora da Evolução, das Rotas, das exceções e da classificação. A data pode ser mudada em **Dados → Data de corte**; vazia, todos entram.
+7. Lance os CT-e na aba **Lançamentos**. (A importação da planilha antiga foi usada só na implantação e saiu do painel.)
+8. A gravação é automática: a barra abaixo do menu mostra **Tudo salvo** quando o arquivo da pasta está em dia.
 
 ## Uso no dia a dia
 
@@ -27,6 +21,7 @@ O painel é um arquivo HTML só. Ele fica numa pasta compartilhada do SharePoint
 - Ao comparar uma rota que leva mais de um produto, escolha o produto no recorte. O painel avisa quando a rota mistura produtos.
 - Na **Evolução**, cada ponto do gráfico é um CT-e, na data de emissão, com a cor do azul (mais barato) ao rosa (mais caro). A linha tracejada é a mediana do mês e pode ser desligada. Clique num ponto para abrir o CT-e.
 - **PDFs dos CT-e:** salve os PDFs na pasta **`PDFs Carga Solta`**, dentro da pasta do painel (pode ter subpastas), com o nome no formato `CTE 1234 - Oasis.pdf`. O botão **PDF** da base abre o arquivo do CT-e. Quando dois CT-e têm o mesmo número, o nome depois do traço é comparado com o transportador. Sem PDF, o botão fica apagado. Depois de salvar PDFs novos com o painel aberto, clique em **Atualizar PDFs**. Os PDFs só abrem para quem conectou a pasta (Chrome ou Edge pela pasta sincronizada).
+- **Lançar de novo um CT-e excluído:** se a chave está na lixeira, o formulário avisa e oferece **Lançar de novo**: o lançamento antigo sai da lixeira e entra o novo, com os dados digitados. O histórico registra as duas coisas. Para trazer o lançamento antigo de volta como estava, use **Restaurar** na aba Dados.
 - **Exclusão em massa:** marque as caixas da base (ou **Selecionar todos**, que marca os CT-e da busca e do recorte na tela) e clique em **Excluir selecionados**. Tudo vai para a lixeira e pode ser restaurado na aba Dados.
 - Em **Exceções a tratar**, o botão **Abrir na base** leva direto à correção do CT-e (ou ao CNPJ no Cadastro, ou à classificação).
 
@@ -55,7 +50,7 @@ A cada gravação, a versão anterior do arquivo de dados vai para `backups/`, c
 ## Requisitos
 
 - Chrome ou Edge atualizados, para lançar.
-- Internet para as fontes e para a biblioteca de leitura de planilhas (cdnjs). Sem internet, o painel abre e lança normalmente, mas a importação e a exportação de Excel ficam indisponíveis.
+- Internet para as fontes e para a biblioteca de leitura de planilhas (cdnjs). Sem internet, o painel abre e lança normalmente, mas a exportação para Excel fica indisponível.
 - Uso em computador: o painel não foi pensado para celular.
 
 ## Desenvolvimento

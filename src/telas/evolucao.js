@@ -65,9 +65,8 @@ export function renderEvolucao(raiz, App) {
   const d = App.dados, f = App.filtros, metrica = f.metrica;
   if (!d.ctes.length) {
     raiz.innerHTML = `<section class="secao"><div class="wrap">${secHead("Evolução")}
-      <div class="card vazio"><b>Nenhum CT-e lançado ainda</b>Lance os CT-e de concorrentes ou importe o histórico da planilha.
-      <div class="botoes" style="justify-content:flex-start"><button class="btn primario" type="button" data-ir="lancamentos">Lançar CT-e</button>
-      <button class="btn" type="button" data-ir="dados">Importar planilha</button></div></div></div></section>`;
+      <div class="card vazio"><b>Nenhum CT-e lançado ainda</b>Lance os CT-e de concorrentes na aba Lançamentos.
+      <div class="botoes" style="justify-content:flex-start"><button class="btn primario" type="button" data-ir="lancamentos">Lançar CT-e</button></div></div></div></section>`;
     $$("[data-ir]", raiz).forEach(b => b.addEventListener("click", () => App.irPara(b.dataset.ir)));
     return;
   }
