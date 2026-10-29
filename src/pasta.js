@@ -22,8 +22,8 @@ export function idbNavegador(nome = "radar-carga-solta") {
   return { get: k => op("readonly", st => st.get(k)), put: (k, v) => op("readwrite", st => st.put(v, k)), del: k => op("readwrite", st => st.delete(k)) };
 }
 
-const serSessao = s => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], cadastro: [...s.cadastro], listas: [...(s.listas || [])], config: [...(s.config || [])], log: [...s.log], toques: [...(s.toques || [])] });
-const desSessao = s => ({ alterados: new Set(s.alterados), excluidos: new Set(s.excluidos), restaurados: new Set(s.restaurados), 
+const serSessao = s => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], apagados: [...(s.apagados || [])], cadastro: [...s.cadastro], listas: [...(s.listas || [])], config: [...(s.config || [])], log: [...s.log], toques: [...(s.toques || [])] });
+const desSessao = s => ({ alterados: new Set(s.alterados), excluidos: new Set(s.excluidos), restaurados: new Set(s.restaurados), apagados: new Set(s.apagados || []), 
   // sessões antigas guardavam só o nome do CNPJ
   cadastro: new Map((s.cadastro || []).map(([k, v]) => [k, typeof v === "string" ? { nome: v } : v])),
   listas: new Map(s.listas || []), config: new Map(s.config || []), log: s.log, toques: new Map(s.toques || []) });
@@ -110,6 +110,7 @@ export function criarGravador({ obterTela, obterSessao, obterQuem, aoSalvar, aoM
     const toquesFoto = new Map(foto.toques || []);
     const mudouDepois = c => s.toques && (s.toques.get(c) || 0) !== (toquesFoto.get(c) || 0);
     for (const k of ["alterados", "excluidos", "restaurados"]) for (const c of foto[k]) if (!mudouDepois(c)) s[k].delete(c);
+    for (const c of foto.apagados || []) s.apagados?.delete(c);
     if (s.toques) for (const [c, n] of toquesFoto) if (s.toques.get(c) === n) s.toques.delete(c);
     const igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     for (const [cnpj, reg] of foto.cadastro) if (igual(s.cadastro.get(cnpj), reg)) s.cadastro.delete(cnpj);

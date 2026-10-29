@@ -42,6 +42,11 @@ export function excluirVarios(d, s, chaves, quem, agora) {
   for (const chave of chaves) if (excluir(d, s, chave, quem, agora).ok) excluidos++;
   return { ok: excluidos > 0, excluidos };
 }
+export function esvaziarLixeira(d, s, quem, agora) {
+  const r = comLog(d, s, () => B.esvaziarLixeira(d, quem, agora));
+  for (const k of r.chaves) { s.apagados.add(k); s.restaurados.delete(k); }
+  return r;
+}
 export function restaurar(d, s, chave, quem, agora) {
   const r = comLog(d, s, () => B.restaurar(d, chave, quem, agora));
   if (r.ok) { s.excluidos.delete(chave); s.restaurados.add(chave); tocar(s, chave); }

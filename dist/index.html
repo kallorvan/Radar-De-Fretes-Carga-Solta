@@ -1211,6 +1211,13 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     registrar(d, "restaurar", quem, agora, chave, resumoCte(cte));
     return { ok: true, cte };
   }
+  function esvaziarLixeira(d, quem, agora) {
+    if (!d.lixeira.length) return { ok: false, chaves: [] };
+    const chaves = d.lixeira.map((l) => l.cte.chave);
+    d.lixeira = [];
+    registrar(d, "esvaziar-lixeira", quem, agora, "", `${chaves.length} CT-e apagados de vez da lixeira`);
+    return { ok: true, chaves };
+  }
   function cadastrarCnpj(d, cnpj, nome, quem, agora) {
     const n = normalizarCnpj(cnpj);
     const limpo = String(nome ?? "").trim().replace(/\s+/g, " ").toUpperCase();
@@ -1321,8 +1328,8 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   }
   var ehBackup = (nome) => /^radar-carga-solta-dados \d{4}-\d{2}-\d{2} \d{2}h\d{2}m\d{2}s\.js$/.test(nome);
   var podar = (nomes, max = MAX_BKP) => nomes.filter(ehBackup).sort().slice(0, Math.max(0, nomes.filter(ehBackup).length - max));
-  var novaSessao = () => ({ alterados: /* @__PURE__ */ new Set(), excluidos: /* @__PURE__ */ new Set(), restaurados: /* @__PURE__ */ new Set(), cadastro: /* @__PURE__ */ new Map(), listas: /* @__PURE__ */ new Map(), config: /* @__PURE__ */ new Map(), log: [], toques: /* @__PURE__ */ new Map() });
-  var sessaoVazia = (s) => !s.alterados.size && !s.excluidos.size && !s.restaurados.size && !s.cadastro.size && !s.listas?.size && !s.config?.size && !s.log.length;
+  var novaSessao = () => ({ alterados: /* @__PURE__ */ new Set(), excluidos: /* @__PURE__ */ new Set(), restaurados: /* @__PURE__ */ new Set(), apagados: /* @__PURE__ */ new Set(), cadastro: /* @__PURE__ */ new Map(), listas: /* @__PURE__ */ new Map(), config: /* @__PURE__ */ new Map(), log: [], toques: /* @__PURE__ */ new Map() });
+  var sessaoVazia = (s) => !s.alterados.size && !s.excluidos.size && !s.restaurados.size && !s.apagados?.size && !s.cadastro.size && !s.listas?.size && !s.config?.size && !s.log.length;
   function juntar(arquivo, tela, sessao) {
     const r = migrarBase(arquivo);
     const tocados = /* @__PURE__ */ new Set([...sessao.alterados, ...sessao.excluidos, ...sessao.restaurados]);
@@ -1337,6 +1344,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       const l = tela.lixeira.find((x) => x.cte.chave === chave);
       if (l) r.lixeira.push(structuredClone(l));
     }
+    if (sessao.apagados?.size) r.lixeira = r.lixeira.filter((l) => !sessao.apagados.has(l.cte.chave) || tocados.has(l.cte.chave));
     const cad = new Map((r.cnpjs || []).map((c) => [c.cnpj, c]));
     for (const [cnpj, reg] of sessao.cadastro)
       cad.set(cnpj, { ...cad.get(cnpj), cnpj, ...typeof reg === "string" ? { nome: reg } : structuredClone(reg) });
@@ -1358,7 +1366,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const mudaram = arquivo.ctes.filter((c) => porChave.has(c.chave) && !sessao.alterados.has(c.chave) && porChave.get(c.chave) !== JSON.stringify(c)).length;
     const noArquivo = new Set(arquivo.ctes.map((c) => c.chave));
     const saem = tela.ctes.filter((c) => !noArquivo.has(c.chave) && !sessao.alterados.has(c.chave) && !sessao.restaurados.has(c.chave)).length;
-    const minhas = sessao.alterados.size + sessao.excluidos.size + sessao.restaurados.size + sessao.cadastro.size + (sessao.listas?.size || 0) + (sessao.config?.size || 0);
+    const minhas = sessao.alterados.size + sessao.excluidos.size + sessao.restaurados.size + (sessao.apagados?.size || 0) + sessao.cadastro.size + (sessao.listas?.size || 0) + (sessao.config?.size || 0);
     const quem = (arquivo.salvoPor ? arquivo.salvoPor + " gravou" : "Alguém gravou") + (arquivo.salvoEm ? ` em ${fmtQuando(arquivo.salvoEm)}` : "");
     const partes = [];
     if (entram) partes.push(`${entram} CT-e que você não tem na tela`);
@@ -1383,11 +1391,12 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     })).catch(() => void 0);
     return { get: (k) => op("readonly", (st) => st.get(k)), put: (k, v) => op("readwrite", (st) => st.put(v, k)), del: (k) => op("readwrite", (st) => st.delete(k)) };
   }
-  var serSessao = (s) => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], cadastro: [...s.cadastro], listas: [...s.listas || []], config: [...s.config || []], log: [...s.log], toques: [...s.toques || []] });
+  var serSessao = (s) => ({ alterados: [...s.alterados], excluidos: [...s.excluidos], restaurados: [...s.restaurados], apagados: [...s.apagados || []], cadastro: [...s.cadastro], listas: [...s.listas || []], config: [...s.config || []], log: [...s.log], toques: [...s.toques || []] });
   var desSessao = (s) => ({
     alterados: new Set(s.alterados),
     excluidos: new Set(s.excluidos),
     restaurados: new Set(s.restaurados),
+    apagados: new Set(s.apagados || []),
     // sessões antigas guardavam só o nome do CNPJ
     cadastro: new Map((s.cadastro || []).map(([k, v]) => [k, typeof v === "string" ? { nome: v } : v])),
     listas: new Map(s.listas || []),
@@ -1493,6 +1502,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       const toquesFoto = new Map(foto.toques || []);
       const mudouDepois = (c) => s.toques && (s.toques.get(c) || 0) !== (toquesFoto.get(c) || 0);
       for (const k of ["alterados", "excluidos", "restaurados"]) for (const c of foto[k]) if (!mudouDepois(c)) s[k].delete(c);
+      for (const c of foto.apagados || []) s.apagados?.delete(c);
       if (s.toques) {
         for (const [c, n] of toquesFoto) if (s.toques.get(c) === n) s.toques.delete(c);
       }
@@ -1617,6 +1627,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     corrigir: () => corrigir2,
     definirCorte: () => definirCorte2,
     definirProdutoPadrao: () => definirProdutoPadrao2,
+    esvaziarLixeira: () => esvaziarLixeira2,
     excluir: () => excluir2,
     excluirVarios: () => excluirVarios,
     importar: () => importar,
@@ -1910,6 +1921,14 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     let excluidos = 0;
     for (const chave of chaves) if (excluir2(d, s, chave, quem, agora).ok) excluidos++;
     return { ok: excluidos > 0, excluidos };
+  }
+  function esvaziarLixeira2(d, s, quem, agora) {
+    const r = comLog(d, s, () => esvaziarLixeira(d, quem, agora));
+    for (const k of r.chaves) {
+      s.apagados.add(k);
+      s.restaurados.delete(k);
+    }
+    return r;
   }
   function restaurar2(d, s, chave, quem, agora) {
     const r = comLog(d, s, () => restaurar(d, chave, quem, agora));
@@ -3083,6 +3102,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     excluir: "Excluiu",
     restaurar: "Restaurou",
     "tirar-lixeira": "Tirou da lixeira",
+    "esvaziar-lixeira": "Esvaziou a lixeira",
     importar: "Importou",
     cadastro: "Cadastro",
     classificar: "Classificou",
@@ -3138,7 +3158,9 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       <div class="form-linha"><label class="campo"><span>Data de corte</span><input id="corte" type="date" value="${esc(d.corte || "")}"></label>
         <button class="btn primario" type="button" data-salvar-corte>Salvar data de corte</button></div></div>
     <div class="card" id="classificar"><h3>Classificar CT-e</h3>${classificarHtml(App2)}</div>
-    <div class="card"><h3>Lixeira</h3><p class="hint">CT-e excluídos. Restaurar devolve o lançamento para a base, com o registro de quem restaurou.</p><div id="tab-lixeira"></div></div>
+    <div class="card"><div class="card-head"><div><h3>Lixeira</h3><p class="hint">CT-e excluídos. Restaurar devolve o lançamento para a base, com o registro de quem restaurou. Esvaziar apaga de vez.</p></div>
+      <span data-escreve><button class="btn mini perigo" type="button" data-esvaziar-lixeira ${d.lixeira.length ? "" : "disabled"}>Esvaziar lixeira</button></span></div>
+      <div id="tab-lixeira"></div></div>
     <div class="card"><h3>Histórico</h3><p class="hint">As ${fmtNum(d.log.length)} últimas ações (o painel guarda até 500), da mais recente para a mais antiga.</p><div id="tab-log"></div></div>
     <div class="card" data-escreve><h3>Seu nome</h3><p class="hint">${App2.quem ? `Lançando como <b>${esc(App2.quem)}</b>.` : "Nenhum nome informado neste navegador."}</p>
       <button class="btn" type="button" data-nome>${App2.quem ? "Trocar nome" : "Informar nome"}</button></div>
@@ -3204,6 +3226,11 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       if (b.dataset.restaurar) {
         const r = await App2.alterar((dd, s, quem, agora) => App2.acoes.restaurar(dd, s, b.dataset.restaurar, quem, agora));
         if (r?.ok) aviso(`CT-e ${r.cte.numero} restaurado.`);
+      } else if (b.hasAttribute("data-esvaziar-lixeira")) {
+        const n = App2.dados.lixeira.length;
+        if (!n || !await confirmar(`Esvaziar a lixeira? (${n} CT-e)`, "Os CT-e da lixeira serão apagados de vez e não poderão mais ser restaurados. Fica no histórico quem esvaziou e quantos eram. O arquivo anterior continua guardado em backups/.", "Esvaziar")) return;
+        const r = await App2.alterar((dd, s, quem, agora) => App2.acoes.esvaziarLixeira(dd, s, quem, agora));
+        if (r?.ok) aviso(`${r.chaves.length} CT-e apagados da lixeira.`);
       } else if (b.hasAttribute("data-salvar-corte")) {
         const r = await App2.alterar((dd, s, quem, agora) => App2.acoes.definirCorte(dd, s, $("#corte", raiz).value, quem, agora));
         if (r?.ok && !r.mudou) aviso("A data de corte já era essa.");

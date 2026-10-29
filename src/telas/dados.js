@@ -10,7 +10,7 @@ import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 
 // escolhas: o que a pessoa ajustou em cada linha da classificação, guardado entre redesenhos
 const estado = { escolhas: new Map() };
-const ACAO = { incluir: "Lançou", corrigir: "Corrigiu", excluir: "Excluiu", restaurar: "Restaurou", "tirar-lixeira": "Tirou da lixeira", importar: "Importou", cadastro: "Cadastro",
+const ACAO = { incluir: "Lançou", corrigir: "Corrigiu", excluir: "Excluiu", restaurar: "Restaurou", "tirar-lixeira": "Tirou da lixeira", "esvaziar-lixeira": "Esvaziou a lixeira", importar: "Importou", cadastro: "Cadastro",
   classificar: "Classificou", produto: "Produto", unidade: "Unidade", corte: "Data de corte" };
 
 /* Linha da classificação: a sugestão da regra, com o que a pessoa trocou por cima. */
@@ -70,7 +70,9 @@ export function renderDados(raiz, App) {
       <div class="form-linha"><label class="campo"><span>Data de corte</span><input id="corte" type="date" value="${esc(d.corte || "")}"></label>
         <button class="btn primario" type="button" data-salvar-corte>Salvar data de corte</button></div></div>
     <div class="card" id="classificar"><h3>Classificar CT-e</h3>${classificarHtml(App)}</div>
-    <div class="card"><h3>Lixeira</h3><p class="hint">CT-e excluídos. Restaurar devolve o lançamento para a base, com o registro de quem restaurou.</p><div id="tab-lixeira"></div></div>
+    <div class="card"><div class="card-head"><div><h3>Lixeira</h3><p class="hint">CT-e excluídos. Restaurar devolve o lançamento para a base, com o registro de quem restaurou. Esvaziar apaga de vez.</p></div>
+      <span data-escreve><button class="btn mini perigo" type="button" data-esvaziar-lixeira ${d.lixeira.length ? "" : "disabled"}>Esvaziar lixeira</button></span></div>
+      <div id="tab-lixeira"></div></div>
     <div class="card"><h3>Histórico</h3><p class="hint">As ${fmtNum(d.log.length)} últimas ações (o painel guarda até 500), da mais recente para a mais antiga.</p><div id="tab-log"></div></div>
     <div class="card" data-escreve><h3>Seu nome</h3><p class="hint">${App.quem ? `Lançando como <b>${esc(App.quem)}</b>.` : "Nenhum nome informado neste navegador."}</p>
       <button class="btn" type="button" data-nome>${App.quem ? "Trocar nome" : "Informar nome"}</button></div>
@@ -130,6 +132,11 @@ export function renderDados(raiz, App) {
     if (b.dataset.restaurar) {
       const r = await App.alterar((dd, s, quem, agora) => App.acoes.restaurar(dd, s, b.dataset.restaurar, quem, agora));
       if (r?.ok) aviso(`CT-e ${r.cte.numero} restaurado.`);
+    } else if (b.hasAttribute("data-esvaziar-lixeira")) {
+      const n = App.dados.lixeira.length;
+      if (!n || !(await confirmar(`Esvaziar a lixeira? (${n} CT-e)`, "Os CT-e da lixeira serão apagados de vez e não poderão mais ser restaurados. Fica no histórico quem esvaziou e quantos eram. O arquivo anterior continua guardado em backups/.", "Esvaziar"))) return;
+      const r = await App.alterar((dd, s, quem, agora) => App.acoes.esvaziarLixeira(dd, s, quem, agora));
+      if (r?.ok) aviso(`${r.chaves.length} CT-e apagados da lixeira.`);
     } else if (b.hasAttribute("data-salvar-corte")) {
       const r = await App.alterar((dd, s, quem, agora) => App.acoes.definirCorte(dd, s, $("#corte", raiz).value, quem, agora));
       if (r?.ok && !r.mudou) aviso("A data de corte já era essa.");

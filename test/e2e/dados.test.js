@@ -136,3 +136,19 @@ test("produto padrão definido no Cadastro atualiza a sugestão em Classificar",
   assert.equal(await linha().locator("input[data-marcar]").isChecked(), true);
   await ctx.close();
 });
+
+test("Esvaziar lixeira pede confirmação e apaga de vez", async () => {
+  const d = baseExemplo();
+  excluir(d, d.ctes[0].chave, "Bia", "2026-10-28T12:00:00.000Z");
+  excluir(d, d.ctes[0].chave, "Bia", "2026-10-28T12:00:00.000Z");
+  const { page, ctx, erros } = await abrir(browser, { dados: d, hash: "#dados", ...opc });
+  await page.click("[data-esvaziar-lixeira]");
+  await page.waitForSelector("#dlg-confirma[open]");
+  assert.match(await page.locator("#dlg-confirma-titulo").textContent(), /Esvaziar a lixeira\? \(2 CT-e\)/);
+  await page.click("#dlg-confirma-ok");
+  await page.waitForFunction(() => window.RADAR_APP.dados.lixeira.length === 0);
+  assert.equal(await page.evaluate(() => window.RADAR_APP.dados.ctes.length), 5);
+  assert.equal(await page.locator("[data-esvaziar-lixeira]").isDisabled(), true);
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});

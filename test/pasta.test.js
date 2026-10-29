@@ -250,3 +250,13 @@ test("pendências guardadas levam a data de corte da sessão", async () => {
   assert.equal(p.sessao.config.get("corte"), null);
   assert.equal(p.sessao.config.has("corte"), true);
 });
+
+test("apagados da lixeira sobrevivem nas pendências guardadas", async () => {
+  const idb = idbFalso(), s = novaSessao();
+  s.apagados.add("abc");
+  const g = criarGravador({ obterTela: () => novaBase(), obterSessao: () => s, obterQuem: () => "Ana", aoSalvar() {}, idb, atraso: 0 });
+  g.marcarAlterado();
+  await g.ocioso();
+  const p = await g.restaurarPendentes();
+  assert.deepEqual([...p.sessao.apagados], ["abc"]);
+});

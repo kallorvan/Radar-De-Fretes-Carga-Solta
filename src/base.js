@@ -210,6 +210,15 @@ export function restaurar(d, chave, quem, agora) {
   return { ok: true, cte };
 }
 
+/* Apaga de vez tudo o que está na lixeira (a base não muda). Fica um registro só, com a quantidade. */
+export function esvaziarLixeira(d, quem, agora) {
+  if (!d.lixeira.length) return { ok: false, chaves: [] };
+  const chaves = d.lixeira.map(l => l.cte.chave);
+  d.lixeira = [];
+  registrar(d, "esvaziar-lixeira", quem, agora, "", `${chaves.length} CT-e apagados de vez da lixeira`);
+  return { ok: true, chaves };
+}
+
 export function cadastrarCnpj(d, cnpj, nome, quem, agora) {
   const n = normalizarCnpj(cnpj);
   const limpo = String(nome ?? "").trim().replace(/\s+/g, " ").toUpperCase();
