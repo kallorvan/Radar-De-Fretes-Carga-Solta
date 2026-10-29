@@ -17,7 +17,8 @@ export class PastaFalsa {
     const pasta = this;
     return {
       kind: "file", name: nome,
-      async getFile() { const t = pasta.arquivos.get(nome); return { text: async () => t }; },
+      // Blob de verdade (Node 18+ e navegador): o painel lê .text() e abre PDF por URL.createObjectURL
+      async getFile() { const t = pasta.arquivos.get(nome); return new Blob([t], { type: /\.pdf$/i.test(nome) ? "application/pdf" : "text/plain" }); },
       async createWritable() {
         let buf = "";
         pasta.escrevendo++; pasta.maxSimultaneo = Math.max(pasta.maxSimultaneo, pasta.escrevendo);

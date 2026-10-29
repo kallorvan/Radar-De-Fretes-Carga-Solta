@@ -31,6 +31,12 @@ export function excluir(d, s, chave, quem, agora) {
   if (r.ok) { s.alterados.delete(chave); s.restaurados.delete(chave); s.excluidos.add(chave); tocar(s, chave); }
   return r;
 }
+/* Exclusão em massa: cada CT-e vai para a lixeira com o seu registro. */
+export function excluirVarios(d, s, chaves, quem, agora) {
+  let excluidos = 0;
+  for (const chave of chaves) if (excluir(d, s, chave, quem, agora).ok) excluidos++;
+  return { ok: excluidos > 0, excluidos };
+}
 export function restaurar(d, s, chave, quem, agora) {
   const r = comLog(d, s, () => B.restaurar(d, chave, quem, agora));
   if (r.ok) { s.excluidos.delete(chave); s.restaurados.add(chave); tocar(s, chave); }

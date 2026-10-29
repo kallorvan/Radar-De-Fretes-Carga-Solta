@@ -58,3 +58,17 @@ test("acao classificar e listas registram a sessão", () => {
   assert.equal(s.listas.get("unidade:FARDO").kg, 200);
   assert.equal(p.ok, true);
 });
+
+test("excluirVarios manda os CT-e para a lixeira e anota cada um na sessão", async () => {
+  const { chaveN } = await import("./ajuda.js");
+  const d = novaBase(), s = novaSessao();
+  for (const n of [1, 2, 3]) A.incluir(d, s, campos({ chave: chaveN(n), numero: n }), "Ana", AGORA);
+  const r = A.excluirVarios(d, s, [chaveN(1), chaveN(3), "nao-existe"], "Bia", AGORA);
+  assert.equal(r.ok, true);
+  assert.equal(r.excluidos, 2);
+  assert.deepEqual(d.ctes.map(c => c.numero), [2]);
+  assert.equal(d.lixeira.length, 2);
+  assert.ok(s.excluidos.has(chaveN(1)) && s.excluidos.has(chaveN(3)));
+  assert.equal(d.log.filter(l => l.acao === "excluir" && l.quem === "Bia").length, 2);
+  assert.equal(A.excluirVarios(d, s, [], "Bia", AGORA).ok, false);
+});

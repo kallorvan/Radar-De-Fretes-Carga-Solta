@@ -3,11 +3,14 @@
 import { validarCampos, nomeDoCnpj, grupoDoCnpj, unidadeDe, produtoDe, noCorte } from "../base.js";
 import { calcularCte, numeroDaChave, cnpjDaChave, codigoItinerario, normalizarCidade, normalizarCnpj, numeroBR, rotaDe, soDigitos } from "../calculos.js";
 import { filtrar } from "../agregacao.js";
+import { listarPdfs, indexarPdfs, pdfDoCte, PASTA_PDFS } from "../pdfs.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
 import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 
 const POR_PAGINA = 100;
-const estado = { editando: null, busca: "", limite: POR_PAGINA, rascunho: null };
+const estado = { editando: null, busca: "", limite: POR_PAGINA, rascunho: null, selecionados: new Set(),
+  // índice dos PDFs da pasta conectada; relido ao trocar de pasta ou pelo botão "Atualizar PDFs"
+  pdfs: { pasta: null, indice: null, total: 0, lendo: null } };
 
 /* Vindo de uma exceção ou do gráfico: a base já buscando o CT-e e, quando dá para lançar, a correção aberta. */
 export function abrirNaBase(cte, { editar = true } = {}) {
@@ -79,7 +82,8 @@ function formHtml(App, cte) {
     <datalist id="cidades">${cidades.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     ${cte && cte.cnpjTransportador !== cnpjDaChave(cte.chave) ? `<p class="aviso-campo" id="aviso-cnpj-chave">O CNPJ do transportador guardado neste CT-e (${fmtCnpj(cte.cnpjTransportador)}) não bate com a chave de acesso. Ao salvar a correção, vale o da chave: ${fmtCnpj(cnpjDaChave(cte.chave))}.</p>` : ""}
     <div id="form-msg"></div>
-    <div class="botoes">${cte ? `<button class="btn" type="button" data-cancelar>Cancelar correção</button>` : `<button class="btn" type="button" data-limpar>Limpar</button>`}
+    <div class="botoes">${cte ? `${botaoPdf(cte, pdfDe(App, cte, new Map([[cte.numero, App.dados.ctes.filter(x => x.numero === cte.numero).length]]))).replace("btn mini", "btn")}
+      <button class="btn" type="button" data-cancelar>Cancelar correção</button>` : `<button class="btn" type="button" data-limpar>Limpar</button>`}
       <button class="btn primario" type="submit">${cte ? "Salvar correção" : "Lançar CT-e"}</button></div>
   </form>`;
 }
@@ -161,7 +165,46 @@ async function enviar(form, App) {
 function baseHtml() {
   return `<div class="card"><div class="card-head"><div><h3>Base de CT-e</h3><p class="hint" id="base-cont"></p></div>
     <label class="campo busca"><span>Buscar por número ou chave</span><input id="busca" type="search" value="${esc(estado.busca)}" autocomplete="off"></label></div>
+    <div class="barra-base">
+      <span data-escreve><label class="caixa"><input type="checkbox" id="sel-todos"> Selecionar todos</label>
+        <button class="btn mini perigo" type="button" data-excluir-selecionados disabled>Excluir selecionados (0)</button></span>
+      <span class="pdfs"><span class="hint" id="pdfs-info"></span><button class="btn mini" type="button" data-atualizar-pdfs>Atualizar PDFs</button></span>
+    </div>
     <div id="tab-base"></div><div class="botoes" id="base-mais"></div></div>`;
+}
+
+/* Lê a pasta de PDFs da pasta conectada (uma vez por pasta, ou quando pedido) e redesenha a base. */
+async function carregarPdfs(raiz, App, { forcar = false } = {}) {
+  const pasta = App.gravador?.pasta, p = estado.pdfs;
+  if (!pasta) { Object.assign(p, { pasta: null, indice: null, total: 0 }); return; }
+  if (!forcar && p.pasta === pasta && (p.indice || p.lendo)) return p.lendo;
+  p.pasta = pasta;
+  p.lendo = listarPdfs(pasta).then(lista => { Object.assign(p, { indice: indexarPdfs(lista), total: lista.length, lendo: null }); },
+    () => { Object.assign(p, { indice: indexarPdfs([]), total: 0, lendo: null }); });
+  await p.lendo;
+  if (raiz.isConnected && $("#tab-base", raiz)) pintarBase(raiz, App);
+}
+
+function pdfDe(App, c, mesmoNumero) {
+  const p = estado.pdfs;
+  if (!App.gravador?.pasta) return { ok: false, dica: "Conecte a pasta (aba Dados) para abrir os PDFs." };
+  if (!p.indice) return { ok: false, dica: "Lendo a pasta de PDFs…" };
+  const r = pdfDoCte(p.indice, c, { nomeTransportador: nomeDoCnpj(App.dados, c.cnpjTransportador) || "", outrosComMesmoNumero: (mesmoNumero.get(c.numero) || 1) - 1 });
+  return r.ok ? { ok: true, item: r.item, dica: `Abrir ${r.item.caminho}` }
+    : { ok: false, dica: r.motivo === "varios" ? "Mais de um PDF com esse número na pasta; o nome do transportador não decide." : `PDF não encontrado na pasta ${PASTA_PDFS}.` };
+}
+const botaoPdf = (c, r) => `<button class="btn mini" type="button" data-pdf="${c.chave}" title="${esc(r.dica)}"${r.ok ? "" : " disabled"}>PDF</button>`;
+
+async function abrirPdf(App, chave) {
+  const c = App.dados.ctes.find(x => x.chave === chave);
+  const mesmo = new Map(); for (const x of App.dados.ctes) mesmo.set(x.numero, (mesmo.get(x.numero) || 0) + 1);
+  const r = c && pdfDe(App, c, mesmo);
+  if (!r?.ok) return aviso(r?.dica || "CT-e não encontrado.", true);
+  try {
+    const url = URL.createObjectURL(await r.item.handle.getFile());
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) { aviso(`Não foi possível abrir ${r.item.caminho}. Atualize os PDFs e tente de novo.`, true); }
 }
 
 function pintarBase(raiz, App) {
@@ -173,7 +216,12 @@ function pintarBase(raiz, App) {
   const linhas = todas.slice(0, estado.limite);
   const recorte = ["rota", "transportador", "cliente", "itinerario", "mesIni", "mesFim"].some(k => App.filtros[k]);
   $("#base-cont", raiz).textContent = `${fmtNum(todas.length)} de ${fmtNum(d.ctes.length)} CT-e${recorte ? " (com o recorte da Evolução)" : ""}. Mais recentes primeiro.`;
+  for (const k of estado.selecionados) if (!d.ctes.some(c => c.chave === k)) estado.selecionados.delete(k);   // excluídos por outra via
+  const mesmoNumero = new Map(); for (const c of d.ctes) mesmoNumero.set(c.numero, (mesmoNumero.get(c.numero) || 0) + 1);
+  const p = estado.pdfs;
+  $("#pdfs-info", raiz).textContent = !App.gravador?.pasta ? "PDFs: conecte a pasta na aba Dados." : !p.indice ? "Lendo a pasta de PDFs…" : `${fmtNum(p.total)} PDF${p.total === 1 ? "" : "s"} em ${PASTA_PDFS}.`;
   tabelaOrdenavel($("#tab-base", raiz), [
+    { titulo: "", valor: () => null, html: c => `<span data-escreve><input type="checkbox" data-sel="${c.chave}" aria-label="Selecionar CT-e ${esc(c.numero)}"${estado.selecionados.has(c.chave) ? " checked" : ""}></span>` },
     { titulo: "Emissão", valor: c => c.emissao, html: c => fmtData(c.emissao) + (noCorte(d, c) ? "" : '<span class="sub">antes do corte</span>') },
     { titulo: "Nº", valor: c => c.numero, html: c => `<span class="mono">${esc(c.numero)}</span>` },
     { titulo: "Transportador", valor: c => grupoDoCnpj(d, c.cnpjTransportador).nome, html: c => esc(nomeDoCnpj(d, c.cnpjTransportador) || fmtCnpj(c.cnpjTransportador)) },
@@ -185,11 +233,21 @@ function pintarBase(raiz, App) {
     { titulo: "R$/t", valor: c => c.precoTonelada, html: c => fmtMoeda(c.precoTonelada), num: true },
     { titulo: "R$/saca", valor: c => c.precoSaca, html: c => fmtMoeda(c.precoSaca), num: true },
     { titulo: "Lançado por", valor: c => c.criadoPor, html: c => `${esc(c.alteradoPor || c.criadoPor)}<span class="sub">${c.alteradoPor ? "corrigiu " : ""}${fmtQuando(c.alteradoEm || c.criadoEm).slice(0, 10)}</span>` },
-    { titulo: "", valor: () => null, html: c => `<span data-escreve><button class="btn mini" type="button" data-corrigir="${c.chave}">Corrigir</button>
+    { titulo: "", valor: () => null, html: c => `${botaoPdf(c, pdfDe(App, c, mesmoNumero))} <span data-escreve><button class="btn mini" type="button" data-corrigir="${c.chave}">Corrigir</button>
       <button class="btn mini perigo" type="button" data-excluir="${c.chave}">Excluir</button></span>` },
   ], linhas, { vazia: q ? "Nenhum CT-e com esse número ou chave." : "Nenhum CT-e no recorte." });
+  pintarSelecao(raiz, linhas);
   $("#base-mais", raiz).innerHTML = todas.length > linhas.length
     ? `<button class="btn" type="button" data-mais>Mostrar mais ${fmtNum(Math.min(POR_PAGINA, todas.length - linhas.length))}</button>` : "";
+}
+
+/* Contador do botão e o "Selecionar todos", que reflete os CT-e na tela. */
+function pintarSelecao(raiz, linhas = null) {
+  const n = estado.selecionados.size, b = $("[data-excluir-selecionados]", raiz);
+  b.textContent = `Excluir selecionados (${fmtNum(n)})`;
+  b.disabled = !n;
+  const caixas = $$("#tab-base input[data-sel]", raiz);
+  $("#sel-todos", raiz).checked = caixas.length > 0 && caixas.every(x => x.checked);
 }
 
 export function renderLancamentos(raiz, App) {
@@ -222,9 +280,32 @@ export function renderLancamentos(raiz, App) {
   }
 
   pintarBase(raiz, App);
+  carregarPdfs(raiz, App);
   $("#busca", raiz).addEventListener("input", ev => { estado.busca = ev.target.value; estado.limite = POR_PAGINA; pintarBase(raiz, App); });
   // ouvinte na seção recém-desenhada: o #conteudo é o mesmo em todo redesenho e acumularia ouvintes
+  raiz.firstElementChild.addEventListener("change", ev => {
+    const t = ev.target;
+    if (t.matches("input[data-sel]")) { if (t.checked) estado.selecionados.add(t.dataset.sel); else estado.selecionados.delete(t.dataset.sel); pintarSelecao(raiz); }
+    else if (t.id === "sel-todos") {
+      for (const x of $$("#tab-base input[data-sel]", raiz)) { x.checked = t.checked; if (t.checked) estado.selecionados.add(x.dataset.sel); else estado.selecionados.delete(x.dataset.sel); }
+      pintarSelecao(raiz);
+    }
+  });
   raiz.firstElementChild.addEventListener("click", async ev => {
+    if (ev.target.closest("[data-pdf]")) return abrirPdf(App, ev.target.closest("[data-pdf]").dataset.pdf);
+    if (ev.target.closest("[data-atualizar-pdfs]")) {
+      if (!App.gravador?.pasta) return aviso("Conecte a pasta na aba Dados para ler os PDFs.", true);
+      await carregarPdfs(raiz, App, { forcar: true });
+      return aviso(`${fmtNum(estado.pdfs.total)} PDF${estado.pdfs.total === 1 ? "" : "s"} encontrados em ${PASTA_PDFS}.`);
+    }
+    if (ev.target.closest("[data-excluir-selecionados]")) {
+      const chaves = [...estado.selecionados].filter(k => App.dados.ctes.some(c => c.chave === k));
+      if (!chaves.length) return;
+      if (!(await confirmar(`Excluir ${chaves.length} CT-e?`, "Eles vão para a lixeira e podem ser restaurados na aba Dados. Cada exclusão fica registrada com o seu nome.", "Excluir"))) return;
+      const r = await App.alterar((d, s, quem, agora) => App.acoes.excluirVarios(d, s, chaves, quem, agora));
+      if (r?.ok) { estado.selecionados.clear(); aviso(`${r.excluidos} CT-e enviados para a lixeira.`); App.render(); }
+      return;
+    }
     const b = ev.target.closest("[data-corrigir],[data-excluir],[data-mais]");
     if (!b) return;
     if (b.dataset.mais !== undefined) { estado.limite += POR_PAGINA; pintarBase(raiz, App); return; }

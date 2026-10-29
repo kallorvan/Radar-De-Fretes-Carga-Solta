@@ -26,6 +26,8 @@ O painel é um arquivo HTML só. Ele fica numa pasta compartilhada do SharePoint
 - Produtos e unidades novos são incluídos na aba **Cadastro**. O peso de uma unidade já usada não muda: para outro peso, crie outra unidade.
 - Ao comparar uma rota que leva mais de um produto, escolha o produto no recorte. O painel avisa quando a rota mistura produtos.
 - Na **Evolução**, cada ponto do gráfico é um CT-e, na data de emissão, com a cor do azul (mais barato) ao rosa (mais caro). A linha tracejada é a mediana do mês e pode ser desligada. Clique num ponto para abrir o CT-e.
+- **PDFs dos CT-e:** salve os PDFs na pasta **`PDFs Carga Solta`**, dentro da pasta do painel (pode ter subpastas), com o nome no formato `CTE 1234 - Oasis.pdf`. O botão **PDF** da base abre o arquivo do CT-e. Quando dois CT-e têm o mesmo número, o nome depois do traço é comparado com o transportador. Sem PDF, o botão fica apagado. Depois de salvar PDFs novos com o painel aberto, clique em **Atualizar PDFs**. Os PDFs só abrem para quem conectou a pasta (Chrome ou Edge pela pasta sincronizada).
+- **Exclusão em massa:** marque as caixas da base (ou **Selecionar todos**, que marca os CT-e da busca e do recorte na tela) e clique em **Excluir selecionados**. Tudo vai para a lixeira e pode ser restaurado na aba Dados.
 - Em **Exceções a tratar**, o botão **Abrir na base** leva direto à correção do CT-e (ou ao CNPJ no Cadastro, ou à classificação).
 
 - Cada pessoa abre o HTML pela pasta sincronizada no Chrome ou no Edge.

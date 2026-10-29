@@ -162,3 +162,8 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 #tab-cnpj tr.destaque td{background:color-mix(in srgb, var(--accent) 12%, transparent)}
 .aviso-campo{margin:12px 0 0;padding:10px 12px;border-left:3px solid var(--accent);background:color-mix(in srgb, var(--accent) 8%, transparent);font-size:13px}
 #form-cnpj.destaque{box-shadow:0 0 0 2px var(--accent)}
+/* base de Lançamentos: seleção em massa e PDFs */
+.barra-base{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;margin:4px 0 10px}
+.barra-base>span{display:inline-flex;gap:12px;align-items:center;flex-wrap:wrap}
+.barra-base .caixa{display:inline-flex;gap:6px;align-items:center;font-size:13px}
+#tab-base button[data-pdf][disabled]{opacity:.4;cursor:not-allowed}
