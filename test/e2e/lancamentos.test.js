@@ -257,3 +257,91 @@ test("cidade: sugere municípios ao digitar, escolhe com teclado e avisa nome fo
   assert.deepEqual(erros, []);
   await ctx.close();
 });
+
+test("campo de origem vazio sugere as origens mais usadas", async () => {
+  const { page, ctx } = await abrirLanc();
+  await page.waitForSelector("#form-cte");
+  await page.locator("#form-cte [name=origem]").focus();
+  await page.waitForSelector("#sug-origem button");
+  assert.deepEqual(await page.locator("#sug-origem button").allTextContents(), ["A", "C"], "A tem 6 CT-e, C tem 1");
+  await ctx.close();
+});
+
+test("cadastrar produto e unidade sem sair do lançamento", async () => {
+  const { page, ctx, erros } = await abrirLanc();
+  await page.waitForSelector("#form-cte");
+  await page.fill("#form-cte [name=valorFrete]", "10.000,00");
+  await page.fill("#form-cte [name=quantidade]", "50");
+  await page.selectOption("#form-cte [name=produto]", "__novo");
+  await page.waitForSelector("#dlg-produto[open]");
+  await page.fill("#dlg-produto [name=nome]", "Soja");
+  await page.click("#dlg-produto [value=ok]");
+  await page.waitForFunction(() => document.querySelector("#form-cte [name=produto]").value === "SOJA");
+  assert.ok(await page.evaluate(() => window.RADAR_APP.dados.produtos.some(p => p.id === "SOJA")));
+  await page.selectOption("#form-cte [name=unidade]", "__novo");
+  await page.waitForSelector("#dlg-unidade[open]");
+  await page.fill("#dlg-unidade [name=nome]", "Fardo 200 kg");
+  await page.fill("#dlg-unidade [name=kg]", "200");
+  await page.click("#dlg-unidade [value=ok]");
+  await page.waitForFunction(() => document.querySelector("#form-cte [name=unidade]").value === "FARDO200KG");
+  assert.equal(await page.locator("#form-cte [name=pesoKg]").inputValue(), "10.000");
+  assert.equal(await page.locator("#form-cte [name=valorFrete]").inputValue(), "10.000,00", "o que já foi digitado continua");
+  // cancelar volta para a escolha anterior
+  await page.selectOption("#form-cte [name=produto]", "__novo");
+  await page.waitForSelector("#dlg-produto[open]");
+  await page.click("#dlg-produto [value=cancelar]");
+  await page.waitForFunction(() => document.querySelector("#form-cte [name=produto]").value === "SOJA");
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});
+
+test("Enter num campo não lança; só o botão Lançar CT-e", async () => {
+  const { page, ctx } = await abrirLanc();
+  await page.waitForSelector("#form-cte");
+  await preencher(page);
+  await page.press("#form-cte [name=valorFrete]", "Enter");
+  await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => window.RADAR_APP.dados.ctes.length), 7);
+  await page.click("#form-cte button[type=submit]");
+  await page.waitForFunction(() => window.RADAR_APP.dados.ctes.length === 8);
+  await ctx.close();
+});
+
+test("chave já lançada avisa na hora, com botão para abrir o registro", async () => {
+  const d = baseExemplo();
+  const { page, ctx, erros } = await abrir(browser, { dados: d, hash: "#lancamentos", gravavel: true, quem: "Ana" });
+  await page.waitForSelector("#form-cte");
+  await page.fill("#form-cte [name=chave]", d.ctes[2].chave);
+  await page.waitForSelector("#aviso-chave [data-abrir]");
+  assert.match(await page.locator("#aviso-chave").textContent(), new RegExp(`Nº ${d.ctes[2].numero}[\\s\\S]*lançado por Ana`));
+  await page.click("#aviso-chave [data-abrir]");
+  await page.waitForSelector("#form-cte.editando");
+  assert.match(await page.locator("#form-cte .card-head").textContent(), new RegExp(`Corrigindo o CT-e Nº ${d.ctes[2].numero}`));
+  await page.fill("#form-cte [name=observacoes]", "x");   // corrigindo: a própria chave não avisa
+  assert.equal(await page.locator("#aviso-chave").count(), 0);
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});
+
+test("chave na lixeira avisa na hora e oferece Lançar de novo", async () => {
+  const d = baseExemplo();
+  const { excluir } = await import("../../src/base.js");
+  excluir(d, d.ctes[0].chave, "Bia", "2026-10-28T12:00:00.000Z");
+  const { page, ctx } = await abrir(browser, { dados: d, hash: "#lancamentos", gravavel: true, quem: "Ana" });
+  await page.waitForSelector("#form-cte");
+  await page.fill("#form-cte [name=chave]", d.lixeira[0].cte.chave);
+  await page.waitForSelector("#aviso-chave [data-relancar]");
+  assert.match(await page.locator("#aviso-chave").textContent(), /está na lixeira[\s\S]*excluído por Bia/);
+  await ctx.close();
+});
+
+test("Enter na janela de cadastro confirma", async () => {
+  const { page, ctx } = await abrirLanc();
+  await page.waitForSelector("#form-cte");
+  await page.selectOption("#form-cte [name=produto]", "__novo");
+  await page.waitForSelector("#dlg-produto[open]");
+  await page.fill("#dlg-produto [name=nome]", "Milho");
+  await page.press("#dlg-produto [name=nome]", "Enter");
+  await page.waitForFunction(() => document.querySelector("#form-cte [name=produto]").value === "MILHO");
+  await ctx.close();
+});

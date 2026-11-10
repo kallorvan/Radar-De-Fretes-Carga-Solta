@@ -549,6 +549,24 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok">Continuar</button></div>
   </form>
 </dialog>
+<dialog id="dlg-produto" class="dlg">
+  <form method="dialog">
+    <h3>Cadastrar produto</h3>
+    <p class="hint">O produto entra no Cadastro e já fica escolhido neste lançamento.</p>
+    <label class="campo"><span>Nome do produto</span><input name="nome" maxlength="60" autocomplete="off"></label>
+    <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok">Cadastrar</button></div>
+  </form>
+</dialog>
+<dialog id="dlg-unidade" class="dlg">
+  <form method="dialog">
+    <h3>Cadastrar unidade</h3>
+    <p class="hint">A unidade entra no Cadastro e já fica escolhida neste lançamento. Sem kg, o lançamento pede o peso do CT-e.</p>
+    <label class="campo"><span>Nome da unidade</span><input name="nome" maxlength="60" autocomplete="off"></label>
+    <label class="campo"><span>kg por unidade</span><input name="kg" inputmode="decimal" autocomplete="off" placeholder="vazio = peso do CT-e"></label>
+    <label class="campo check"><input type="checkbox" name="saca"><span>É saca</span></label>
+    <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok">Cadastrar</button></div>
+  </form>
+</dialog>
 <dialog id="dlg-confirma" class="dlg">
   <form method="dialog">
     <h3 id="dlg-confirma-titulo"></h3>
@@ -2550,16 +2568,29 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 
   // src/municipios.js
   var LISTA = new Set(MUNICIPIOS);
-  function sugerirCidades(texto, { extras = [], limite = 8 } = {}) {
+  function cidadesMaisUsadas(ctes, campo, limite = 8) {
+    return [...contarUsos(ctes, campo)].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limite).map(([c]) => c);
+  }
+  function contarUsos(ctes, campo) {
+    const m = /* @__PURE__ */ new Map();
+    for (const c of ctes) {
+      const n = normalizarCidade(c[campo]);
+      if (n) m.set(n, (m.get(n) || 0) + 1);
+    }
+    return m;
+  }
+  function sugerirCidades(texto, { extras = [], usos = /* @__PURE__ */ new Map(), limite = 8 } = {}) {
     const q = normalizarCidade(texto);
     if (q.length < 2) return [];
-    const todas = [.../* @__PURE__ */ new Set([...extras.map(normalizarCidade).filter(Boolean), ...MUNICIPIOS])];
-    const inicio = [], meio = [];
-    for (const c of todas) {
+    const casa = (c) => c.startsWith(q) || c.includes(" " + q);
+    const daBase = [...usos].filter(([c]) => casa(c)).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([c]) => c);
+    const ja = new Set(daBase), inicio = [], meio = [];
+    for (const c of /* @__PURE__ */ new Set([...extras.map(normalizarCidade).filter(Boolean), ...MUNICIPIOS])) {
+      if (ja.has(c)) continue;
       if (c.startsWith(q)) inicio.push(c);
       else if (c.includes(" " + q)) meio.push(c);
     }
-    return [...inicio.sort(), ...meio.sort()].slice(0, limite);
+    return [...daBase, ...inicio.sort(), ...meio.sort()].slice(0, limite);
   }
   function cidadeConhecida(nome, extras = []) {
     const n = normalizarCidade(nome);
@@ -2596,8 +2627,16 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   ];
   var TRAVADOS = /* @__PURE__ */ new Set(["cnpjTransportador", "itinerario"]);
   var NUM = /* @__PURE__ */ new Set(["valorAssegurado", "valorSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
-  var fmtCampo = (k, v) => v == null || v === "" ? "" : k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) : k === "pesoKg" ? fmtNum(v, Number.isInteger(v) ? 0 : 2) : NUM.has(k) ? String(v).replace(".", ",") : String(v);
-  var opcoesLista = (lista, atual) => `<option value="">Escolha</option>` + lista.map((x) => `<option value="${esc(x.id)}"${x.id === atual ? " selected" : ""}>${esc(x.nome)}</option>`).join("");
+  var fmtCampo = (k, v) => v == null || v === "" ? "" : typeof v === "string" && estado.rascunho?.bruto ? v : k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) : k === "pesoKg" ? fmtNum(v, Number.isInteger(v) ? 0 : 2) : NUM.has(k) ? String(v).replace(".", ",") : String(v);
+  var NOVO = "__novo";
+  var opcoesLista = (lista, atual, rotuloNovo) => `<option value="">Escolha</option>` + lista.map((x) => `<option value="${esc(x.id)}"${x.id === atual ? " selected" : ""}>${esc(x.nome)}</option>`).join("") + `<option value="${NOVO}">${esc(rotuloNovo)}</option>`;
+  function lerRascunho(form) {
+    const r = { ...Object.fromEntries(new FormData(form)), bruto: true };
+    if (estado.editando) r.chave = estado.editando;
+    r.pesoInformado = form.querySelector("[name=pesoInformado]").checked;
+    r.vpo = form.querySelector("[name=vpo]").checked;
+    return r;
+  }
   function lerForm(form) {
     const fd = new FormData(form), c = {};
     for (const [k] of CAMPOS) c[k] = fd.get(k) ?? "";
@@ -2612,18 +2651,19 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     return c;
   }
   function formHtml(App2, cte) {
-    const v = cte || estado.rascunho || {};
+    const r = estado.rascunho, v = r && (!cte || r.chave === cte.chave) ? { ...cte || {}, ...r } : cte || {};
     return `<form id="form-cte" class="card${cte ? " editando" : ""}" novalidate data-escreve>
     <div class="card-head"><div><h3>${cte ? "Corrigir lançamento" : "Lançar CT-e"}</h3>
       <p class="hint">${cte ? `Corrigindo o CT-e Nº ${esc(cte.numero)}, lançado por ${esc(cte.criadoPor)} em ${fmtQuando(cte.criadoEm)}. A chave não muda.` : "Campos com * são obrigatórios. Taxa do seguro, tarifa, peso, R$/t e R$/saca são calculados."}</p></div></div>
+    <div id="aviso-chave-box"></div>
     <div class="form-grid">
       ${CAMPOS.map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
         <input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
           value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? `role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sug-${k}"` : ""} autocomplete="off">
         ${k === "origem" || k === "destino" ? `<div class="sugestoes" id="sug-${k}" role="listbox" hidden></div><span class="nota aviso-cidade" data-cidade-aviso="${k}"></span>` : ""}
         ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("")}
-      <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App2.dados.produtos, v.produto)}</select><span class="erro" data-erro="produto"></span></label>
-      <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App2.dados.unidades, v.unidade)}</select><span class="erro" data-erro="unidade"></span></label>
+      <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App2.dados.produtos, v.produto, "+ Cadastrar produto…")}</select><span class="erro" data-erro="produto"></span></label>
+      <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App2.dados.unidades, v.unidade, "+ Cadastrar unidade…")}</select><span class="erro" data-erro="unidade"></span></label>
       <label class="campo"><span>Quantidade <i class="obrig">*</i></span><input name="quantidade" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off"><span class="erro" data-erro="quantidade"></span></label>
       <div class="campo"><span>Peso total (kg)</span><input name="pesoKg" type="text" inputmode="decimal" value="${esc(fmtCampo("pesoKg", v.pesoKg))}" autocomplete="off" aria-label="Peso total (kg)">
         <label class="nota caixa"><input type="checkbox" name="pesoInformado" ${v.pesoInformado ? "checked" : ""}> Usar o peso do CT-e</label><span class="erro" data-erro="pesoKg"></span></div>
@@ -2811,9 +2851,60 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const caixas = $$("#tab-base input[data-sel]", raiz);
     $("#sel-todos", raiz).checked = caixas.length > 0 && caixas.every((x) => x.checked);
   }
+  function conferirChave(form, App2) {
+    const box = form.querySelector("#aviso-chave-box"), chave = soDigitos(form.querySelector("[name=chave]").value);
+    if (estado.editando || chave.length !== 44) {
+      box.innerHTML = "";
+      return;
+    }
+    const naBase = App2.dados.ctes.find((c) => c.chave === chave), lixo = !naBase && App2.dados.lixeira.find((l) => l.cte.chave === chave);
+    box.innerHTML = naBase ? `<div class="exc existente" id="aviso-chave"><span class="pill">Já lançado</span><h4>Este CT-e já está na base</h4>
+      <p class="exc-act">Nº ${esc(naBase.numero)} · emissão ${fmtData(naBase.emissao)} · ${esc(grupoDoCnpj(App2.dados, naBase.cnpjTransportador).nome)} · lançado por ${esc(naBase.criadoPor)} em ${fmtQuando(naBase.criadoEm)}.</p>
+      <button class="btn primario" type="button" data-abrir="${esc(naBase.chave)}">Abrir o registro</button></div>` : lixo ? `<div class="exc existente" id="aviso-chave"><span class="pill">Na lixeira</span><h4>Este CT-e está na lixeira</h4>
+      <p class="exc-act">Nº ${esc(lixo.cte.numero)} · lançado por ${esc(lixo.cte.criadoPor)} em ${fmtQuando(lixo.cte.criadoEm)} e excluído por ${esc(lixo.excluidoPor)} em ${fmtQuando(lixo.excluidoEm)}.
+      Preencha o formulário e use Lançar de novo: o lançamento antigo sai da lixeira e entra este, com os dados digitados agora.</p>
+      <button class="btn" type="button" data-relancar>Lançar de novo</button></div>` : "";
+  }
+  async function cadastrarNaLista(form, App2, campo) {
+    const sel = form.querySelector(`[name=${campo}]`), anterior = sel.dataset.anterior || "";
+    const dlg = $(`#dlg-${campo}`), f = dlg.querySelector("form");
+    f.reset();
+    f.onkeydown = (e) => {
+      if (e.key === "Enter" && e.target.matches("input")) {
+        e.preventDefault();
+        dlg.close("ok");
+      }
+    };
+    const ok = await new Promise((res) => {
+      dlg.addEventListener("close", () => res(dlg.returnValue === "ok"), { once: true });
+      dlg.returnValue = "";
+      dlg.showModal();
+      f.querySelector("[name=nome]").focus();
+    });
+    const nome = String(f.elements.nome.value || "").trim();
+    if (!ok || !nome) {
+      sel.value = anterior;
+      if (ok) aviso(`Informe o nome do ${campo}.`, true);
+      return;
+    }
+    const rasc = lerRascunho(form);
+    rasc[campo] = anterior;
+    estado.rascunho = rasc;
+    const r = await App2.alterar((d, s, quem, agora) => {
+      const x = campo === "produto" ? App2.acoes.cadastrarProduto(d, s, { nome }, quem, agora, { novo: true }) : App2.acoes.cadastrarUnidade(d, s, { nome, kg: f.elements.kg.value, saca: f.elements.saca.checked }, quem, agora, { novo: true });
+      if (x.ok) rasc[campo] = x.id;
+      return x;
+    });
+    if (r?.ok) aviso(`${campo === "produto" ? "Produto" : "Unidade"} ${r.produto?.nome || r.unidade?.nome} cadastrad${campo === "produto" ? "o" : "a"}.`);
+    else {
+      if (r?.erro) aviso(r.erro, true);
+      sel.value = anterior;
+    }
+  }
   function ligarCidades(form, App2) {
     const extras = [...new Set(App2.dados.ctes.flatMap((c) => [c.origem, c.destino]))];
     for (const nome of ["origem", "destino"]) {
+      const usos = contarUsos(App2.dados.ctes, nome);
       const inp = form.querySelector(`[name=${nome}]`), caixa = form.querySelector(`#sug-${nome}`), aviso2 = form.querySelector(`[data-cidade-aviso=${nome}]`);
       let lista = [], ativo = -1;
       const fechar = () => {
@@ -2839,11 +2930,17 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
         avisar();
         inp.dispatchEvent(new Event("change", { bubbles: true }));
       };
-      inp.addEventListener("input", () => {
-        lista = sugerirCidades(inp.value, { extras });
+      const sugerir = () => {
+        lista = inp.value.trim() ? sugerirCidades(inp.value, { extras, usos }) : cidadesMaisUsadas(App2.dados.ctes, nome);
         ativo = -1;
-        aviso2.textContent = "";
         pintar();
+      };
+      inp.addEventListener("input", () => {
+        aviso2.textContent = "";
+        sugerir();
+      });
+      inp.addEventListener("focus", () => {
+        if (!inp.value.trim()) sugerir();
       });
       inp.addEventListener("keydown", (ev) => {
         if (!lista.length) return;
@@ -2880,14 +2977,31 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     if (form) {
       atualizarForm(form, App2);
       ligarCidades(form, App2);
+      conferirChave(form, App2);
+      for (const campo of ["produto", "unidade"]) {
+        const sel = form.querySelector(`[name=${campo}]`);
+        sel.dataset.anterior = sel.value;
+      }
       form.addEventListener("input", (ev) => {
         if (ev.target.name === "chave" && !estado.editando) {
           const n = numeroDaChave(ev.target.value), num = form.querySelector("[name=numero]");
           if (n && !num.value) num.value = n;
+          conferirChave(form, App2);
         }
         atualizarForm(form, App2);
       });
-      form.addEventListener("change", () => atualizarForm(form, App2));
+      form.addEventListener("change", (ev) => {
+        const t = ev.target;
+        if ((t.name === "produto" || t.name === "unidade") && t.value === NOVO) {
+          cadastrarNaLista(form, App2, t.name);
+          return;
+        }
+        if (t.name === "produto" || t.name === "unidade") t.dataset.anterior = t.value;
+        atualizarForm(form, App2);
+      });
+      form.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" && ev.target.matches("input, select")) ev.preventDefault();
+      });
       form.addEventListener("submit", (ev) => {
         ev.preventDefault();
         enviar(form, App2);
@@ -2906,6 +3020,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
         }
         if (ev.target.closest("[data-cancelar]")) {
           estado.editando = null;
+          estado.rascunho = null;
           App2.render();
         }
         if (ev.target.closest("[data-limpar]")) {

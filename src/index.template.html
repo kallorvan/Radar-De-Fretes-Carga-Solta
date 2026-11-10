@@ -42,6 +42,24 @@
     <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok">Continuar</button></div>
   </form>
 </dialog>
+<dialog id="dlg-produto" class="dlg">
+  <form method="dialog">
+    <h3>Cadastrar produto</h3>
+    <p class="hint">O produto entra no Cadastro e já fica escolhido neste lançamento.</p>
+    <label class="campo"><span>Nome do produto</span><input name="nome" maxlength="60" autocomplete="off"></label>
+    <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok">Cadastrar</button></div>
+  </form>
+</dialog>
+<dialog id="dlg-unidade" class="dlg">
+  <form method="dialog">
+    <h3>Cadastrar unidade</h3>
+    <p class="hint">A unidade entra no Cadastro e já fica escolhida neste lançamento. Sem kg, o lançamento pede o peso do CT-e.</p>
+    <label class="campo"><span>Nome da unidade</span><input name="nome" maxlength="60" autocomplete="off"></label>
+    <label class="campo"><span>kg por unidade</span><input name="kg" inputmode="decimal" autocomplete="off" placeholder="vazio = peso do CT-e"></label>
+    <label class="campo check"><input type="checkbox" name="saca"><span>É saca</span></label>
+    <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok">Cadastrar</button></div>
+  </form>
+</dialog>
 <dialog id="dlg-confirma" class="dlg">
   <form method="dialog">
     <h3 id="dlg-confirma-titulo"></h3>

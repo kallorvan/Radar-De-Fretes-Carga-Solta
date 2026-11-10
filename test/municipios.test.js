@@ -35,3 +35,17 @@ test("cidadeConhecida: município da lista sim, nome errado não", () => {
   assert.equal(cidadeConhecida("Joaquim da Barra"), false);
   assert.equal(cidadeConhecida(""), true, "vazio não avisa");
 });
+
+test("cidadesMaisUsadas: as mais lançadas primeiro, por campo", async () => {
+  const { cidadesMaisUsadas } = await import("../src/municipios.js");
+  const ctes = [["SANTOS", "A"], ["MACHADO", "B"], ["MACHADO", "B"], ["ARARAS", "A"], ["MACHADO", "A"]].map(([origem, destino]) => ({ origem, destino }));
+  assert.deepEqual(cidadesMaisUsadas(ctes, "origem"), ["MACHADO", "ARARAS", "SANTOS"], "empate em ordem alfabética");
+  assert.deepEqual(cidadesMaisUsadas(ctes, "destino", 1), ["A"]);
+});
+
+test("cidades da base vêm antes, pela quantidade de lançamentos", () => {
+  const usos = new Map([["SANTOS", 5], ["SAO JOAQUIM DA BARRA", 9]]);
+  const s = sugerirCidades("sa", { usos });
+  assert.deepEqual(s.slice(0, 2), ["SAO JOAQUIM DA BARRA", "SANTOS"]);
+  assert.equal(new Set(s).size, s.length, "sem repetição");
+});

@@ -4,7 +4,7 @@ import { validarCampos, nomeDoCnpj, grupoDoCnpj, unidadeDe, produtoDe, noCorte }
 import { calcularCte, numeroDaChave, cnpjDaChave, codigoItinerario, normalizarCidade, normalizarCnpj, numeroBR, rotaDe, soDigitos } from "../calculos.js";
 import { filtrar } from "../agregacao.js";
 import { listarPdfs, indexarPdfs, pdfDoCte, PASTA_PDFS } from "../pdfs.js";
-import { sugerirCidades, cidadeConhecida } from "../municipios.js";
+import { sugerirCidades, cidadeConhecida, cidadesMaisUsadas, contarUsos } from "../municipios.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
 import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 
@@ -34,12 +34,23 @@ const CAMPOS = [
 ];
 const TRAVADOS = new Set(["cnpjTransportador", "itinerario"]);   // saem da chave e da rota
 const NUM = new Set(["valorAssegurado", "valorSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
-const fmtCampo = (k, v) => v == null || v === "" ? "" :
+const fmtCampo = (k, v) => v == null || v === "" ? "" : typeof v === "string" && estado.rascunho?.bruto ? v :
   k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) :
   k === "pesoKg" ? fmtNum(v, Number.isInteger(v) ? 0 : 2) :
   NUM.has(k) ? String(v).replace(".", ",") : String(v);
-const opcoesLista = (lista, atual) => `<option value="">Escolha</option>` +
-  lista.map(x => `<option value="${esc(x.id)}"${x.id === atual ? " selected" : ""}>${esc(x.nome)}</option>`).join("");
+const NOVO = "__novo";
+const opcoesLista = (lista, atual, rotuloNovo) => `<option value="">Escolha</option>` +
+  lista.map(x => `<option value="${esc(x.id)}"${x.id === atual ? " selected" : ""}>${esc(x.nome)}</option>`).join("") +
+  `<option value="${NOVO}">${esc(rotuloNovo)}</option>`;
+
+/* O formulário como está, em texto (para redesenhar sem mudar o que foi digitado). */
+function lerRascunho(form) {
+  const r = { ...Object.fromEntries(new FormData(form)), bruto: true };
+  if (estado.editando) r.chave = estado.editando;
+  r.pesoInformado = form.querySelector("[name=pesoInformado]").checked;
+  r.vpo = form.querySelector("[name=vpo]").checked;
+  return r;
+}
 
 function lerForm(form) {
   const fd = new FormData(form), c = {};
@@ -57,19 +68,21 @@ function lerForm(form) {
 }
 
 function formHtml(App, cte) {
-  const v = cte || estado.rascunho || {};
+  // rascunho: o formulário como estava antes de um redesenho (cadastro de produto ou unidade no meio do lançamento)
+  const r = estado.rascunho, v = r && (!cte || r.chave === cte.chave) ? { ...(cte || {}), ...r } : (cte || {});
   return `<form id="form-cte" class="card${cte ? " editando" : ""}" novalidate data-escreve>
     <div class="card-head"><div><h3>${cte ? "Corrigir lançamento" : "Lançar CT-e"}</h3>
       <p class="hint">${cte ? `Corrigindo o CT-e Nº ${esc(cte.numero)}, lançado por ${esc(cte.criadoPor)} em ${fmtQuando(cte.criadoEm)}. A chave não muda.` :
         "Campos com * são obrigatórios. Taxa do seguro, tarifa, peso, R$/t e R$/saca são calculados."}</p></div></div>
+    <div id="aviso-chave-box"></div>
     <div class="form-grid">
       ${CAMPOS.map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
         <input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
           value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? `role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sug-${k}"` : ""} autocomplete="off">
         ${k === "origem" || k === "destino" ? `<div class="sugestoes" id="sug-${k}" role="listbox" hidden></div><span class="nota aviso-cidade" data-cidade-aviso="${k}"></span>` : ""}
         ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("")}
-      <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App.dados.produtos, v.produto)}</select><span class="erro" data-erro="produto"></span></label>
-      <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App.dados.unidades, v.unidade)}</select><span class="erro" data-erro="unidade"></span></label>
+      <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App.dados.produtos, v.produto, "+ Cadastrar produto…")}</select><span class="erro" data-erro="produto"></span></label>
+      <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App.dados.unidades, v.unidade, "+ Cadastrar unidade…")}</select><span class="erro" data-erro="unidade"></span></label>
       <label class="campo"><span>Quantidade <i class="obrig">*</i></span><input name="quantidade" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off"><span class="erro" data-erro="quantidade"></span></label>
       <div class="campo"><span>Peso total (kg)</span><input name="pesoKg" type="text" inputmode="decimal" value="${esc(fmtCampo("pesoKg", v.pesoKg))}" autocomplete="off" aria-label="Peso total (kg)">
         <label class="nota caixa"><input type="checkbox" name="pesoInformado" ${v.pesoInformado ? "checked" : ""}> Usar o peso do CT-e</label><span class="erro" data-erro="pesoKg"></span></div>
@@ -257,11 +270,53 @@ function pintarSelecao(raiz, linhas = null) {
   $("#sel-todos", raiz).checked = caixas.length > 0 && caixas.every(x => x.checked);
 }
 
+/* Chave com 44 dígitos já na base ou na lixeira: avisa antes de preencher o resto. */
+function conferirChave(form, App) {
+  const box = form.querySelector("#aviso-chave-box"), chave = soDigitos(form.querySelector("[name=chave]").value);
+  if (estado.editando || chave.length !== 44) { box.innerHTML = ""; return; }
+  const naBase = App.dados.ctes.find(c => c.chave === chave), lixo = !naBase && App.dados.lixeira.find(l => l.cte.chave === chave);
+  box.innerHTML = naBase ? `<div class="exc existente" id="aviso-chave"><span class="pill">Já lançado</span><h4>Este CT-e já está na base</h4>
+      <p class="exc-act">Nº ${esc(naBase.numero)} · emissão ${fmtData(naBase.emissao)} · ${esc(grupoDoCnpj(App.dados, naBase.cnpjTransportador).nome)} · lançado por ${esc(naBase.criadoPor)} em ${fmtQuando(naBase.criadoEm)}.</p>
+      <button class="btn primario" type="button" data-abrir="${esc(naBase.chave)}">Abrir o registro</button></div>`
+    : lixo ? `<div class="exc existente" id="aviso-chave"><span class="pill">Na lixeira</span><h4>Este CT-e está na lixeira</h4>
+      <p class="exc-act">Nº ${esc(lixo.cte.numero)} · lançado por ${esc(lixo.cte.criadoPor)} em ${fmtQuando(lixo.cte.criadoEm)} e excluído por ${esc(lixo.excluidoPor)} em ${fmtQuando(lixo.excluidoEm)}.
+      Preencha o formulário e use Lançar de novo: o lançamento antigo sai da lixeira e entra este, com os dados digitados agora.</p>
+      <button class="btn" type="button" data-relancar>Lançar de novo</button></div>` : "";
+}
+
+/* "+ Cadastrar produto…" / "+ Cadastrar unidade…": a janela cadastra e o lançamento continua com o que já foi digitado. */
+async function cadastrarNaLista(form, App, campo) {
+  const sel = form.querySelector(`[name=${campo}]`), anterior = sel.dataset.anterior || "";
+  const dlg = $(`#dlg-${campo}`), f = dlg.querySelector("form");
+  f.reset();
+  // Enter num campo da janela confirma (o primeiro botão do formulário é o Cancelar)
+  f.onkeydown = e => { if (e.key === "Enter" && e.target.matches("input")) { e.preventDefault(); dlg.close("ok"); } };
+  const ok = await new Promise(res => {
+    dlg.addEventListener("close", () => res(dlg.returnValue === "ok"), { once: true });
+    dlg.returnValue = ""; dlg.showModal(); f.querySelector("[name=nome]").focus();
+  });
+  const nome = String(f.elements.nome.value || "").trim();
+  if (!ok || !nome) { sel.value = anterior; if (ok) aviso(`Informe o nome do ${campo}.`, true); return; }
+  const rasc = lerRascunho(form);
+  rasc[campo] = anterior;
+  estado.rascunho = rasc;
+  const r = await App.alterar((d, s, quem, agora) => {
+    const x = campo === "produto"
+      ? App.acoes.cadastrarProduto(d, s, { nome }, quem, agora, { novo: true })
+      : App.acoes.cadastrarUnidade(d, s, { nome, kg: f.elements.kg.value, saca: f.elements.saca.checked }, quem, agora, { novo: true });
+    if (x.ok) rasc[campo] = x.id;   // o redesenho que vem depois já mostra o novo item escolhido
+    return x;
+  });
+  if (r?.ok) aviso(`${campo === "produto" ? "Produto" : "Unidade"} ${r.produto?.nome || r.unidade?.nome} cadastrad${campo === "produto" ? "o" : "a"}.`);
+  else { if (r?.erro) aviso(r.erro, true); sel.value = anterior; }
+}
+
 /* Sugestões de município sob os campos de origem e destino: setas escolhem, Enter confirma, Esc fecha.
    Ao sair do campo, um nome fora da lista de municípios (e da base) ganha um aviso, sem impedir o lançamento. */
 function ligarCidades(form, App) {
   const extras = [...new Set(App.dados.ctes.flatMap(c => [c.origem, c.destino]))];
   for (const nome of ["origem", "destino"]) {
+    const usos = contarUsos(App.dados.ctes, nome);
     const inp = form.querySelector(`[name=${nome}]`), caixa = form.querySelector(`#sug-${nome}`), aviso = form.querySelector(`[data-cidade-aviso=${nome}]`);
     let lista = [], ativo = -1;
     const fechar = () => { lista = []; ativo = -1; caixa.hidden = true; caixa.innerHTML = ""; inp.setAttribute("aria-expanded", "false"); };
@@ -273,7 +328,10 @@ function ligarCidades(form, App) {
     };
     const avisar = () => { aviso.textContent = cidadeConhecida(inp.value, extras) ? "" : "Cidade não encontrada na lista de municípios. Confira o nome."; };
     const escolher = c => { inp.value = c; fechar(); avisar(); inp.dispatchEvent(new Event("change", { bubbles: true })); };
-    inp.addEventListener("input", () => { lista = sugerirCidades(inp.value, { extras }); ativo = -1; aviso.textContent = ""; pintar(); });
+    // campo vazio: as cidades mais usadas neste campo; digitando: as da base primeiro, depois os municípios
+    const sugerir = () => { lista = inp.value.trim() ? sugerirCidades(inp.value, { extras, usos }) : cidadesMaisUsadas(App.dados.ctes, nome); ativo = -1; pintar(); };
+    inp.addEventListener("input", () => { aviso.textContent = ""; sugerir(); });
+    inp.addEventListener("focus", () => { if (!inp.value.trim()) sugerir(); });
     inp.addEventListener("keydown", ev => {
       if (!lista.length) return;
       if (ev.key === "ArrowDown" || ev.key === "ArrowUp") { ev.preventDefault(); ativo = (ativo + (ev.key === "ArrowDown" ? 1 : -1) + lista.length) % lista.length; pintar(); }
@@ -297,20 +355,32 @@ export function renderLancamentos(raiz, App) {
   if (form) {
     atualizarForm(form, App);
     ligarCidades(form, App);
+    conferirChave(form, App);
+    for (const campo of ["produto", "unidade"]) { const sel = form.querySelector(`[name=${campo}]`); sel.dataset.anterior = sel.value; }
     form.addEventListener("input", ev => {
       if (ev.target.name === "chave" && !estado.editando) {
         const n = numeroDaChave(ev.target.value), num = form.querySelector("[name=numero]");
         if (n && !num.value) num.value = n;
+        conferirChave(form, App);
       }
       atualizarForm(form, App);
     });
-    form.addEventListener("change", () => atualizarForm(form, App));
+    form.addEventListener("change", ev => {
+      const t = ev.target;
+      if ((t.name === "produto" || t.name === "unidade") && t.value === NOVO) { cadastrarNaLista(form, App, t.name); return; }
+      if (t.name === "produto" || t.name === "unidade") t.dataset.anterior = t.value;
+      atualizarForm(form, App);
+    });
+    // lançar só pelo botão: Enter num campo não envia o formulário
+    form.addEventListener("keydown", ev => {
+      if (ev.key === "Enter" && ev.target.matches("input, select")) ev.preventDefault();
+    });
     form.addEventListener("submit", ev => { ev.preventDefault(); enviar(form, App); });
     form.addEventListener("click", ev => {
       if (ev.target.closest("[data-relancar]")) { enviar(form, App, { relancar: true }); return; }
       const abrirEx = ev.target.closest("[data-abrir]");
       if (abrirEx) { estado.editando = abrirEx.dataset.abrir; estado.rascunho = null; App.render(); scrollTo(0, 0); }
-      if (ev.target.closest("[data-cancelar]")) { estado.editando = null; App.render(); }
+      if (ev.target.closest("[data-cancelar]")) { estado.editando = null; estado.rascunho = null; App.render(); }
       if (ev.target.closest("[data-limpar]")) { estado.rascunho = null; App.render(); }
     });
     if (cte) form.scrollIntoView({ block: "start" });
