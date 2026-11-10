@@ -2543,6 +2543,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 
   // src/pdfs.js
   var PASTA_PDFS = "PDFs Carga Solta";
+  var PASTA_REGISTRADOS = "Registrados";
   function lerNomePdf(nome) {
     const s = String(nome ?? "");
     if (!/\.pdf$/i.test(s)) return null;
@@ -2578,12 +2579,6 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     return { ok: false, motivo: cands.length > 1 || todos.length > 1 ? "varios" : "nenhum" };
   }
   async function listarPdfs(raiz) {
-    let dir;
-    try {
-      dir = await raiz.getDirectoryHandle(PASTA_PDFS);
-    } catch (e) {
-      return [];
-    }
     const out = [];
     const ler = async (d, prefixo) => {
       for await (const [nome, h] of d.entries()) {
@@ -2591,10 +2586,17 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
         else if (/\.pdf$/i.test(nome)) out.push({ nome, caminho: prefixo + nome, handle: h, pai: d });
       }
     };
-    await ler(dir, "");
+    for (const nome of [PASTA_PDFS, PASTA_REGISTRADOS]) {
+      let dir;
+      try {
+        dir = await raiz.getDirectoryHandle(nome);
+      } catch (e) {
+        continue;
+      }
+      await ler(dir, nome + "/");
+    }
     return out;
   }
-  var PASTA_REGISTRADOS = "Registrados";
   var MESES2 = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   function pastaDoMes(mes) {
     const m = /^(\d{4})-(\d{2})/.exec(String(mes ?? ""));
@@ -2642,8 +2644,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     return plano;
   }
   async function executarOrganizacao(raiz, plano) {
-    const pdfs = await raiz.getDirectoryHandle(PASTA_PDFS);
-    const reg = await pdfs.getDirectoryHandle(PASTA_REGISTRADOS, { create: true });
+    const reg = await raiz.getDirectoryHandle(PASTA_REGISTRADOS, { create: true });
     const out = { movidos: 0, falhas: [] };
     for (const { item, pasta } of plano.mover) {
       try {
@@ -2966,7 +2967,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       <span data-escreve><label class="caixa"><input type="checkbox" id="sel-todos"> Selecionar todos</label>
         <button class="btn mini perigo" type="button" data-excluir-selecionados disabled>Excluir selecionados (0)</button></span>
       <span class="pdfs"><span class="hint" id="pdfs-info"></span><button class="btn mini" type="button" data-atualizar-pdfs>Atualizar PDFs</button>
-        <span data-escreve><button class="btn mini" type="button" data-organizar-pdfs title="Move cada PDF para ${PASTA_PDFS}/${PASTA_REGISTRADOS}/, numa pasta pelo mês de emissão (ex.: 1 - Janeiro_2026)">Organizar PDFs por mês</button></span></span>
+        <span data-escreve><button class="btn mini" type="button" data-organizar-pdfs title="Move cada PDF para a pasta ${PASTA_REGISTRADOS}, na pasta do painel, numa subpasta pelo mês de emissão (ex.: 1 - Janeiro_2026)">Organizar PDFs por mês</button></span></span>
     </div>
     <div id="tab-base"></div><div class="botoes" id="base-mais"></div></div>`;
   }
@@ -2994,7 +2995,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     if (!App2.gravador?.pasta) return { ok: false, dica: "Conecte a pasta (aba Dados) para abrir os PDFs." };
     if (!p.indice) return { ok: false, dica: "Lendo a pasta de PDFs…" };
     const r = pdfDoCte(p.indice, c, { nomeTransportador: nomeDoCnpj(App2.dados, c.cnpjTransportador) || "", outrosComMesmoNumero: (mesmoNumero.get(c.numero) || 1) - 1 });
-    return r.ok ? { ok: true, item: r.item, dica: `Abrir ${r.item.caminho}` } : { ok: false, dica: r.motivo === "varios" ? "Mais de um PDF com esse número na pasta; o nome do transportador não decide." : `PDF não encontrado na pasta ${PASTA_PDFS}.` };
+    return r.ok ? { ok: true, item: r.item, dica: `Abrir ${r.item.caminho}` } : { ok: false, dica: r.motivo === "varios" ? "Mais de um PDF com esse número na pasta; o nome do transportador não decide." : `PDF não encontrado em ${PASTA_PDFS} e ${PASTA_REGISTRADOS}.` };
   }
   async function organizarPdfs(raiz, App2) {
     const pasta = App2.gravador?.pasta;
@@ -3009,7 +3010,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const pastas = [...porPasta].sort((a, b) => a[0].split("_")[1].localeCompare(b[0].split("_")[1]) || parseInt(a[0]) - parseInt(b[0])).map(([n, q]) => `${n}: ${q}`).join("; ");
     if (!await confirmar(
       `Mover ${plano.mover.length} PDF${plano.mover.length === 1 ? "" : "s"} para ${PASTA_REGISTRADOS}?`,
-      `Vão para ${PASTA_PDFS}/${PASTA_REGISTRADOS}, pelo mês de emissão do CT-e: ${pastas}.${sobra} Nenhum arquivo é apagado ou sobrescrito.`,
+      `Vão para a pasta ${PASTA_REGISTRADOS}, na pasta do painel, pelo mês de emissão do CT-e: ${pastas}.${sobra} Nenhum arquivo é apagado ou sobrescrito.`,
       "Mover"
     )) return;
     try {
@@ -3049,7 +3050,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const mesmoNumero = /* @__PURE__ */ new Map();
     for (const c of d.ctes) mesmoNumero.set(c.numero, (mesmoNumero.get(c.numero) || 0) + 1);
     const p = estado.pdfs;
-    $("#pdfs-info", raiz).textContent = !App2.gravador?.pasta ? "PDFs: conecte a pasta na aba Dados." : !p.indice ? "Lendo a pasta de PDFs…" : `${fmtNum(p.total)} PDF${p.total === 1 ? "" : "s"} em ${PASTA_PDFS}.`;
+    $("#pdfs-info", raiz).textContent = !App2.gravador?.pasta ? "PDFs: conecte a pasta na aba Dados." : !p.indice ? "Lendo a pasta de PDFs…" : `${fmtNum(p.total)} PDF${p.total === 1 ? "" : "s"} em ${PASTA_PDFS} e ${PASTA_REGISTRADOS}.`;
     tabelaOrdenavel($("#tab-base", raiz), [
       { titulo: "", valor: () => null, html: (c) => `<span data-escreve><input type="checkbox" data-sel="${c.chave}" aria-label="Selecionar CT-e ${esc(c.numero)}"${estado.selecionados.has(c.chave) ? " checked" : ""}></span>` },
       { titulo: "Emissão", valor: (c) => c.emissao, html: (c) => fmtData(c.emissao) + (noCorte(d, c) ? "" : '<span class="sub">antes do corte</span>') },
@@ -3326,7 +3327,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       if (ev.target.closest("[data-atualizar-pdfs]")) {
         if (!App2.gravador?.pasta) return aviso("Conecte a pasta na aba Dados para ler os PDFs.", true);
         await carregarPdfs(raiz, App2, { forcar: true });
-        return aviso(`${fmtNum(estado.pdfs.total)} PDF${estado.pdfs.total === 1 ? "" : "s"} encontrados em ${PASTA_PDFS}.`);
+        return aviso(`${fmtNum(estado.pdfs.total)} PDF${estado.pdfs.total === 1 ? "" : "s"} encontrados em ${PASTA_PDFS} e ${PASTA_REGISTRADOS}.`);
       }
       if (ev.target.closest("[data-organizar-pdfs]")) return organizarPdfs(raiz, App2);
       if (ev.target.closest("[data-excluir-selecionados]")) {

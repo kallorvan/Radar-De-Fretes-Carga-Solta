@@ -1,10 +1,12 @@
-// PDFs dos CT-e lançados, na pasta "PDFs Carga Solta" dentro da pasta do painel (subpastas valem).
+// PDFs dos CT-e lançados, na pasta "PDFs Carga Solta" (onde se salva) e na "Registrados" (organizados por mês),
+// as duas dentro da pasta do painel (subpastas valem).
 // O nome do arquivo segue "CTE 1234 - Oasis.pdf": o número depois de CTE liga ao CT-e e o resto do nome,
 // comparado com o transportador, desempata quando há mais de um. Uma chave de 44 dígitos no nome vale sobre tudo.
 
 import { normalizarCidade } from "./calculos.js";
 
 export const PASTA_PDFS = "PDFs Carga Solta";
+export const PASTA_REGISTRADOS = "Registrados";
 
 /* "CTE 1234 - Oasis.pdf" → { numero: 1234, chave: null, resto: "OASIS" }; nome que não é de CT-e → null. */
 export function lerNomePdf(nome) {
@@ -46,10 +48,9 @@ export function pdfDoCte(indice, cte, { nomeTransportador = "", outrosComMesmoNu
   return { ok: false, motivo: cands.length > 1 || todos.length > 1 ? "varios" : "nenhum" };
 }
 
-/* Todos os .pdf da pasta de PDFs (e subpastas); sem a pasta, lista vazia. */
+/* Todos os .pdf das pastas PDFs Carga Solta e Registrados (e subpastas); o caminho parte da pasta do painel.
+   Pasta que não existe é pulada. */
 export async function listarPdfs(raiz) {
-  let dir;
-  try { dir = await raiz.getDirectoryHandle(PASTA_PDFS); } catch (e) { return []; }
   const out = [];
   const ler = async (d, prefixo) => {
     for await (const [nome, h] of d.entries()) {
@@ -57,13 +58,15 @@ export async function listarPdfs(raiz) {
       else if (/\.pdf$/i.test(nome)) out.push({ nome, caminho: prefixo + nome, handle: h, pai: d });
     }
   };
-  await ler(dir, "");
+  for (const nome of [PASTA_PDFS, PASTA_REGISTRADOS]) {
+    let dir;
+    try { dir = await raiz.getDirectoryHandle(nome); } catch (e) { continue; }
+    await ler(dir, nome + "/");
+  }
   return out;
 }
 
-/* ---- Organizar por mês: PDFs Carga Solta/Registrados/1 - Janeiro_2026/ ---- */
-
-export const PASTA_REGISTRADOS = "Registrados";
+/* ---- Organizar por mês: Registrados/1 - Janeiro_2026/, na pasta do painel ---- */
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
 /* "2026-01" → "1 - Janeiro_2026" (o número do mês na frente põe as pastas em ordem). */
@@ -115,8 +118,7 @@ export function planejarOrganizacao(lista, ctes, nomeTransportador = () => "") {
    apaga o original. Arquivo com o mesmo nome já na pasta do mês não é sobrescrito.
    → { movidos, falhas: [{ item, motivo }] } */
 export async function executarOrganizacao(raiz, plano) {
-  const pdfs = await raiz.getDirectoryHandle(PASTA_PDFS);
-  const reg = await pdfs.getDirectoryHandle(PASTA_REGISTRADOS, { create: true });
+  const reg = await raiz.getDirectoryHandle(PASTA_REGISTRADOS, { create: true });
   const out = { movidos: 0, falhas: [] };
   for (const { item, pasta } of plano.mover) {
     try {

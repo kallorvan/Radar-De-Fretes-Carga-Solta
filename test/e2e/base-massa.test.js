@@ -103,7 +103,7 @@ test("Organizar PDFs por mês: confirma e move para Registrados/1 - Janeiro_2026
   const pasta = `${Number(mes)} - ${meses[Number(mes) - 1]}_${ano}`;
   assert.match(await page.locator("#dlg-confirma-texto").textContent(), new RegExp(pasta + ": 1"));
   await page.click("#dlg-confirma-ok");
-  await page.waitForFunction(p => window.__pasta.pastas.get("PDFs Carga Solta").pastas.get("Registrados")?.pastas.get(p)?.arquivos.size === 1, pasta);
+  await page.waitForFunction(p => window.__pasta.pastas.get("Registrados")?.pastas.get(p)?.arquivos.size === 1, pasta);
   assert.equal(await page.evaluate(() => window.__pasta.pastas.get("PDFs Carga Solta").arquivos.has("CTE 999 - Ninguem.pdf")), true);
   // o botão PDF continua achando o arquivo na pasta nova
   await page.waitForSelector(`#tab-base [data-pdf="${c0.chave}"]:not([disabled])`);

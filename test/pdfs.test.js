@@ -42,14 +42,15 @@ test("dois CT-e com o mesmo número: o PDF de outro transportador não vale", ()
   assert.equal(pdfDoCte(ind, { numero: 1234, chave: "b" }, { nomeTransportador: "JF PEREIRA" }).ok, true, "número único: o nome não precisa bater");
 });
 
-test("listarPdfs lê a pasta e as subpastas", async () => {
+test("listarPdfs lê PDFs Carga Solta e Registrados, com as subpastas", async () => {
   const raiz = new PastaFalsa("Radar");
   const pdfs = await raiz.getDirectoryHandle(PASTA_PDFS, { create: true });
   pdfs.arquivos.set("CTE 1 - A.pdf", "%PDF");
   pdfs.arquivos.set("leia.txt", "x");
   (await pdfs.getDirectoryHandle("Agosto", { create: true })).arquivos.set("CTE 2 - B.pdf", "%PDF");
+  (await (await raiz.getDirectoryHandle(PASTA_REGISTRADOS, { create: true })).getDirectoryHandle("1 - Janeiro_2026", { create: true })).arquivos.set("CTE 3 - C.pdf", "%PDF");
   const lista = await listarPdfs(raiz);
-  assert.deepEqual(lista.map(p => p.caminho).sort(), ["Agosto/CTE 2 - B.pdf", "CTE 1 - A.pdf"]);
+  assert.deepEqual(lista.map(p => p.caminho).sort(), ["PDFs Carga Solta/Agosto/CTE 2 - B.pdf", "PDFs Carga Solta/CTE 1 - A.pdf", "Registrados/1 - Janeiro_2026/CTE 3 - C.pdf"]);
   assert.ok(lista.every(p => p.handle?.getFile));
   assert.deepEqual(await listarPdfs(new PastaFalsa("sem pdfs")), [], "sem a pasta: lista vazia");
 });
@@ -76,7 +77,7 @@ async function montar() {
   (await pdfs.getDirectoryHandle("Antigos", { create: true })).arquivos.set("CTE 2 - Oasis.pdf", "%PDF dois");
   pdfs.arquivos.set("CTE 9 - Ninguem.pdf", "%PDF nove");
   pdfs.arquivos.set(`${CHAVE}.pdf`, "%PDF chave");
-  const reg = await pdfs.getDirectoryHandle(PASTA_REGISTRADOS, { create: true });
+  const reg = await raiz.getDirectoryHandle(PASTA_REGISTRADOS, { create: true });
   (await reg.getDirectoryHandle("2 - Fevereiro_2026", { create: true })).arquivos.set("CTE 3 - Oasis.pdf", "%PDF tres");
   const ctes = [
     { numero: 1, chave: "a", emissao: "2026-01-20" },
@@ -90,9 +91,9 @@ test("planejarOrganizacao: mês da emissão do CT-e, ou da chave; sem mês fica"
   const { raiz, ctes } = await montar();
   const plano = planejarOrganizacao(await listarPdfs(raiz), ctes);
   assert.deepEqual(new Map(plano.mover.map(m => [m.item.caminho, m.pasta])), new Map([
-    ["Antigos/CTE 2 - Oasis.pdf", "12 - Dezembro_2025"],
-    ["CTE 1 - Oasis.pdf", "1 - Janeiro_2026"],
-    [`${CHAVE}.pdf`, "8 - Agosto_2026"],
+    ["PDFs Carga Solta/Antigos/CTE 2 - Oasis.pdf", "12 - Dezembro_2025"],
+    ["PDFs Carga Solta/CTE 1 - Oasis.pdf", "1 - Janeiro_2026"],
+    [`PDFs Carga Solta/${CHAVE}.pdf`, "8 - Agosto_2026"],
   ]));
   assert.equal(plano.noLugar, 1);
   assert.deepEqual(plano.semMes.map(i => i.nome), ["CTE 9 - Ninguem.pdf"]);
@@ -105,12 +106,12 @@ test("planejarOrganizacao: não põe dois arquivos de mesmo nome na mesma pasta"
   assert.ok(plano.mover.length <= 1);
 });
 
-test("executarOrganizacao copia para Registrados/mês e tira da origem", async () => {
+test("executarOrganizacao copia para Registrados/mês, na pasta do painel, e tira da origem", async () => {
   const { raiz, pdfs, ctes } = await montar();
   const plano = planejarOrganizacao(await listarPdfs(raiz), ctes);
   const r = await executarOrganizacao(raiz, plano);
   assert.deepEqual(r, { movidos: 3, falhas: [] });
-  const reg = pdfs.pastas.get(PASTA_REGISTRADOS);
+  const reg = raiz.pastas.get(PASTA_REGISTRADOS);
   assert.deepEqual([...reg.pastas.keys()].sort(), ["1 - Janeiro_2026", "12 - Dezembro_2025", "2 - Fevereiro_2026", "8 - Agosto_2026"]);
   assert.equal(reg.pastas.get("1 - Janeiro_2026").arquivos.get("CTE 1 - Oasis.pdf"), "%PDF um");
   assert.equal(reg.pastas.get("12 - Dezembro_2025").arquivos.get("CTE 2 - Oasis.pdf"), "%PDF dois");
@@ -126,11 +127,23 @@ test("executarOrganizacao copia para Registrados/mês e tira da origem", async (
 test("executarOrganizacao não sobrescreve arquivo que já está na pasta do mês", async () => {
   const { raiz, pdfs, ctes } = await montar();
   const plano = planejarOrganizacao(await listarPdfs(raiz), ctes);
-  const reg = pdfs.pastas.get(PASTA_REGISTRADOS);
+  const reg = raiz.pastas.get(PASTA_REGISTRADOS);
   (await reg.getDirectoryHandle("1 - Janeiro_2026", { create: true })).arquivos.set("CTE 1 - Oasis.pdf", "outro");
   const r = await executarOrganizacao(raiz, plano);
   assert.equal(r.movidos, 2);
   assert.equal(r.falhas[0].item.nome, "CTE 1 - Oasis.pdf");
   assert.equal(reg.pastas.get("1 - Janeiro_2026").arquivos.get("CTE 1 - Oasis.pdf"), "outro");
   assert.equal(pdfs.arquivos.get("CTE 1 - Oasis.pdf"), "%PDF um", "o original continua");
+});
+
+test("Registrados dentro de PDFs Carga Solta (versão anterior) vai para a da pasta do painel", async () => {
+  const raiz = new PastaFalsa("Radar");
+  const pdfs = await raiz.getDirectoryHandle(PASTA_PDFS, { create: true });
+  const velha = await (await pdfs.getDirectoryHandle(PASTA_REGISTRADOS, { create: true })).getDirectoryHandle("3 - Março_2026", { create: true });
+  velha.arquivos.set("CTE 4 - Oasis.pdf", "%PDF quatro");
+  const ctes = [{ numero: 4, chave: "d", emissao: "2026-03-15" }];
+  const r = await executarOrganizacao(raiz, planejarOrganizacao(await listarPdfs(raiz), ctes));
+  assert.equal(r.movidos, 1);
+  assert.equal(raiz.pastas.get(PASTA_REGISTRADOS).pastas.get("3 - Março_2026").arquivos.get("CTE 4 - Oasis.pdf"), "%PDF quatro");
+  assert.equal(velha.arquivos.size, 0);
 });
