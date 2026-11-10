@@ -60,6 +60,21 @@
     <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok">Cadastrar</button></div>
   </form>
 </dialog>
+<dialog id="dlg-calc" class="dlg dlg-calc">
+  <form method="dialog">
+    <h3 id="dlg-calc-titulo">Calculadora</h3>
+    <label class="campo"><span>Conta</span><input name="conta" autocomplete="off" inputmode="decimal" placeholder="ex.: 150 + 80,50 + 2 × 35"></label>
+    <p class="calc-resultado">= <b id="calc-resultado">—</b></p>
+    <div class="teclado">
+      <button type="button" data-tecla="7">7</button><button type="button" data-tecla="8">8</button><button type="button" data-tecla="9">9</button><button type="button" data-tecla="÷">÷</button>
+      <button type="button" data-tecla="4">4</button><button type="button" data-tecla="5">5</button><button type="button" data-tecla="6">6</button><button type="button" data-tecla="×">×</button>
+      <button type="button" data-tecla="1">1</button><button type="button" data-tecla="2">2</button><button type="button" data-tecla="3">3</button><button type="button" data-tecla="-">−</button>
+      <button type="button" data-tecla="0">0</button><button type="button" data-tecla=",">,</button><button type="button" data-tecla="(">(</button><button type="button" data-tecla="+">+</button>
+      <button type="button" data-tecla=")">)</button><button type="button" data-tecla="apagar">Apagar</button><button type="button" data-tecla="limpar">Limpar</button>
+    </div>
+    <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok" id="calc-usar">Usar este valor</button></div>
+  </form>
+</dialog>
 <dialog id="dlg-confirma" class="dlg">
   <form method="dialog">
     <h3 id="dlg-confirma-titulo"></h3>

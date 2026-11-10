@@ -512,6 +512,19 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 .sugestoes button{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 10px;font-size:13px;cursor:pointer;color:var(--ink,inherit)}
 .sugestoes button:hover,.sugestoes button[aria-selected="true"]{background:color-mix(in srgb, var(--accent) 12%, transparent)}
 .aviso-cidade:not(:empty){color:var(--accent-d)}
+/* calculadora dentro dos campos Adicionais e Quantidade */
+#form-cte input.com-calc{padding-right:58px}
+.com-calc-wrap{position:relative;display:block}
+.com-calc-wrap input{width:100%}
+.btn-calc{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--paper,#f3f5f9);border:1px solid var(--line);color:var(--navy);padding:4px 7px;cursor:pointer}
+.btn-calc:hover{border-color:var(--accent);color:var(--accent-d)}
+.dlg-calc .calc-resultado{font-size:20px;margin:6px 0 12px;color:var(--steel)}
+.dlg-calc .calc-resultado b{color:var(--navy);font-variant-numeric:tabular-nums}
+.teclado{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
+.teclado button{font:inherit;font-size:15px;padding:9px 0;background:var(--paper,#f3f5f9);border:1px solid var(--line);color:var(--ink);cursor:pointer}
+.teclado button:hover{border-color:var(--accent)}
+.teclado [data-tecla=apagar],.teclado [data-tecla=limpar]{font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.teclado [data-tecla=limpar]{grid-column:span 2}
 
 </style>
 </head>
@@ -565,6 +578,21 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     <label class="campo"><span>kg por unidade</span><input name="kg" inputmode="decimal" autocomplete="off" placeholder="vazio = peso do CT-e"></label>
     <label class="campo check"><input type="checkbox" name="saca"><span>É saca</span></label>
     <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok">Cadastrar</button></div>
+  </form>
+</dialog>
+<dialog id="dlg-calc" class="dlg dlg-calc">
+  <form method="dialog">
+    <h3 id="dlg-calc-titulo">Calculadora</h3>
+    <label class="campo"><span>Conta</span><input name="conta" autocomplete="off" inputmode="decimal" placeholder="ex.: 150 + 80,50 + 2 × 35"></label>
+    <p class="calc-resultado">= <b id="calc-resultado">—</b></p>
+    <div class="teclado">
+      <button type="button" data-tecla="7">7</button><button type="button" data-tecla="8">8</button><button type="button" data-tecla="9">9</button><button type="button" data-tecla="÷">÷</button>
+      <button type="button" data-tecla="4">4</button><button type="button" data-tecla="5">5</button><button type="button" data-tecla="6">6</button><button type="button" data-tecla="×">×</button>
+      <button type="button" data-tecla="1">1</button><button type="button" data-tecla="2">2</button><button type="button" data-tecla="3">3</button><button type="button" data-tecla="-">−</button>
+      <button type="button" data-tecla="0">0</button><button type="button" data-tecla=",">,</button><button type="button" data-tecla="(">(</button><button type="button" data-tecla="+">+</button>
+      <button type="button" data-tecla=")">)</button><button type="button" data-tecla="apagar">Apagar</button><button type="button" data-tecla="limpar">Limpar</button>
+    </div>
+    <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok" id="calc-usar">Usar este valor</button></div>
   </form>
 </dialog>
 <dialog id="dlg-confirma" class="dlg">
@@ -2597,6 +2625,76 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     return !n || LISTA.has(n) || extras.some((x) => normalizarCidade(x) === n);
   }
 
+  // src/calculadora.js
+  function pecas(texto) {
+    const s = String(texto ?? "").replace(/R\$/gi, " ").replace(/×|x/gi, "*").replace(/÷|:/g, "/");
+    const out = [];
+    for (let i = 0; i < s.length; ) {
+      const c = s[i];
+      if (/\s/.test(c)) {
+        i++;
+        continue;
+      }
+      if ("+-*/()".includes(c)) {
+        if (c === "*" && s[i + 1] === "*") return null;
+        out.push(c);
+        i++;
+        continue;
+      }
+      const m = s.slice(i).match(/^\d[\d.,]*/);
+      if (!m) return null;
+      const n = numeroBR(m[0]);
+      if (n == null || (m[0].match(/,/g) || []).length > 1) return null;
+      out.push(n);
+      i += m[0].length;
+    }
+    return out;
+  }
+  function avaliarConta(texto) {
+    const p = pecas(texto);
+    if (!p || !p.length) return null;
+    let i = 0;
+    const erro = () => {
+      throw new Error("conta");
+    };
+    const fator = () => {
+      const t = p[i++];
+      if (t === "-") return -fator();
+      if (t === "+") return fator();
+      if (t === "(") {
+        const v = soma();
+        if (p[i++] !== ")") erro();
+        return v;
+      }
+      return typeof t === "number" ? t : erro();
+    };
+    const produto = () => {
+      let v = fator();
+      while (p[i] === "*" || p[i] === "/") {
+        const op = p[i++], b = fator();
+        if (op === "/" && b === 0) erro();
+        v = op === "*" ? v * b : v / b;
+      }
+      return v;
+    };
+    const soma = () => {
+      let v = produto();
+      while (p[i] === "+" || p[i] === "-") {
+        const op = p[i++];
+        const b = produto();
+        v = op === "+" ? v + b : v - b;
+      }
+      return v;
+    };
+    try {
+      const v = soma();
+      return i === p.length && Number.isFinite(v) ? Math.round(v * 1e9) / 1e9 : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  var valorParaCampo = (v) => String(arred2(v)).replace(".", ",");
+
   // src/telas/lancamentos.js
   var POR_PAGINA = 100;
   var estado = {
@@ -2625,6 +2723,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     ["valorFrete", "Valor do frete", true, "", "text", ""],
     ["adicionais", "Adicionais", false, "", "text", ""]
   ];
+  var botaoCalc = (k, rot) => `<button type="button" class="btn-calc" data-calc="${k}" title="Calculadora: fazer a conta antes de colocar o valor" aria-label="Calculadora de ${rot}">Calc</button>`;
   var TRAVADOS = /* @__PURE__ */ new Set(["cnpjTransportador", "itinerario"]);
   var NUM = /* @__PURE__ */ new Set(["valorAssegurado", "valorSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
   var fmtCampo = (k, v) => v == null || v === "" ? "" : typeof v === "string" && estado.rascunho?.bruto ? v : k === "cnpjTransportador" || k === "cnpjCliente" ? fmtCnpj(v) : k === "pesoKg" ? fmtNum(v, Number.isInteger(v) ? 0 : 2) : NUM.has(k) ? String(v).replace(".", ",") : String(v);
@@ -2658,13 +2757,14 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     <div id="aviso-chave-box"></div>
     <div class="form-grid">
       ${CAMPOS.map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
-        <input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
-          value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? `role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sug-${k}"` : ""} autocomplete="off">
+        ${k === "adicionais" ? '<span class="com-calc-wrap">' : ""}<input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
+          value="${esc(fmtCampo(k, v[k]))}" ${k === "adicionais" ? 'class="com-calc"' : ""} ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? `role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sug-${k}"` : ""} autocomplete="off">
+        ${k === "adicionais" ? botaoCalc(k, "adicionais") + "</span>" : ""}
         ${k === "origem" || k === "destino" ? `<div class="sugestoes" id="sug-${k}" role="listbox" hidden></div><span class="nota aviso-cidade" data-cidade-aviso="${k}"></span>` : ""}
         ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("")}
       <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App2.dados.produtos, v.produto, "+ Cadastrar produto…")}</select><span class="erro" data-erro="produto"></span></label>
       <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App2.dados.unidades, v.unidade, "+ Cadastrar unidade…")}</select><span class="erro" data-erro="unidade"></span></label>
-      <label class="campo"><span>Quantidade <i class="obrig">*</i></span><input name="quantidade" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off"><span class="erro" data-erro="quantidade"></span></label>
+      <label class="campo"><span>Quantidade <i class="obrig">*</i></span><span class="com-calc-wrap"><input name="quantidade" class="com-calc" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off">${botaoCalc("quantidade", "quantidade")}</span><span class="erro" data-erro="quantidade"></span></label>
       <div class="campo"><span>Peso total (kg)</span><input name="pesoKg" type="text" inputmode="decimal" value="${esc(fmtCampo("pesoKg", v.pesoKg))}" autocomplete="off" aria-label="Peso total (kg)">
         <label class="nota caixa"><input type="checkbox" name="pesoInformado" ${v.pesoInformado ? "checked" : ""}> Usar o peso do CT-e</label><span class="erro" data-erro="pesoKg"></span></div>
       <label class="campo"><span>Taxa do seguro</span><output name="taxaSeguro">—</output></label>
@@ -2901,6 +3001,44 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       sel.value = anterior;
     }
   }
+  async function abrirCalculadora(form, campo) {
+    const inp = form.querySelector(`[name=${campo}]`), dlg = $("#dlg-calc"), f = dlg.querySelector("form");
+    const conta = f.elements.conta, saida = $("#calc-resultado"), usar = $("#calc-usar");
+    $("#dlg-calc-titulo").textContent = `Calculadora · ${campo === "adicionais" ? "Adicionais" : "Quantidade"}`;
+    conta.value = inp.value.trim();
+    const pintar = () => {
+      const v2 = avaliarConta(conta.value);
+      saida.textContent = v2 != null ? fmtNum(v2, 2) : conta.value.trim() ? "conta incompleta" : "—";
+      usar.disabled = v2 == null;
+      return v2;
+    };
+    conta.oninput = pintar;
+    f.onkeydown = (e) => {
+      if (e.key === "Enter" && e.target === conta) {
+        e.preventDefault();
+        if (pintar() != null) dlg.close("ok");
+      }
+    };
+    f.querySelector(".teclado").onclick = (e) => {
+      const t = e.target.closest("[data-tecla]")?.dataset.tecla;
+      if (!t) return;
+      conta.value = t === "limpar" ? "" : t === "apagar" ? conta.value.replace(/\s*\S\s*$/, "") : conta.value + (/[0-9,]/.test(t) ? t : ` ${t} `);
+      pintar();
+      conta.focus();
+    };
+    pintar();
+    const ok = await new Promise((res) => {
+      dlg.addEventListener("close", () => res(dlg.returnValue === "ok"), { once: true });
+      dlg.returnValue = "";
+      dlg.showModal();
+      conta.focus();
+    });
+    const v = avaliarConta(conta.value);
+    if (!ok || v == null) return;
+    inp.value = valorParaCampo(v);
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    inp.focus();
+  }
   function ligarCidades(form, App2) {
     const extras = [...new Set(App2.dados.ctes.flatMap((c) => [c.origem, c.destino]))];
     for (const nome of ["origem", "destino"]) {
@@ -3009,6 +3147,12 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       form.addEventListener("click", (ev) => {
         if (ev.target.closest("[data-relancar]")) {
           enviar(form, App2, { relancar: true });
+          return;
+        }
+        const calc = ev.target.closest("[data-calc]");
+        if (calc) {
+          ev.preventDefault();
+          abrirCalculadora(form, calc.dataset.calc);
           return;
         }
         const abrirEx = ev.target.closest("[data-abrir]");

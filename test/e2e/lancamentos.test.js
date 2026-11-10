@@ -345,3 +345,38 @@ test("Enter na janela de cadastro confirma", async () => {
   await page.waitForFunction(() => document.querySelector("#form-cte [name=produto]").value === "MILHO");
   await ctx.close();
 });
+
+test("calculadora nos campos Adicionais e Quantidade", async () => {
+  const { page, ctx, erros } = await abrirLanc();
+  await page.waitForSelector("#form-cte");
+  await preencher(page, { valorFrete: "9.000,00" });
+  // adicionais: conta digitada
+  await page.click("#form-cte [data-calc=adicionais]");
+  await page.waitForSelector("#dlg-calc[open]");
+  await page.fill("#dlg-calc [name=conta]", "150 + 80,50 + 2 × 35");
+  assert.equal(await page.locator("#calc-resultado").textContent(), "300,50");
+  await page.click("#dlg-calc [value=ok]");
+  await page.waitForFunction(() => document.querySelector("#form-cte [name=adicionais]").value === "300,5");
+  assert.equal(await page.locator("#form-cte output[name=tarifa]").textContent(), "R$ 8.699,50");
+  // quantidade: começa com o valor do campo e usa as teclas da tela
+  await page.click("#form-cte [data-calc=quantidade]");
+  await page.waitForSelector("#dlg-calc[open]");
+  assert.equal(await page.locator("#dlg-calc [name=conta]").inputValue(), "50");
+  await page.click('#dlg-calc [data-tecla="×"]');
+  await page.click('#dlg-calc [data-tecla="2"]');
+  assert.equal(await page.locator("#calc-resultado").textContent(), "100,00");
+  await page.click("#dlg-calc [value=ok]");
+  await page.waitForFunction(() => document.querySelector("#form-cte [name=quantidade]").value === "100");
+  assert.equal(await page.locator("#form-cte [name=pesoKg]").inputValue(), "100.000");
+  // conta incompleta não deixa usar; cancelar mantém o campo
+  await page.click("#form-cte [data-calc=quantidade]");
+  await page.fill("#dlg-calc [name=conta]", "10 +");
+  assert.match(await page.locator("#calc-resultado").textContent(), /conta incompleta/);
+  assert.equal(await page.locator("#dlg-calc [value=ok]").isDisabled(), true);
+  await page.click("#dlg-calc [value=cancelar]");
+  await page.waitForFunction(() => !document.querySelector("#dlg-calc[open]"));
+  assert.equal(await page.locator("#form-cte [name=quantidade]").inputValue(), "100");
+  assert.equal(await page.evaluate(() => window.RADAR_APP.dados.ctes.length), 7, "a calculadora não lança o CT-e");
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});

@@ -173,3 +173,16 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 .sugestoes button{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 10px;font-size:13px;cursor:pointer;color:var(--ink,inherit)}
 .sugestoes button:hover,.sugestoes button[aria-selected="true"]{background:color-mix(in srgb, var(--accent) 12%, transparent)}
 .aviso-cidade:not(:empty){color:var(--accent-d)}
+/* calculadora dentro dos campos Adicionais e Quantidade */
+#form-cte input.com-calc{padding-right:58px}
+.com-calc-wrap{position:relative;display:block}
+.com-calc-wrap input{width:100%}
+.btn-calc{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--paper,#f3f5f9);border:1px solid var(--line);color:var(--navy);padding:4px 7px;cursor:pointer}
+.btn-calc:hover{border-color:var(--accent);color:var(--accent-d)}
+.dlg-calc .calc-resultado{font-size:20px;margin:6px 0 12px;color:var(--steel)}
+.dlg-calc .calc-resultado b{color:var(--navy);font-variant-numeric:tabular-nums}
+.teclado{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
+.teclado button{font:inherit;font-size:15px;padding:9px 0;background:var(--paper,#f3f5f9);border:1px solid var(--line);color:var(--ink);cursor:pointer}
+.teclado button:hover{border-color:var(--accent)}
+.teclado [data-tecla=apagar],.teclado [data-tecla=limpar]{font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.teclado [data-tecla=limpar]{grid-column:span 2}

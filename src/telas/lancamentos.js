@@ -5,6 +5,7 @@ import { calcularCte, numeroDaChave, cnpjDaChave, codigoItinerario, normalizarCi
 import { filtrar } from "../agregacao.js";
 import { listarPdfs, indexarPdfs, pdfDoCte, PASTA_PDFS } from "../pdfs.js";
 import { sugerirCidades, cidadeConhecida, cidadesMaisUsadas, contarUsos } from "../municipios.js";
+import { avaliarConta, valorParaCampo } from "../calculadora.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
 import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 
@@ -32,6 +33,7 @@ const CAMPOS = [
   ["valorFrete", "Valor do frete", true, "", "text", ""],
   ["adicionais", "Adicionais", false, "", "text", ""],
 ];
+const botaoCalc = (k, rot) => `<button type="button" class="btn-calc" data-calc="${k}" title="Calculadora: fazer a conta antes de colocar o valor" aria-label="Calculadora de ${rot}">Calc</button>`;
 const TRAVADOS = new Set(["cnpjTransportador", "itinerario"]);   // saem da chave e da rota
 const NUM = new Set(["valorAssegurado", "valorSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
 const fmtCampo = (k, v) => v == null || v === "" ? "" : typeof v === "string" && estado.rascunho?.bruto ? v :
@@ -77,13 +79,14 @@ function formHtml(App, cte) {
     <div id="aviso-chave-box"></div>
     <div class="form-grid">
       ${CAMPOS.map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
-        <input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
-          value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? `role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sug-${k}"` : ""} autocomplete="off">
+        ${k === "adicionais" ? '<span class="com-calc-wrap">' : ""}<input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
+          value="${esc(fmtCampo(k, v[k]))}" ${k === "adicionais" ? 'class="com-calc"' : ""} ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? `role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sug-${k}"` : ""} autocomplete="off">
+        ${k === "adicionais" ? botaoCalc(k, "adicionais") + "</span>" : ""}
         ${k === "origem" || k === "destino" ? `<div class="sugestoes" id="sug-${k}" role="listbox" hidden></div><span class="nota aviso-cidade" data-cidade-aviso="${k}"></span>` : ""}
         ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("")}
       <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App.dados.produtos, v.produto, "+ Cadastrar produto…")}</select><span class="erro" data-erro="produto"></span></label>
       <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App.dados.unidades, v.unidade, "+ Cadastrar unidade…")}</select><span class="erro" data-erro="unidade"></span></label>
-      <label class="campo"><span>Quantidade <i class="obrig">*</i></span><input name="quantidade" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off"><span class="erro" data-erro="quantidade"></span></label>
+      <label class="campo"><span>Quantidade <i class="obrig">*</i></span><span class="com-calc-wrap"><input name="quantidade" class="com-calc" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off">${botaoCalc("quantidade", "quantidade")}</span><span class="erro" data-erro="quantidade"></span></label>
       <div class="campo"><span>Peso total (kg)</span><input name="pesoKg" type="text" inputmode="decimal" value="${esc(fmtCampo("pesoKg", v.pesoKg))}" autocomplete="off" aria-label="Peso total (kg)">
         <label class="nota caixa"><input type="checkbox" name="pesoInformado" ${v.pesoInformado ? "checked" : ""}> Usar o peso do CT-e</label><span class="erro" data-erro="pesoKg"></span></div>
       <label class="campo"><span>Taxa do seguro</span><output name="taxaSeguro">—</output></label>
@@ -311,6 +314,38 @@ async function cadastrarNaLista(form, App, campo) {
   else { if (r?.erro) aviso(r.erro, true); sel.value = anterior; }
 }
 
+/* Calculadora de um campo: a conta começa com o valor que já está nele; "Usar este valor" põe o resultado e recalcula. */
+async function abrirCalculadora(form, campo) {
+  const inp = form.querySelector(`[name=${campo}]`), dlg = $("#dlg-calc"), f = dlg.querySelector("form");
+  const conta = f.elements.conta, saida = $("#calc-resultado"), usar = $("#calc-usar");
+  $("#dlg-calc-titulo").textContent = `Calculadora · ${campo === "adicionais" ? "Adicionais" : "Quantidade"}`;
+  conta.value = inp.value.trim();
+  const pintar = () => {
+    const v = avaliarConta(conta.value);
+    saida.textContent = v != null ? fmtNum(v, 2) : conta.value.trim() ? "conta incompleta" : "—";
+    usar.disabled = v == null;
+    return v;
+  };
+  conta.oninput = pintar;
+  f.onkeydown = e => { if (e.key === "Enter" && e.target === conta) { e.preventDefault(); if (pintar() != null) dlg.close("ok"); } };
+  f.querySelector(".teclado").onclick = e => {
+    const t = e.target.closest("[data-tecla]")?.dataset.tecla;
+    if (!t) return;
+    conta.value = t === "limpar" ? "" : t === "apagar" ? conta.value.replace(/\s*\S\s*$/, "") : conta.value + (/[0-9,]/.test(t) ? t : ` ${t} `);
+    pintar(); conta.focus();
+  };
+  pintar();
+  const ok = await new Promise(res => {
+    dlg.addEventListener("close", () => res(dlg.returnValue === "ok"), { once: true });
+    dlg.returnValue = ""; dlg.showModal(); conta.focus();
+  });
+  const v = avaliarConta(conta.value);
+  if (!ok || v == null) return;
+  inp.value = valorParaCampo(v);
+  inp.dispatchEvent(new Event("input", { bubbles: true }));
+  inp.focus();
+}
+
 /* Sugestões de município sob os campos de origem e destino: setas escolhem, Enter confirma, Esc fecha.
    Ao sair do campo, um nome fora da lista de municípios (e da base) ganha um aviso, sem impedir o lançamento. */
 function ligarCidades(form, App) {
@@ -378,6 +413,8 @@ export function renderLancamentos(raiz, App) {
     form.addEventListener("submit", ev => { ev.preventDefault(); enviar(form, App); });
     form.addEventListener("click", ev => {
       if (ev.target.closest("[data-relancar]")) { enviar(form, App, { relancar: true }); return; }
+      const calc = ev.target.closest("[data-calc]");
+      if (calc) { ev.preventDefault(); abrirCalculadora(form, calc.dataset.calc); return; }
       const abrirEx = ev.target.closest("[data-abrir]");
       if (abrirEx) { estado.editando = abrirEx.dataset.abrir; estado.rascunho = null; App.render(); scrollTo(0, 0); }
       if (ev.target.closest("[data-cancelar]")) { estado.editando = null; estado.rascunho = null; App.render(); }
