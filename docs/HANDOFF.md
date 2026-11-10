@@ -1,0 +1,116 @@
+# Handoff · Radar de Fretes · Carga Solta
+
+Atualizado em 10/11/2026. As últimas alterações foram o cabeçalho estável ao rolar e o Enter na janela de nome.
+
+## Onde está
+
+| O quê | Onde |
+|---|---|
+| Painel pronto para a pasta | `dist/index.html`. Na pasta do SharePoint o arquivo se chama `Radar de Fretes - Carga Solta.html`. |
+| Código | branch `main`, igual a `claude/compassionate-hopper-b5gz9t` |
+| Dados | `radar-carga-solta-dados.js`, na pasta do SharePoint (fora do repositório), com `backups/` ao lado (as 60 últimas versões) |
+| PDFs dos CT-e | pasta `PDFs Carga Solta`, dentro da pasta do painel, com nomes como `CTE 1234 - Oasis.pdf` |
+| Guia de instalação e uso | `docs/IMPLANTACAO.md` |
+| Desenho | `docs/superpowers/specs/` e `docs/superpowers/plans/`. São três etapas: o painel, depois produto e unidade com R$/t, depois o adendo 2. |
+
+A planilha real (`Radar_Fretes_Concorrentes_v2.10.xlsm`) e o relatório de itinerários do Rodopar (`itinerarios.xlsx`) **não** vão para o repositório (`*.xlsm` e `*.xlsx` estão no `.gitignore`). Eles têm CNPJ de clientes.
+
+## Como funciona
+
+- **Um HTML só, aberto por `file://`** a partir da pasta sincronizada do OneDrive/SharePoint, no Chrome ou no Edge.
+  - A gravação usa a File System Access API: o usuário conecta a pasta uma vez, em Dados → Conectar a pasta.
+  - Quem abre por link ou em outro navegador só consulta.
+- **Arquivo de dados:** base versão 3, gravada como `window.RADAR_CS3={…}`. O painel lê também as marcas antigas `RADAR_CS2` e `RADAR_CS` e migra na abertura (`migrarBase` em `src/base.js`). Um painel antigo ainda aberto não acha a marca nova e recusa gravar.
+- **Concorrência:** cada gravação confere o `salvoEm` do arquivo. Se outra pessoa gravou antes, aparece o aviso **Juntar e salvar**: o painel parte do arquivo e aplica por cima só o que esta página mudou.
+  - A sessão registra o que mudou: alterados, excluídos, restaurados, apagados da lixeira, cadastro, listas e configuração. Ver `src/arquivo.js` (`juntar`) e `src/pasta.js`.
+  - O que ainda não foi gravado fica no IndexedDB do navegador e volta na próxima abertura.
+- **Sem login:** cada pessoa informa o nome, e toda ação vai para o histórico (até 500 registros). Excluir manda o CT-e para a lixeira.
+
+## O que o painel faz hoje
+
+- **Lançamentos (formulário)**
+  - **Campos que se preenchem sozinhos:**
+    - o CNPJ do transportador sai da chave de acesso (posições 7–20);
+    - o nº do CT-e também sai da chave;
+    - o cód. itinerário é o código da origem + o do destino, pelo cadastro do Rodopar.
+    
+    Os dois primeiros ficam travados.
+  - **Seguro:** o usuário informa valor assegurado e valor do seguro; a taxa é calculada.
+  - **Contas:** tarifa = frete − seguro − adicionais. Peso = quantidade × kg da unidade, ou o peso do CT-e. R$/t e R$/saca saem daí.
+  - **Cidades:** ao digitar, aparecem sugestões, primeiro as mais usadas da base e depois os municípios do Brasil. Nome fora da lista ganha aviso, sem bloquear.
+  - **Produto e unidade novos** se cadastram sem sair do lançamento, pela opção "+ Cadastrar…" da lista.
+  - **Calculadora** (botão **Calc**) nos campos Adicionais e Quantidade.
+  - **Chave de acesso:** é conferida assim que tem 44 dígitos. Se o CT-e já está na base, o painel oferece **Abrir o registro**; se está na lixeira, **Lançar de novo**.
+  - **Envio:** só pelo botão Lançar CT-e; Enter nos campos não envia.
+- **Base (Lançamentos)**
+  - Busca por número ou chave.
+  - Corrigir e excluir.
+  - Seleção e exclusão em massa.
+  - Botão **PDF**, que abre o arquivo da pasta `PDFs Carga Solta`, e **Atualizar PDFs**.
+  - Selo "antes do corte" nos CT-e anteriores à data de corte.
+- **Evolução**
+  - Um ponto por CT-e, com gradiente navy → plum → rosa conforme o preço, e a mediana do mês, que pode ser desligada.
+  - Filtros por rota, transportador, cliente, produto, itinerário e período.
+  - Métricas R$/t (padrão), R$/saca e Tarifa.
+  - Tabela por transportador.
+  - **Exceções a tratar**, com o botão Abrir na base.
+- **Rotas:** resumo por rota, com filtro de produto.
+- **Cadastro:** nomes de CNPJ (agrupados pela raiz de 8 dígitos), produto padrão do cliente e listas de produtos e unidades.
+- **Dados**
+  - Pasta compartilhada.
+  - Exportar .xlsx.
+  - Data de corte (01/08/2026; vazia = todos entram).
+  - Classificar CT-e.
+  - Lixeira: restaurar e Esvaziar lixeira.
+  - Histórico e nome de quem lança.
+
+A importação de planilha saiu da tela a pedido do usuário. Ela foi usada só na implantação. O código continua em `src/importacao.js`, que também faz a exportação e é usado por `scripts/conferir-planilha.mjs`.
+
+## Tabelas geradas (regerar quando a fonte mudar)
+
+| Arquivo | Fonte | Comando |
+|---|---|---|
+| `src/dados-itinerarios.js` (344 cidades, 1.321 itinerários) | relatório de itinerários do Rodopar | `node scripts/extrair-itinerarios.mjs caminho/itinerarios.xlsx` |
+| `src/dados-municipios.js` (5.291 nomes) | aba MUNICÍPIOS da planilha | `node scripts/extrair-municipios.mjs caminho/Radar_Fretes_Concorrentes.xlsm` |
+| `referencia/toliman-paineis/logos-cor.png` e `logos-branco.png` | `logo-dinamo-cor.png` + `logo-toliman-empilhada.png` | `python3 scripts/montar-logos.py` (Pillow) |
+
+Depois de regerar, rode `npm run montar` e troque o HTML na pasta. Ao abrir, o painel preenche sozinho os itinerários em branco que a tabela nova já sabe montar.
+
+## Desenvolvimento
+
+```bash
+npm install
+npm test                 # 173 testes de unidade (node:test)
+npm run montar           # gera dist/index.html (esbuild + CSS + logos embutidos)
+npm run test:e2e         # 56 testes no navegador (Playwright/Chromium), com uma pasta simulada
+```
+
+- **Código:** ES modules em `src/` e as telas em `src/telas/`. O build é IIFE e vai inteiro para dentro do HTML. Bibliotecas externas: SheetJS 0.18.5 (cdnjs, só para exportar) e Google Fonts.
+- **Visual:** design system Tóliman Painéis (`referencia/toliman-paineis/`), tokens gerados em `build/tokens.css`. Sem ícones, tudo em pt-BR. Claro e escuro.
+- **Testes:**
+  - pasta simulada em `test/fakes/pasta-falsa.js`;
+  - bases de exemplo em `test/fixtures/base-exemplo.js`, com `corte = null` porque os CT-e de exemplo são de janeiro a abril;
+  - em `test/ajuda.js`, `campos()` monta a chave com o CNPJ do transportador dentro.
+- **Fluxo de trabalho:** a cada mudança, o usuário recebe só o HTML (ou um zip com o HTML e o `LEIA-ME`, gerado a partir do `IMPLANTACAO.md`). Push na branch de trabalho e na `main`.
+
+## Decisões tomadas pelo caminho (confirmar se alguma estiver errada)
+
+- **Cidades com o mesmo nome em duas UF:** o CT-e não guarda a UF, então vale o código da UF com mais itinerários: Boa Esperança/MG (BLP), Campestre/MG (BYV), Itapeva/MG (INO) e São Simão/SP (SWZ, escolhida no desempate pela UF mais usada).
+- **Cidade sem cadastro no Rodopar:** fica sem itinerário. Ao corrigir um CT-e sem mudar a rota, o itinerário que ele já tinha é mantido.
+- **Taxa do seguro:** 0% quando há valor assegurado e o seguro é zero; fica vazia só sem valor assegurado. Na migração, a taxa digitada é mantida quando reproduz o seguro guardado.
+- **PDF:** se dois PDFs têm o mesmo número de CT-e, o nome depois do traço é comparado com o nome do transportador no cadastro. Sem como decidir, o botão fica apagado com a dica.
+- **Cabeçalho:** não encolhe mais ao rolar; só a sombra muda. Encolher fazia a página tremer perto do fim.
+- **Janelas com formulário** (nome, produto, unidade, calculadora): o Enter no campo confirma. Por padrão o navegador acionaria o primeiro botão, que é o Cancelar.
+
+## Pendências e pontos em aberto
+
+1. **Tarifa de referência da Tóliman para carga solta:** em espera; o usuário ainda não tem a tarifa. Ela entraria como comparação na Evolução e nas Rotas.
+2. **Linha estranha no relatório do Rodopar:** o itinerário `MCHBYU` está como Machado → Campestre/MG, mas BYU é o código de Campestre/AL. Vale conferir no Rodopar.
+3. **CT-e com origem "JOAQUIM DA BARRA"** (nº 2848): o usuário ia corrigir para São Joaquim da Barra pelo painel. Conferir se foi feito.
+4. **PDFs:** testados só com pasta simulada. Na primeira abertura com a pasta real, conferir se o total ao lado de **Atualizar PDFs** bate com a quantidade de arquivos.
+5. **Pequenos, conhecidos e não corrigidos:**
+   - duas pessoas mudando o kg da mesma unidade ao mesmo tempo: vale a última gravação;
+   - o aviso de "rota com produtos misturados" aparece só na Evolução, não em Rotas;
+   - trocar o cliente no formulário não troca o produto já escolhido (o produto padrão só preenche quando o campo está vazio);
+   - o nome do banco no IndexedDB é fixo: duas cópias do HTML em pastas diferentes, no mesmo navegador, dividem as pendências e a última pasta conectada;
+   - tarifa negativa (adicionais maiores que o frete) é aceita sem aviso.

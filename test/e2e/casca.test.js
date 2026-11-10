@@ -49,3 +49,13 @@ test("cabeçalho não muda de altura ao rolar (sem tremer no fim da página)", a
   assert.equal(new Set(ys).size, 1, ys.join());
   await ctx.close();
 });
+
+test("Enter no campo de nome confirma o nome", async () => {
+  const { page, ctx } = await abrir(browser, { hash: "#dados", gravavel: true });
+  await page.click("[data-nome]");
+  await page.waitForSelector("#dlg-nome[open]");
+  await page.fill("#dlg-nome [name=nome]", "Teste Enter");
+  await page.press("#dlg-nome [name=nome]", "Enter");
+  await page.waitForFunction(() => window.RADAR_APP.quem === "Teste Enter");
+  await ctx.close();
+});

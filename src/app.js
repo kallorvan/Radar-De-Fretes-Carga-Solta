@@ -67,6 +67,8 @@ const App = {
   pedirNome() {
     const dlg = $("#dlg-nome"), inp = dlg.querySelector("input");
     inp.value = App.quem;
+    // Enter no nome continua (o primeiro botão do formulário é o Cancelar, que o Enter acionaria)
+    inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); if (inp.value.trim()) dlg.close("ok"); } };
     return new Promise(ok => {
       dlg.addEventListener("close", () => {
         const nome = inp.value.trim();

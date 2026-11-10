@@ -3605,6 +3605,12 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     pedirNome() {
       const dlg = $("#dlg-nome"), inp = dlg.querySelector("input");
       inp.value = App.quem;
+      inp.onkeydown = (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (inp.value.trim()) dlg.close("ok");
+        }
+      };
       return new Promise((ok) => {
         dlg.addEventListener("close", () => {
           const nome = inp.value.trim();
