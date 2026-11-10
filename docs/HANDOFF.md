@@ -1,6 +1,6 @@
 # Handoff · Radar de Fretes · Carga Solta
 
-Atualizado em 10/11/2026. As últimas alterações foram o cabeçalho estável ao rolar e o Enter na janela de nome.
+Atualizado em 10/11/2026. A última alteração foi o botão **Organizar PDFs por mês** (PR #1, na `main`), já testado pelo usuário na pasta real: os PDFs foram para as pastas certas.
 
 ## Onde está
 
@@ -9,7 +9,7 @@ Atualizado em 10/11/2026. As últimas alterações foram o cabeçalho estável a
 | Painel pronto para a pasta | `dist/index.html`. Na pasta do SharePoint o arquivo se chama `Radar de Fretes - Carga Solta.html`. |
 | Código | branch `main`, igual a `claude/compassionate-hopper-b5gz9t` |
 | Dados | `radar-carga-solta-dados.js`, na pasta do SharePoint (fora do repositório), com `backups/` ao lado (as 60 últimas versões) |
-| PDFs dos CT-e | pasta `PDFs Carga Solta` (onde se salva) e `Registrados` (organizados por mês), dentro da pasta do painel, com nomes como `CTE 1234 - Oasis.pdf` |
+| PDFs dos CT-e | duas pastas dentro da pasta do painel: `PDFs Carga Solta`, onde a equipe salva os novos, e `Registrados`, com subpastas por mês de emissão (`1 - Janeiro_2026`, `2 - Fevereiro_2026`…). Nomes como `CTE 1234 - Oasis.pdf` |
 | Guia de instalação e uso | `docs/IMPLANTACAO.md` |
 | Desenho | `docs/superpowers/specs/` e `docs/superpowers/plans/`. São três etapas: o painel, depois produto e unidade com R$/t, depois o adendo 2. |
 
@@ -46,7 +46,13 @@ A planilha real (`Radar_Fretes_Concorrentes_v2.10.xlsm`) e o relatório de itine
   - Busca por número ou chave.
   - Corrigir e excluir.
   - Seleção e exclusão em massa.
-  - Botão **PDF**, que abre o arquivo da pasta `PDFs Carga Solta`, **Atualizar PDFs** e **Organizar PDFs por mês** (move para `Registrados/1 - Janeiro_2026/`…, na pasta do painel; o botão PDF lê `PDFs Carga Solta` e `Registrados`; pelo mês de emissão do CT-e ou da chave no nome; usa `move()` do navegador ou copia, confere o tamanho e só então apaga o original).
+  - Botão **PDF**, que abre o arquivo do CT-e procurando em `PDFs Carga Solta` e em `Registrados`, e **Atualizar PDFs**.
+  - **Organizar PDFs por mês** (escondido no modo consulta): move cada PDF para `Registrados/<n> - <Mês>_<ano>/`, na pasta do painel.
+    - O mês sai da emissão do CT-e ligado ao PDF (o mesmo vínculo do botão PDF). Sem CT-e na base, sai da chave de acesso no nome do arquivo (dígitos 3 a 6, AAMM). Sem nenhum dos dois, o PDF fica onde está.
+    - Antes de mover, mostra quantos vão para cada pasta e pede confirmação.
+    - Não sobrescreve: arquivo com o mesmo nome na pasta do mês faz o PDF ficar onde está, com aviso.
+    - Usa `move()` do navegador; se falhar, copia, confere o tamanho e só então apaga o original.
+    - Código em `src/pdfs.js` (`pastaDoMes`, `mesDaChave`, `planejarOrganizacao`, `executarOrganizacao`) e o botão em `src/telas/lancamentos.js` (`organizarPdfs`).
   - Selo "antes do corte" nos CT-e anteriores à data de corte.
 - **Evolução**
   - Um ponto por CT-e, com gradiente navy → plum → rosa conforme o preço, e a mediana do mês, que pode ser desligada.
@@ -80,9 +86,9 @@ Depois de regerar, rode `npm run montar` e troque o HTML na pasta. Ao abrir, o p
 
 ```bash
 npm install
-npm test                 # 173 testes de unidade (node:test)
+npm test                 # 180 testes de unidade (node:test)
 npm run montar           # gera dist/index.html (esbuild + CSS + logos embutidos)
-npm run test:e2e         # 56 testes no navegador (Playwright/Chromium), com uma pasta simulada
+npm run test:e2e         # 57 testes no navegador (Playwright/Chromium), com uma pasta simulada
 ```
 
 - **Código:** ES modules em `src/` e as telas em `src/telas/`. O build é IIFE e vai inteiro para dentro do HTML. Bibliotecas externas: SheetJS 0.18.5 (cdnjs, só para exportar) e Google Fonts.
@@ -99,6 +105,7 @@ npm run test:e2e         # 56 testes no navegador (Playwright/Chromium), com uma
 - **Cidade sem cadastro no Rodopar:** fica sem itinerário. Ao corrigir um CT-e sem mudar a rota, o itinerário que ele já tinha é mantido.
 - **Taxa do seguro:** 0% quando há valor assegurado e o seguro é zero; fica vazia só sem valor assegurado. Na migração, a taxa digitada é mantida quando reproduz o seguro guardado.
 - **PDF:** se dois PDFs têm o mesmo número de CT-e, o nome depois do traço é comparado com o nome do transportador no cadastro. Sem como decidir, o botão fica apagado com a dica.
+- **Pastas de mês:** `Registrados` fica direto na pasta do painel, a pedido do usuário (a primeira versão punha dentro de `PDFs Carga Solta`; o botão leva essas para a nova). O nome `1 - Janeiro_2026` põe o número do mês na frente para o Explorador ordenar; com mais de um ano, os meses iguais de anos diferentes ficam lado a lado.
 - **Cabeçalho:** não encolhe mais ao rolar; só a sombra muda. Encolher fazia a página tremer perto do fim.
 - **Janelas com formulário** (nome, produto, unidade, calculadora): o Enter no campo confirma. Por padrão o navegador acionaria o primeiro botão, que é o Cancelar.
 
@@ -107,7 +114,7 @@ npm run test:e2e         # 56 testes no navegador (Playwright/Chromium), com uma
 1. **Tarifa de referência da Tóliman para carga solta:** em espera; o usuário ainda não tem a tarifa. Ela entraria como comparação na Evolução e nas Rotas.
 2. **Linha estranha no relatório do Rodopar:** o itinerário `MCHBYU` está como Machado → Campestre/MG, mas BYU é o código de Campestre/AL. Vale conferir no Rodopar.
 3. **CT-e com origem "JOAQUIM DA BARRA"** (nº 2848): o usuário ia corrigir para São Joaquim da Barra pelo painel. Conferir se foi feito.
-4. **PDFs:** testados só com pasta simulada. Na primeira abertura com a pasta real, conferir se o total ao lado de **Atualizar PDFs** bate com a quantidade de arquivos.
+4. **PDFs:** abrir e organizar por mês foram testados pelo usuário na pasta real e funcionaram. Pastas antigas que ficarem vazias em `PDFs Carga Solta` não são apagadas pelo painel; a equipe apaga à mão.
 5. **Pequenos, conhecidos e não corrigidos:**
    - duas pessoas mudando o kg da mesma unidade ao mesmo tempo: vale a última gravação;
    - o aviso de "rota com produtos misturados" aparece só na Evolução, não em Rotas;
