@@ -30,3 +30,22 @@ test("assinatura Dínamo | Tóliman no topo com 44 px e no rodapé em branco", a
   assert.equal(await page.locator(".logos-branco img").count(), 1);
   await ctx.close();
 });
+
+test("cabeçalho não muda de altura ao rolar (sem tremer no fim da página)", async () => {
+  const { baseExemplo } = await import("../fixtures/base-exemplo.js");
+  const { page, ctx } = await abrir(browser, { dados: baseExemplo(), hash: "#evolucao" });
+  await page.waitForSelector(".kpi");
+  const alturaTopo = () => page.evaluate(() => document.querySelector("#topo").getBoundingClientRect().height);
+  const antes = await alturaTopo();
+  const docAntes = await page.evaluate(() => document.documentElement.scrollHeight);
+  await page.evaluate(() => scrollTo(0, 40));
+  await page.waitForFunction(() => document.querySelector("#topo").classList.contains("scrolled"));
+  assert.equal(await alturaTopo(), antes);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollHeight), docAntes);
+  // no fim da página a rolagem fica parada (antes, encolher e crescer o cabeçalho fazia a página pular)
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  const ys = [];
+  for (let i = 0; i < 6; i++) { await page.waitForTimeout(60); ys.push(await page.evaluate(() => scrollY)); }
+  assert.equal(new Set(ys).size, 1, ys.join());
+  await ctx.close();
+});

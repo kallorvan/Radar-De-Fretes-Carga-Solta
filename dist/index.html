@@ -359,7 +359,11 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* assinatura Dínamo | Tóliman: uma imagem só, com as letras das duas marcas na mesma altura */
 .logos-cor{display:flex;align-items:center}
 .logos-cor img{height:44px;width:auto;display:block}
-.stickytop.scrolled .logos-cor img{height:34px}
+/* ao rolar só a sombra muda: encolher o cabeçalho mudava a altura da página e, perto do fim dela,
+   a rolagem voltava, o cabeçalho crescia de novo e a tela ficava tremendo */
+.stickytop.scrolled .logos-cor img{height:44px}
+.stickytop.scrolled .top-in{padding:14px 0}
+.stickytop.scrolled .perbar-in{padding:10px 0}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .logos-cor img{filter:brightness(0) invert(.92)}}
 :root[data-theme="dark"] .logos-cor img{filter:brightness(0) invert(.92)}
 .top .who b{display:block}
