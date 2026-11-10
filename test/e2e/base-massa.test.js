@@ -76,3 +76,37 @@ test("Abrir PDF: acha o PDF do CT-e na pasta e abre; sem PDF fica apagado", asyn
   assert.deepEqual(erros, []);
   await ctx.close();
 });
+
+test("Organizar PDFs por mês: confirma e move para Registrados/1 - Janeiro_2026", async () => {
+  const dados = baseExemplo();
+  const c0 = dados.ctes[0];
+  const { page, ctx, erros } = await abrir(browser, {
+    dados, hash: "#dados", quem: "Ana",
+    antes: p => p.addInitScript(({ fake, texto, n }) => {
+      eval(fake + "; window.__pasta = new PastaFalsa('Radar Carga Solta'); window.__pdfs = new PastaFalsa('PDFs Carga Solta');");
+      window.__pasta.arquivos.set("radar-carga-solta-dados.js", texto);
+      const pdfs = window.__pdfs;
+      pdfs.arquivos.set(`CTE ${n} - Transportes Um.pdf`, "%PDF-1.4");
+      pdfs.arquivos.set("CTE 999 - Ninguem.pdf", "%PDF-1.4");
+      window.__pasta.pastas.set("PDFs Carga Solta", pdfs);
+      window.showDirectoryPicker = async () => window.__pasta;
+    }, { fake: FAKE, texto: montarDadosJs(dados), n: c0.numero }),
+  });
+  await page.click("[data-conectar]");
+  await page.waitForFunction(() => /Conectado à pasta/.test(document.body.textContent));
+  await page.click("#abas button[data-aba=lancamentos]");
+  await page.waitForSelector('#tab-base [data-pdf]:not([disabled])');
+  await page.click("[data-organizar-pdfs]");
+  await page.waitForSelector("#dlg-confirma[open]");
+  const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const [ano, mes] = c0.emissao.split("-");
+  const pasta = `${Number(mes)} - ${meses[Number(mes) - 1]}_${ano}`;
+  assert.match(await page.locator("#dlg-confirma-texto").textContent(), new RegExp(pasta + ": 1"));
+  await page.click("#dlg-confirma-ok");
+  await page.waitForFunction(p => window.__pasta.pastas.get("Registrados")?.pastas.get(p)?.arquivos.size === 1, pasta);
+  assert.equal(await page.evaluate(() => window.__pasta.pastas.get("PDFs Carga Solta").arquivos.has("CTE 999 - Ninguem.pdf")), true);
+  // o botão PDF continua achando o arquivo na pasta nova
+  await page.waitForSelector(`#tab-base [data-pdf="${c0.chave}"]:not([disabled])`);
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});
