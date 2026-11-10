@@ -23,7 +23,7 @@ export class PastaFalsa {
         let buf = "";
         pasta.escrevendo++; pasta.maxSimultaneo = Math.max(pasta.maxSimultaneo, pasta.escrevendo);
         return {
-          async write(t) { buf += t; await espera(5); },
+          async write(t) { buf += typeof t === "string" ? t : await new Response(t).text(); await espera(5); },
           async close() { pasta.arquivos.set(nome, buf); pasta.escrevendo--; pasta.escritas++; },
         };
       },

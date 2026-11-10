@@ -46,7 +46,7 @@ A planilha real (`Radar_Fretes_Concorrentes_v2.10.xlsm`) e o relatório de itine
   - Busca por número ou chave.
   - Corrigir e excluir.
   - Seleção e exclusão em massa.
-  - Botão **PDF**, que abre o arquivo da pasta `PDFs Carga Solta`, e **Atualizar PDFs**.
+  - Botão **PDF**, que abre o arquivo da pasta `PDFs Carga Solta`, **Atualizar PDFs** e **Organizar PDFs por mês** (move para `Registrados/1 - Janeiro_2026/`…, pelo mês de emissão do CT-e ou da chave no nome; usa `move()` do navegador ou copia, confere o tamanho e só então apaga o original).
   - Selo "antes do corte" nos CT-e anteriores à data de corte.
 - **Evolução**
   - Um ponto por CT-e, com gradiente navy → plum → rosa conforme o preço, e a mediana do mês, que pode ser desligada.

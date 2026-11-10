@@ -3,7 +3,7 @@
 import { validarCampos, nomeDoCnpj, grupoDoCnpj, unidadeDe, produtoDe, noCorte } from "../base.js";
 import { calcularCte, numeroDaChave, cnpjDaChave, codigoItinerario, normalizarCidade, normalizarCnpj, numeroBR, rotaDe, soDigitos } from "../calculos.js";
 import { filtrar } from "../agregacao.js";
-import { listarPdfs, indexarPdfs, pdfDoCte, PASTA_PDFS } from "../pdfs.js";
+import { listarPdfs, indexarPdfs, pdfDoCte, planejarOrganizacao, executarOrganizacao, PASTA_PDFS, PASTA_REGISTRADOS } from "../pdfs.js";
 import { sugerirCidades, cidadeConhecida, cidadesMaisUsadas, contarUsos } from "../municipios.js";
 import { avaliarConta, valorParaCampo } from "../calculadora.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
@@ -191,7 +191,8 @@ function baseHtml() {
     <div class="barra-base">
       <span data-escreve><label class="caixa"><input type="checkbox" id="sel-todos"> Selecionar todos</label>
         <button class="btn mini perigo" type="button" data-excluir-selecionados disabled>Excluir selecionados (0)</button></span>
-      <span class="pdfs"><span class="hint" id="pdfs-info"></span><button class="btn mini" type="button" data-atualizar-pdfs>Atualizar PDFs</button></span>
+      <span class="pdfs"><span class="hint" id="pdfs-info"></span><button class="btn mini" type="button" data-atualizar-pdfs>Atualizar PDFs</button>
+        <span data-escreve><button class="btn mini" type="button" data-organizar-pdfs title="Move cada PDF para ${PASTA_PDFS}/${PASTA_REGISTRADOS}/, numa pasta pelo mês de emissão (ex.: 1 - Janeiro_2026)">Organizar PDFs por mês</button></span></span>
     </div>
     <div id="tab-base"></div><div class="botoes" id="base-mais"></div></div>`;
 }
@@ -202,8 +203,8 @@ async function carregarPdfs(raiz, App, { forcar = false } = {}) {
   if (!pasta) { Object.assign(p, { pasta: null, indice: null, total: 0 }); return; }
   if (!forcar && p.pasta === pasta && (p.indice || p.lendo)) return p.lendo;
   p.pasta = pasta;
-  p.lendo = listarPdfs(pasta).then(lista => { Object.assign(p, { indice: indexarPdfs(lista), total: lista.length, lendo: null }); },
-    () => { Object.assign(p, { indice: indexarPdfs([]), total: 0, lendo: null }); });
+  p.lendo = listarPdfs(pasta).then(lista => { Object.assign(p, { lista, indice: indexarPdfs(lista), total: lista.length, lendo: null }); },
+    () => { Object.assign(p, { lista: [], indice: indexarPdfs([]), total: 0, lendo: null }); });
   await p.lendo;
   if (raiz.isConnected && $("#tab-base", raiz)) pintarBase(raiz, App);
 }
@@ -216,6 +217,32 @@ function pdfDe(App, c, mesmoNumero) {
   return r.ok ? { ok: true, item: r.item, dica: `Abrir ${r.item.caminho}` }
     : { ok: false, dica: r.motivo === "varios" ? "Mais de um PDF com esse número na pasta; o nome do transportador não decide." : `PDF não encontrado na pasta ${PASTA_PDFS}.` };
 }
+/* Organizar por mês: relê a pasta, mostra o que vai acontecer, pede confirmação e move. */
+async function organizarPdfs(raiz, App) {
+  const pasta = App.gravador?.pasta;
+  if (!pasta) return aviso("Conecte a pasta na aba Dados para organizar os PDFs.", true);
+  await carregarPdfs(raiz, App, { forcar: true });
+  const plano = planejarOrganizacao(estado.pdfs.lista || [], App.dados.ctes, c => nomeDoCnpj(App.dados, c.cnpjTransportador));
+  const ficam = plano.semMes.length + plano.duplicados.length;
+  const sobra = (ficam ? ` ${ficam} ficam onde estão (${[plano.semMes.length && `${plano.semMes.length} sem CT-e na base nem chave no nome`, plano.duplicados.length && `${plano.duplicados.length} com nome repetido`].filter(Boolean).join(", ")}).` : "");
+  if (!plano.mover.length) return aviso(`Nada a mover: ${fmtNum(plano.noLugar)} PDF${plano.noLugar === 1 ? "" : "s"} já na pasta do mês.${sobra}`);
+  const porPasta = new Map();
+  for (const m of plano.mover) porPasta.set(m.pasta, (porPasta.get(m.pasta) || 0) + 1);
+  const pastas = [...porPasta].sort((a, b) => a[0].split("_")[1].localeCompare(b[0].split("_")[1]) || parseInt(a[0]) - parseInt(b[0]))
+    .map(([n, q]) => `${n}: ${q}`).join("; ");
+  if (!(await confirmar(`Mover ${plano.mover.length} PDF${plano.mover.length === 1 ? "" : "s"} para ${PASTA_REGISTRADOS}?`,
+    `Vão para ${PASTA_PDFS}/${PASTA_REGISTRADOS}, pelo mês de emissão do CT-e: ${pastas}.${sobra} Nenhum arquivo é apagado ou sobrescrito.`, "Mover"))) return;
+  try {
+    let perm = await pasta.queryPermission({ mode: "readwrite" });
+    if (perm !== "granted") perm = await pasta.requestPermission({ mode: "readwrite" });
+    if (perm !== "granted") return aviso("O navegador não deu permissão para mexer na pasta.", true);
+    const r = await executarOrganizacao(pasta, plano);
+    await carregarPdfs(raiz, App, { forcar: true });
+    if (r.falhas.length) aviso(`${r.movidos} PDF${r.movidos === 1 ? "" : "s"} movidos. ${r.falhas.length} não: ${r.falhas.slice(0, 3).map(f => `${f.item.nome} (${f.motivo})`).join("; ")}${r.falhas.length > 3 ? "…" : ""}`, true);
+    else aviso(`${r.movidos} PDF${r.movidos === 1 ? "" : "s"} movidos para ${PASTA_REGISTRADOS}.`);
+  } catch (e) { aviso("Não foi possível organizar os PDFs: " + (e?.message || e?.name), true); }
+}
+
 const botaoPdf = (c, r) => `<button class="btn mini" type="button" data-pdf="${c.chave}" title="${esc(r.dica)}"${r.ok ? "" : " disabled"}>PDF</button>`;
 
 async function abrirPdf(App, chave) {
@@ -442,6 +469,7 @@ export function renderLancamentos(raiz, App) {
       await carregarPdfs(raiz, App, { forcar: true });
       return aviso(`${fmtNum(estado.pdfs.total)} PDF${estado.pdfs.total === 1 ? "" : "s"} encontrados em ${PASTA_PDFS}.`);
     }
+    if (ev.target.closest("[data-organizar-pdfs]")) return organizarPdfs(raiz, App);
     if (ev.target.closest("[data-excluir-selecionados]")) {
       const chaves = [...estado.selecionados].filter(k => App.dados.ctes.some(c => c.chave === k));
       if (!chaves.length) return;
