@@ -36,7 +36,7 @@ O usuário pediu os dois painéis de lançamento no mesmo layout. Referência: r
 - **Conteúdo em quadros brancos** na largura toda, sem título de página; cada quadro tem o título com filete azul-marinho embaixo. Botões em texto normal (primário azul-marinho).
 - **Evolução:** o número do recorte vai num quadro branco ao lado do gráfico (no Container, a posição e a distribuição dos gaps).
 - **Formulário de lançamento em blocos:** Dados do CT-e · Cliente e transportador · Produto e peso · Valores.
-- **Telas estreitas (até 900 px):** o menu volta para cima e rola junto; o formulário passa a 2 colunas e, no celular, a 1.
+- **Só computador:** o painel não tem layout de celular (decisão do usuário em 12/11/2026). Não gastar tempo com telas estreitas nas próximas mudanças.
 - Diferença que ficou: o Carga Solta continua com tema escuro automático; o Container é só claro.
 
 ## O que o painel faz hoje
@@ -101,7 +101,7 @@ Depois de regerar, rode `npm run montar` e troque o HTML na pasta. Ao abrir, o p
 npm install
 npm test                 # 180 testes de unidade (node:test)
 npm run montar           # gera dist/index.html (esbuild + CSS + logos embutidos)
-npm run test:e2e         # 59 testes no navegador (Playwright/Chromium), com uma pasta simulada
+npm run test:e2e         # 58 testes no navegador (Playwright/Chromium), com uma pasta simulada
 ```
 
 - **Código:** ES modules em `src/` e as telas em `src/telas/`. O build é IIFE e vai inteiro para dentro do HTML. Bibliotecas externas: SheetJS 0.18.5 (cdnjs, só para exportar) e Google Fonts.
@@ -113,6 +113,8 @@ npm run test:e2e         # 59 testes no navegador (Playwright/Chromium), com uma
 - **Fluxo de trabalho:** a cada mudança, o usuário recebe só o HTML (ou um zip com o HTML e o `LEIA-ME`, gerado a partir do `IMPLANTACAO.md`). Push na branch de trabalho e na `main`.
 
 ## Decisões tomadas pelo caminho (confirmar se alguma estiver errada)
+
+- **Uso exclusivo no computador** (pedido do usuário, 12/11/2026): sem adaptação para celular; testes de tela só em largura de computador.
 
 - **Cidades com o mesmo nome em duas UF:** o CT-e não guarda a UF, então vale o código da UF com mais itinerários: Boa Esperança/MG (BLP), Campestre/MG (BYV), Itapeva/MG (INO) e São Simão/SP (SWZ, escolhida no desempate pela UF mais usada).
 - **Cidade sem cadastro no Rodopar:** fica sem itinerário. Ao corrigir um CT-e sem mudar a rota, o itinerário que ele já tinha é mantido.

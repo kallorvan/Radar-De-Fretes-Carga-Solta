@@ -66,16 +66,6 @@ test("Evolução: o recorte fica no menu lateral, abaixo do botão Evolução, e
   await ctx.close();
 });
 
-test("tela estreita: o menu volta para cima, sem rolagem horizontal", async () => {
-  const { page, ctx } = await abrir(browser, { largura: 390, altura: 800 });
-  await page.waitForSelector("#conteudo .card");
-  const menu = await page.locator("#topo").boundingBox();
-  const card = await page.locator("#conteudo .card").first().boundingBox();
-  assert.ok(card.y >= menu.y + menu.height - 1, "o conteúdo vem depois do menu");
-  assert.equal(await semRolagemHorizontal(page), true);
-  await ctx.close();
-});
-
 test("Enter no campo de nome confirma o nome", async () => {
   const { page, ctx } = await abrir(browser, { hash: "#dados", gravavel: true });
   await page.click("[data-nome]");

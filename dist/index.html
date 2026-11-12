@@ -413,13 +413,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* conteúdo à direita do menu, na largura toda */
 #conteudo,.aviso-fixo{margin-left:var(--lat)}
 #conteudo .wrap,.aviso-fixo .wrap{max-width:none;margin:0;padding:0 26px}
-/* telas estreitas: o menu volta para cima e rola junto */
-@media (max-width:900px){
-  .lateral{position:static;width:auto;bottom:auto;overflow:visible}
-  .salvar-lat{position:static;box-shadow:none}
-  #conteudo,.aviso-fixo{margin-left:0}
-  #conteudo .wrap,.aviso-fixo .wrap{padding:0 16px}
-}
+/* painel só de computador (decisão do usuário, 12/11/2026): sem layout de celular */
 .aviso-fixo{position:sticky;top:0;z-index:55;background:var(--erro-bg);color:var(--erro);border-bottom:1px solid var(--erro);padding:10px 0;font-size:13px}
 .aviso-fixo .wrap{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .aviso-fixo.conflito{background:var(--accent-wash);color:var(--ink);border-color:var(--accent)}
@@ -532,10 +526,7 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
 /* lançamentos */
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 16px}
 .form-grid .w2{grid-column:span 2}.form-grid .w3{grid-column:span 3}
-.form-grid .tudo{grid-column:1 / -1}
-@media (max-width:700px){.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.form-grid .w3{grid-column:1 / -1}}
-@media (max-width:460px){.form-grid{grid-template-columns:minmax(0,1fr)}.form-grid .w2,.form-grid .w3{grid-column:auto}}
-#form-cte.editando{border-left:3px solid var(--accent)}
+.form-grid .tudo{grid-column:1 / -1}#form-cte.editando{border-left:3px solid var(--accent)}
 #form-cte .nota input[name^="nome"]{margin-top:6px;width:100%;border:1px solid var(--accent);padding:7px 9px;font-size:13px;background:var(--card);color:var(--ink)}
 #form-cte .nota input[name^="nome"][aria-invalid="true"]{background:var(--accent-wash)}
 #form-cte .nota .erro{display:block}
