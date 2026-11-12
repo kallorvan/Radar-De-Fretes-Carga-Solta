@@ -98,3 +98,18 @@ test("Enter no campo de nome confirma o nome", async () => {
   await page.waitForFunction(() => window.RADAR_APP.quem === "Teste Enter");
   await ctx.close();
 });
+
+test("aba Base de CT-e separada dos Lançamentos, entre Rotas e Lançamentos no menu", async () => {
+  const { baseExemplo } = await import("../fixtures/base-exemplo.js");
+  const { page, ctx, erros } = await abrir(browser, { dados: baseExemplo(), hash: "#lancamentos", gravavel: true, quem: "Ana" });
+  await page.waitForSelector("#form-cte");
+  assert.equal(await page.locator("#tab-base").count(), 0, "a base não fica mais embaixo do formulário");
+  const ordem = await page.$$eval("#abas button", bs => bs.sort((a, b) => a.getBoundingClientRect().y - b.getBoundingClientRect().y).map(b => b.textContent.trim()));
+  assert.deepEqual(ordem, ["Evolução", "Rotas", "Base de CT-e", "Lançamentos", "Cadastro", "Dados"]);
+  await page.click("[data-ir-base]");
+  await page.waitForSelector("#tab-base tbody tr");
+  assert.equal(await page.evaluate(() => location.hash), "#base");
+  assert.equal(await page.locator("#form-cte").count(), 0, "o formulário fica só em Lançamentos");
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});

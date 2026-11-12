@@ -11,7 +11,7 @@ before(async () => { browser = await chromium.launch(); });
 after(async () => { await browser?.close(); });
 
 test("selecionar dois, excluir selecionados com confirmação", async () => {
-  const { page, ctx, erros } = await abrir(browser, { dados: baseExemplo(), hash: "#lancamentos", gravavel: true, quem: "Ana" });
+  const { page, ctx, erros } = await abrir(browser, { dados: baseExemplo(), hash: "#base", gravavel: true, quem: "Ana" });
   await page.waitForSelector("#tab-base tbody tr");
   const excluir = page.locator("[data-excluir-selecionados]");
   assert.equal(await excluir.isDisabled(), true);
@@ -30,7 +30,7 @@ test("selecionar dois, excluir selecionados com confirmação", async () => {
 });
 
 test("selecionar todos marca só os CT-e da busca", async () => {
-  const { page, ctx } = await abrir(browser, { dados: baseExemplo(), hash: "#lancamentos", gravavel: true, quem: "Ana" });
+  const { page, ctx } = await abrir(browser, { dados: baseExemplo(), hash: "#base", gravavel: true, quem: "Ana" });
   await page.fill("#busca", "1");
   await page.waitForFunction(() => document.querySelectorAll("#tab-base tbody tr").length === 1);
   await page.check("#sel-todos");
@@ -60,7 +60,7 @@ test("Abrir PDF: acha o PDF do CT-e na pasta e abre; sem PDF fica apagado", asyn
   });
   await page.click("[data-conectar]");
   await page.waitForFunction(() => /Conectado à pasta/.test(document.body.textContent));
-  await page.click("#abas button[data-aba=lancamentos]");
+  await page.click("#abas button[data-aba=base]");
   await page.waitForSelector('#tab-base [data-pdf]:not([disabled])');
   assert.equal(await page.locator("#tab-base [data-pdf]:not([disabled])").count(), 2);
   const sem = page.locator(`#tab-base [data-pdf="${dados.ctes[1].chave}"]`);
@@ -94,7 +94,7 @@ test("Organizar PDFs por mês: confirma e move para Registrados/1 - Janeiro_2026
   });
   await page.click("[data-conectar]");
   await page.waitForFunction(() => /Conectado à pasta/.test(document.body.textContent));
-  await page.click("#abas button[data-aba=lancamentos]");
+  await page.click("#abas button[data-aba=base]");
   await page.waitForSelector('#tab-base [data-pdf]:not([disabled])');
   await page.click("[data-organizar-pdfs]");
   await page.waitForSelector("#dlg-confirma[open]");
@@ -130,7 +130,7 @@ test("PDFs ao reabrir o painel: sem permissão de leitura avisa; Atualizar PDFs 
   });
   await page.click("[data-conectar]");
   await page.waitForFunction(() => /Conectado à pasta/.test(document.body.textContent));
-  await page.click("#abas button[data-aba=lancamentos]");
+  await page.click("#abas button[data-aba=base]");
   await page.waitForFunction(() => /permissão para ler a pasta/.test(document.querySelector("#pdfs-info")?.textContent || ""));
   assert.match(await page.locator(`#tab-base [data-pdf="${c0.chave}"]`).getAttribute("title"), /Atualizar PDFs/);
   await page.click("[data-atualizar-pdfs]");

@@ -384,9 +384,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 .abas button[data-aba="evolucao"]::after{content:"▾";font-size:10px;opacity:.7;transition:transform .15s}
 .abas button[data-aba="evolucao"][aria-expanded="false"]::after{transform:rotate(-90deg)}
 .abas button[data-aba="rotas"]{order:3}
-.abas button[data-aba="lancamentos"]{order:4}
-.abas button[data-aba="cadastro"]{order:5}
-.abas button[data-aba="dados"]{order:6}
+.abas button[data-aba="base"]{order:4}
+.abas button[data-aba="lancamentos"]{order:5}
+.abas button[data-aba="cadastro"]{order:6}
+.abas button[data-aba="dados"]{order:7}
 .filtros-lat{order:2;margin:4px 0 10px 10px;padding:8px 10px 12px;border-left:1px solid rgba(255,255,255,.18)}
 .lat-cap{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.62);margin-bottom:5px}
 .filtros-lat .modes{margin:0;display:flex}
@@ -411,6 +412,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .sl-quem b{color:#fff;font-weight:600}
 .sl-link{background:none;border:0;padding:0;color:var(--on-navy-2);font:inherit;text-decoration:underline;cursor:pointer}
 .sl-link:hover{color:#fff}
+.sl-link.escuro{color:var(--navy)}.sl-link.escuro:hover{color:var(--accent-d)}
+.lanc-rodape{margin-top:10px!important}
 .lat-rodape{order:10;padding:12px 4px 0;border-top:1px solid var(--hairline-on-navy);font-family:var(--font-mono);font-size:9.5px;
   letter-spacing:.14em;text-transform:uppercase;color:var(--foot-src);line-height:1.6}
 .lat-rodape span{display:block;margin-top:4px;font-family:var(--font-body);font-size:10.5px;letter-spacing:0;text-transform:none;line-height:1.45}
@@ -597,6 +600,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   <nav class="abas" id="abas" aria-label="Telas do painel">
     <button type="button" data-aba="evolucao">Evolução</button>
     <button type="button" data-aba="rotas">Rotas</button>
+    <button type="button" data-aba="base">Base de CT-e</button>
     <button type="button" data-aba="lancamentos">Lançamentos</button>
     <button type="button" data-aba="cadastro">Cadastro</button>
     <button type="button" data-aba="dados">Dados</button>
@@ -1701,7 +1705,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   }
 
   // src/hash.js
-  var ABAS = ["evolucao", "rotas", "lancamentos", "cadastro", "dados"];
+  var ABAS = ["evolucao", "rotas", "base", "lancamentos", "cadastro", "dados"];
   var CHAVES = ["rota", "produto", "transportador", "cliente", "itinerario", "mesIni", "mesFim", "metrica", "mediana"];
   var METRICAS = ["tonelada", "saca", "tarifa"];
   function lerHash(hash) {
@@ -2847,7 +2851,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     pdfs: { pasta: null, indice: null, total: 0, lendo: null }
   };
   function abrirNaBase(cte, { editar = true } = {}) {
-    Object.assign(estado, { editando: editar ? cte.chave : null, busca: String(cte.numero), limite: POR_PAGINA, rascunho: null });
+    Object.assign(estado, { editando: editar ? cte.chave : null, busca: String(cte.numero), limite: POR_PAGINA, rascunho: null, voltarParaBase: editar });
   }
   var CAMPOS = [
     ["chave", "Chave de acesso", true, "w2", "text", "44 dígitos"],
@@ -3007,10 +3011,8 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       return editando ? App2.acoes.corrigir(d, s, editando, c, quem, agora) : lixo ? App2.acoes.relancar(d, s, c, quem, agora) : App2.acoes.incluir(d, s, c, quem, agora);
     });
     if (r?.ok) {
-      estado.rascunho = null;
-      estado.editando = null;
       aviso(`CT-e ${r.cte.numero} ${editando ? "corrigido" : "lançado"}.`);
-      App2.render();
+      fimDaCorrecao(App2);
     } else if (r?.erros) mostrarErros(form, r.erros);
   }
   function baseHtml() {
@@ -3042,6 +3044,16 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     })().catch((e) => vazio2(e?.name === "NotAllowedError" || e?.name === "SecurityError" ? "permissao" : e?.message || e?.name || "erro"));
     await p.lendo;
     if (raiz.isConnected && $("#tab-base", raiz)) pintarBase(raiz, App2);
+    const bf = raiz.isConnected && estado.editando && $("#form-cte [data-pdf]", raiz);
+    if (bf) {
+      const mesmo = /* @__PURE__ */ new Map();
+      for (const x of App2.dados.ctes) mesmo.set(x.numero, (mesmo.get(x.numero) || 0) + 1);
+      const c = App2.dados.ctes.find((x) => x.chave === estado.editando), r = c && pdfDe(App2, c, mesmo);
+      if (r) {
+        bf.disabled = !r.ok;
+        bf.title = r.dica;
+      }
+    }
   }
   var problemaPdfs = (p) => p.erro === "permissao" ? "O navegador pede permissão para ler a pasta: clique em Atualizar PDFs." : p.erro ? `Não foi possível ler a pasta: ${p.erro}. Clique em Atualizar PDFs.` : null;
   function pdfDe(App2, c, mesmoNumero) {
@@ -3286,12 +3298,25 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       });
     }
   }
+  function fimDaCorrecao(App2) {
+    const volta = estado.voltarParaBase;
+    estado.editando = null;
+    estado.rascunho = null;
+    estado.voltarParaBase = false;
+    if (volta) App2.irPara("base", App2.filtros);
+    else App2.render();
+  }
   function renderLancamentos(raiz, App2) {
     const cte = estado.editando ? App2.dados.ctes.find((c) => c.chave === estado.editando) : null;
-    if (!cte) estado.editando = null;
+    if (!cte) {
+      estado.editando = null;
+      estado.voltarParaBase = false;
+    }
     raiz.innerHTML = `<section class="secao"><div class="wrap pilha">
-    ${App2.somenteLeitura ? `<div class="card"><p class="vazio">Painel aberto só para consulta: para lançar, abra o HTML pela pasta compartilhada no Chrome ou Edge.</p></div>` : formHtml(App2, cte)}
-    ${baseHtml()}</div></section>`;
+    ${App2.somenteLeitura ? `<div class="card"><p class="vazio">Painel aberto só para consulta: para lançar, abra o HTML pela pasta compartilhada no Chrome ou Edge. Os CT-e lançados estão na aba Base de CT-e.</p></div>` : formHtml(App2, cte)}
+    <p class="hint lanc-rodape">${fmtNum(App2.dados.ctes.length)} CT-e na base. <button class="sl-link escuro" type="button" data-ir-base>Ver a Base de CT-e</button></p>
+    </div></section>`;
+    $("[data-ir-base]", raiz).addEventListener("click", () => App2.irPara("base", App2.filtros));
     const form = $("#form-cte", raiz);
     if (form) {
       atualizarForm(form, App2);
@@ -3343,18 +3368,21 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
           App2.render();
           scrollTo(0, 0);
         }
-        if (ev.target.closest("[data-cancelar]")) {
-          estado.editando = null;
-          estado.rascunho = null;
-          App2.render();
-        }
+        if (ev.target.closest("[data-cancelar]")) fimDaCorrecao(App2);
         if (ev.target.closest("[data-limpar]")) {
           estado.rascunho = null;
           App2.render();
         }
+        if (ev.target.closest("[data-pdf]")) abrirPdf(App2, ev.target.closest("[data-pdf]").dataset.pdf);
       });
-      if (cte) form.scrollIntoView({ block: "start" });
+      if (cte) {
+        form.scrollIntoView({ block: "start" });
+        carregarPdfs(raiz, App2);
+      }
     }
+  }
+  function renderBase(raiz, App2) {
+    raiz.innerHTML = `<section class="secao"><div class="wrap pilha">${baseHtml()}</div></section>`;
     pintarBase(raiz, App2);
     carregarPdfs(raiz, App2);
     $("#busca", raiz).addEventListener("input", (ev) => {
@@ -3406,9 +3434,9 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
         return;
       }
       if (b.dataset.corrigir) {
-        estado.editando = b.dataset.corrigir;
-        estado.rascunho = null;
-        App2.render();
+        Object.assign(estado, { editando: b.dataset.corrigir, rascunho: null, voltarParaBase: true });
+        App2.irPara("lancamentos", App2.filtros);
+        scrollTo(0, 0);
         return;
       }
       const c = App2.dados.ctes.find((x) => x.chave === b.dataset.excluir);
@@ -3715,7 +3743,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   }
 
   // src/app.js
-  var TELAS = { evolucao: renderEvolucao, rotas: renderRotas, lancamentos: renderLancamentos, cadastro: renderCadastro, dados: renderDados };
+  var TELAS = { evolucao: renderEvolucao, rotas: renderRotas, base: renderBase, lancamentos: renderLancamentos, cadastro: renderCadastro, dados: renderDados };
   var LS_QUEM = "radar-carga-solta:quem";
   var lerLS = (k) => {
     try {
@@ -3751,7 +3779,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       const c = App.dados.ctes.find((x) => x.chave === chave);
       if (!c) return;
       abrirNaBase(c, { editar: !App.somenteLeitura });
-      App.irPara("lancamentos", { metrica: App.filtros.metrica });
+      App.irPara(App.somenteLeitura ? "base" : "lancamentos", { metrica: App.filtros.metrica });
       scrollTo(0, 0);
     },
     abrirCnpj(cnpj) {

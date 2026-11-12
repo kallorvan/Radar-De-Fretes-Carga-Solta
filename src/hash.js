@@ -1,6 +1,6 @@
 // Aba e filtros no endereço (#evolucao?rota=…), para mandar um link já filtrado.
 
-export const ABAS = ["evolucao", "rotas", "lancamentos", "cadastro", "dados"];
+export const ABAS = ["evolucao", "rotas", "base", "lancamentos", "cadastro", "dados"];
 const CHAVES = ["rota", "produto", "transportador", "cliente", "itinerario", "mesIni", "mesFim", "metrica", "mediana"];
 const METRICAS = ["tonelada", "saca", "tarifa"];
 

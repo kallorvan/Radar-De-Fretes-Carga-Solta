@@ -16,7 +16,7 @@ const estado = { editando: null, busca: "", limite: POR_PAGINA, rascunho: null, 
 
 /* Vindo de uma exceção ou do gráfico: a base já buscando o CT-e e, quando dá para lançar, a correção aberta. */
 export function abrirNaBase(cte, { editar = true } = {}) {
-  Object.assign(estado, { editando: editar ? cte.chave : null, busca: String(cte.numero), limite: POR_PAGINA, rascunho: null });
+  Object.assign(estado, { editando: editar ? cte.chave : null, busca: String(cte.numero), limite: POR_PAGINA, rascunho: null, voltarParaBase: editar });
 }
 
 const CAMPOS = [
@@ -190,9 +190,8 @@ async function enviar(form, App, { relancar = false } = {}) {
       : lixo ? App.acoes.relancar(d, s, c, quem, agora) : App.acoes.incluir(d, s, c, quem, agora);
   });
   if (r?.ok) {
-    estado.rascunho = null; estado.editando = null;
     aviso(`CT-e ${r.cte.numero} ${editando ? "corrigido" : "lançado"}.`);
-    App.render();
+    fimDaCorrecao(App);
   } else if (r?.erros) mostrarErros(form, r.erros);
 }
 
@@ -227,6 +226,13 @@ async function carregarPdfs(raiz, App, { forcar = false, pedir = false } = {}) {
   })().catch(e => vazio(e?.name === "NotAllowedError" || e?.name === "SecurityError" ? "permissao" : (e?.message || e?.name || "erro")));
   await p.lendo;
   if (raiz.isConnected && $("#tab-base", raiz)) pintarBase(raiz, App);
+  // na correção (aba Lançamentos), só o botão PDF do formulário: redesenhar a tela apagaria o que foi digitado
+  const bf = raiz.isConnected && estado.editando && $("#form-cte [data-pdf]", raiz);
+  if (bf) {
+    const mesmo = new Map(); for (const x of App.dados.ctes) mesmo.set(x.numero, (mesmo.get(x.numero) || 0) + 1);
+    const c = App.dados.ctes.find(x => x.chave === estado.editando), r = c && pdfDe(App, c, mesmo);
+    if (r) { bf.disabled = !r.ok; bf.title = r.dica; }
+  }
 }
 
 /* O que dizer quando a leitura dos PDFs não deu certo (null quando deu). */
@@ -431,12 +437,22 @@ function ligarCidades(form, App) {
   }
 }
 
+/* Fim de uma correção (salva ou cancelada): quem veio da aba Base de CT-e volta para ela. */
+function fimDaCorrecao(App) {
+  const volta = estado.voltarParaBase;
+  estado.editando = null; estado.rascunho = null; estado.voltarParaBase = false;
+  if (volta) App.irPara("base", App.filtros); else App.render();
+}
+
+/* Aba Lançamentos: só o formulário (lançar ou corrigir). A base fica na aba Base de CT-e, como no Radar Container. */
 export function renderLancamentos(raiz, App) {
   const cte = estado.editando ? App.dados.ctes.find(c => c.chave === estado.editando) : null;
-  if (!cte) estado.editando = null;
+  if (!cte) { estado.editando = null; estado.voltarParaBase = false; }
   raiz.innerHTML = `<section class="secao"><div class="wrap pilha">
-    ${App.somenteLeitura ? `<div class="card"><p class="vazio">Painel aberto só para consulta: para lançar, abra o HTML pela pasta compartilhada no Chrome ou Edge.</p></div>` : formHtml(App, cte)}
-    ${baseHtml()}</div></section>`;
+    ${App.somenteLeitura ? `<div class="card"><p class="vazio">Painel aberto só para consulta: para lançar, abra o HTML pela pasta compartilhada no Chrome ou Edge. Os CT-e lançados estão na aba Base de CT-e.</p></div>` : formHtml(App, cte)}
+    <p class="hint lanc-rodape">${fmtNum(App.dados.ctes.length)} CT-e na base. <button class="sl-link escuro" type="button" data-ir-base>Ver a Base de CT-e</button></p>
+    </div></section>`;
+  $("[data-ir-base]", raiz).addEventListener("click", () => App.irPara("base", App.filtros));
 
   const form = $("#form-cte", raiz);
   if (form) {
@@ -469,12 +485,17 @@ export function renderLancamentos(raiz, App) {
       if (calc) { ev.preventDefault(); abrirCalculadora(form, calc.dataset.calc); return; }
       const abrirEx = ev.target.closest("[data-abrir]");
       if (abrirEx) { estado.editando = abrirEx.dataset.abrir; estado.rascunho = null; App.render(); scrollTo(0, 0); }
-      if (ev.target.closest("[data-cancelar]")) { estado.editando = null; estado.rascunho = null; App.render(); }
+      if (ev.target.closest("[data-cancelar]")) fimDaCorrecao(App);
       if (ev.target.closest("[data-limpar]")) { estado.rascunho = null; App.render(); }
+      if (ev.target.closest("[data-pdf]")) abrirPdf(App, ev.target.closest("[data-pdf]").dataset.pdf);
     });
-    if (cte) form.scrollIntoView({ block: "start" });
+    if (cte) { form.scrollIntoView({ block: "start" }); carregarPdfs(raiz, App); }   // o botão PDF da correção
   }
+}
 
+/* Aba Base de CT-e: busca, PDFs, corrigir, excluir e exclusão em massa (antes ficava embaixo do formulário). */
+export function renderBase(raiz, App) {
+  raiz.innerHTML = `<section class="secao"><div class="wrap pilha">${baseHtml()}</div></section>`;
   pintarBase(raiz, App);
   carregarPdfs(raiz, App);
   $("#busca", raiz).addEventListener("input", ev => { estado.busca = ev.target.value; estado.limite = POR_PAGINA; pintarBase(raiz, App); });
@@ -507,7 +528,11 @@ export function renderLancamentos(raiz, App) {
     const b = ev.target.closest("[data-corrigir],[data-excluir],[data-mais]");
     if (!b) return;
     if (b.dataset.mais !== undefined) { estado.limite += POR_PAGINA; pintarBase(raiz, App); return; }
-    if (b.dataset.corrigir) { estado.editando = b.dataset.corrigir; estado.rascunho = null; App.render(); return; }
+    if (b.dataset.corrigir) {
+      // a correção é no formulário, na aba Lançamentos; salvando ou cancelando, volta para cá
+      Object.assign(estado, { editando: b.dataset.corrigir, rascunho: null, voltarParaBase: true });
+      App.irPara("lancamentos", App.filtros); scrollTo(0, 0); return;
+    }
     const c = App.dados.ctes.find(x => x.chave === b.dataset.excluir);
     if (c && await confirmar(`Excluir o CT-e Nº ${c.numero}?`, "Ele vai para a lixeira e pode ser restaurado na aba Dados. A exclusão fica registrada com o seu nome.", "Excluir")) {
       const r = await App.alterar((d, s, quem, agora) => App.acoes.excluir(d, s, c.chave, quem, agora));

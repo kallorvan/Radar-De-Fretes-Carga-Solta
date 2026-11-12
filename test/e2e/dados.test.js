@@ -66,7 +66,7 @@ test("aberto por http é somente leitura", async () => {
   const ctx = await browser.newContext(); ctx.setDefaultTimeout(5000);
   const page = await ctx.newPage();
   await page.route(/cdnjs|fonts\./, r => r.abort());
-  await page.goto(`http://127.0.0.1:${porta}/#lancamentos`);
+  await page.goto(`http://127.0.0.1:${porta}/#base`);
   await page.waitForSelector("#tab-base");
   assert.match(await page.locator("#estado-gravacao").textContent(), /Somente consulta/);
   assert.equal(await page.locator("#form-cte").count(), 0);

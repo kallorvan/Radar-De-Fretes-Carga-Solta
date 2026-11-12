@@ -41,9 +41,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 .abas button[data-aba="evolucao"]::after{content:"▾";font-size:10px;opacity:.7;transition:transform .15s}
 .abas button[data-aba="evolucao"][aria-expanded="false"]::after{transform:rotate(-90deg)}
 .abas button[data-aba="rotas"]{order:3}
-.abas button[data-aba="lancamentos"]{order:4}
-.abas button[data-aba="cadastro"]{order:5}
-.abas button[data-aba="dados"]{order:6}
+.abas button[data-aba="base"]{order:4}
+.abas button[data-aba="lancamentos"]{order:5}
+.abas button[data-aba="cadastro"]{order:6}
+.abas button[data-aba="dados"]{order:7}
 .filtros-lat{order:2;margin:4px 0 10px 10px;padding:8px 10px 12px;border-left:1px solid rgba(255,255,255,.18)}
 .lat-cap{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.62);margin-bottom:5px}
 .filtros-lat .modes{margin:0;display:flex}
@@ -68,6 +69,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .sl-quem b{color:#fff;font-weight:600}
 .sl-link{background:none;border:0;padding:0;color:var(--on-navy-2);font:inherit;text-decoration:underline;cursor:pointer}
 .sl-link:hover{color:#fff}
+.sl-link.escuro{color:var(--navy)}.sl-link.escuro:hover{color:var(--accent-d)}
+.lanc-rodape{margin-top:10px!important}
 .lat-rodape{order:10;padding:12px 4px 0;border-top:1px solid var(--hairline-on-navy);font-family:var(--font-mono);font-size:9.5px;
   letter-spacing:.14em;text-transform:uppercase;color:var(--foot-src);line-height:1.6}
 .lat-rodape span{display:block;margin-top:4px;font-family:var(--font-body);font-size:10.5px;letter-spacing:0;text-transform:none;line-height:1.45}

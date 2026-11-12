@@ -37,6 +37,7 @@ O usuário pediu os dois painéis de lançamento no mesmo layout. Referência: r
 - **Evolução:** o número do recorte vai num quadro branco ao lado do gráfico (no Container, a posição e a distribuição dos gaps).
 - **Formulário de lançamento em blocos:** Dados do CT-e · Cliente e transportador · Produto e peso · Valores.
 - **Só computador:** o painel não tem layout de celular (decisão do usuário em 12/11/2026). Não gastar tempo com telas estreitas nas próximas mudanças.
+- **Abas:** Evolução · Rotas · Base de CT-e · Lançamentos · Cadastro · Dados (a base antes dos lançamentos, como no Container).
 - **Fontes** Barlow Condensed, IBM Plex Sans e IBM Plex Mono por `<link>` no `<head>`, como no Container. O `@import` do `bundle.css` não vale: fica no meio da folha montada e o navegador o ignora (o painel caía em Arial).
 - Diferença que ficou: o Carga Solta continua com tema escuro automático; o Container é só claro.
 
@@ -56,7 +57,8 @@ O usuário pediu os dois painéis de lançamento no mesmo layout. Referência: r
   - **Calculadora** (botão **Calc**) nos campos Adicionais e Quantidade.
   - **Chave de acesso:** é conferida assim que tem 44 dígitos. Se o CT-e já está na base, o painel oferece **Abrir o registro**; se está na lixeira, **Lançar de novo**.
   - **Envio:** só pelo botão Lançar CT-e; Enter nos campos não envia.
-- **Base (Lançamentos)**
+- **Base de CT-e** (aba própria desde 12/11/2026, a pedido do usuário, como a Base concorrentes do Container; antes ficava embaixo do formulário de Lançamentos; `renderBase` em `src/telas/lancamentos.js`, endereço `#base`)
+  - **Corrigir** abre o formulário na aba Lançamentos; salvando ou cancelando, volta para a Base (`voltarParaBase`). O **Abrir na base** das exceções faz o mesmo.
   - Busca por número ou chave.
   - Corrigir e excluir.
   - Seleção e exclusão em massa.
@@ -104,7 +106,7 @@ Depois de regerar, rode `npm run montar` e troque o HTML na pasta. Ao abrir, o p
 npm install
 npm test                 # 182 testes de unidade (node:test)
 npm run montar           # gera dist/index.html (esbuild + CSS + logos embutidos)
-npm run test:e2e         # 60 testes no navegador (Playwright/Chromium), com uma pasta simulada
+npm run test:e2e         # 61 testes no navegador (Playwright/Chromium), com uma pasta simulada
 ```
 
 - **Código:** ES modules em `src/` e as telas em `src/telas/`. O build é IIFE e vai inteiro para dentro do HTML. Bibliotecas externas: SheetJS 0.18.5 (cdnjs, só para exportar) e Google Fonts.

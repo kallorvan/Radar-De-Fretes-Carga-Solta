@@ -1,6 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { chromium, abrir } from "./ajuda.js";
+import { chromium, abrir, irBase } from "./ajuda.js";
 import { baseExemplo } from "../fixtures/base-exemplo.js";
 
 let browser;
@@ -33,7 +33,7 @@ test("lança CT-e e calcula preço por saca", async () => {
   assert.equal(await page.locator("#form-cte [name=pesoKg]").inputValue(), "50.000");
   assert.equal(await page.locator("#form-cte [name=numero]").inputValue(), "99999");
   await page.click("#form-cte button[type=submit]");
-  await page.fill("#busca", "99999");
+  await irBase(page); await page.fill("#busca", "99999");
   await page.waitForFunction(() => document.querySelectorAll("#tab-base tbody tr").length === 1);
   assert.match(await page.locator("#tab-base tbody tr").textContent(), /Ana/);
   assert.match(await page.locator("#estado-gravacao").textContent(), /Alterações pendentes/);
@@ -72,14 +72,14 @@ test("CNPJ novo pede nome e cadastra", async () => {
   await page.waitForSelector("#form-cte [name=nomeTransportador][aria-invalid=true]");
   await page.fill("#form-cte [name=nomeTransportador]", "Transportes Novos");
   await page.click("#form-cte button[type=submit]");
-  await page.fill("#busca", "99999");
+  await irBase(page); await page.fill("#busca", "99999");
   await page.waitForFunction(() => document.querySelector("#tab-base tbody")?.textContent.includes("TRANSPORTES NOVOS"));
   await ctx.close();
 });
 
 test("corrigir muda o formulário e salva", async () => {
   const { page, ctx } = await abrirLanc();
-  await page.fill("#busca", "4");
+  await irBase(page); await page.fill("#busca", "4");
   await page.waitForFunction(() => document.querySelectorAll("#tab-base tbody tr").length === 1);
   await page.click("#tab-base [data-corrigir]");
   await page.waitForSelector("#form-cte.editando");
@@ -88,7 +88,9 @@ test("corrigir muda o formulário e salva", async () => {
   assert.equal(await page.locator("#form-cte [name=produto]").inputValue(), "ACUCAR");
   await page.fill("#form-cte [name=quantidade]", "60");
   await page.click("#form-cte button[type=submit]");
-  await page.waitForSelector("#form-cte:not(.editando)");
+  // a correção veio da base: salvando, volta para a aba Base de CT-e
+  await page.waitForSelector("#tab-base");
+  assert.match(await page.evaluate(() => location.hash), /^#base/);
   const preco = await page.evaluate(() => window.RADAR_APP.dados.ctes.find(c => c.numero === 4).precoTonelada);
   assert.equal(preco, 150);
   await ctx.close();
@@ -97,8 +99,8 @@ test("corrigir muda o formulário e salva", async () => {
 test("excluir pede confirmação e vai para a lixeira", async () => {
   const { page, ctx, erros } = await abrirLanc();
   // redesenhos antes do clique não podem acumular ações
-  for (const aba of ["rotas", "lancamentos", "evolucao", "lancamentos"]) { await page.click(`#abas button[data-aba=${aba}]`); await page.waitForSelector("#conteudo .card"); }
-  await page.fill("#busca", "4");
+  for (const aba of ["rotas", "base", "evolucao", "base"]) { await page.click(`#abas button[data-aba=${aba}]`); await page.waitForSelector("#conteudo .card"); }
+  await irBase(page); await page.fill("#busca", "4");
   await page.waitForFunction(() => document.querySelectorAll("#tab-base tbody tr").length === 1);
   await page.evaluate(() => { const orig = window.RADAR_APP.alterar; window.__chamadas = 0; window.RADAR_APP.alterar = (...a) => { window.__chamadas++; return orig(...a); }; });
   await page.click("#tab-base [data-excluir]");
@@ -115,7 +117,7 @@ test("excluir pede confirmação e vai para a lixeira", async () => {
 
 test("aberto sem pasta gravável não mostra o formulário", async () => {
   const { page, ctx } = await abrir(browser, { dados: baseExemplo(), hash: "#lancamentos" });
-  await page.waitForSelector("#tab-base");
+  await page.waitForSelector("#conteudo .card");
   const gravavel = await page.evaluate(() => !window.RADAR_APP.somenteLeitura);
   if (!gravavel) assert.equal(await page.locator("#form-cte").isVisible(), false);
   await ctx.close();
@@ -131,7 +133,7 @@ test("lança café em sacas de 60 kg e açúcar em toneladas", async () => {
   await page.waitForFunction(() => window.RADAR_APP.dados.ctes.some(c => c.numero === 99999 && c.produto === "CAFE"));
   await preencher(page, { chave: "35260511111111000100570010000888881000120718", produto: "ACUCAR", unidade: "TON", quantidade: "50", valorFrete: "8.750,00" });
   assert.equal(await page.locator("#form-cte output[name=precoTonelada]").textContent(), "R$ 175,00");
-  await page.fill("#busca", "99999");
+  await irBase(page); await page.fill("#busca", "99999");
   await page.waitForFunction(() => document.querySelector("#tab-base tbody").textContent.includes("Café"));
   assert.match(await page.locator("#tab-base tbody").textContent(), /535,60/);
   assert.deepEqual(erros, []);
@@ -151,7 +153,7 @@ test("peso do CT-e sobrescreve o calculado", async () => {
   await page.waitForFunction(() => window.RADAR_APP.dados.ctes.find(c => c.numero === 99999)?.pesoInformado === true);
   // peso com decimais sobrevive à correção
   await page.evaluate(() => { const c = window.RADAR_APP.dados.ctes.find(x => x.numero === 99999); c.pesoKg = 1234.56; });
-  await page.fill("#busca", "99999");
+  await irBase(page); await page.fill("#busca", "99999");
   await page.click("#tab-base [data-corrigir]");
   assert.equal(await page.locator("#form-cte [name=pesoKg]").inputValue(), "1.234,56");
   await ctx.close();
@@ -209,7 +211,7 @@ test("corrigir CT-e cujo CNPJ guardado não bate com a chave avisa a troca de tr
   const d = baseExemplo();
   d.ctes[0].cnpjTransportador = "22222222000100";   // base antiga: CNPJ digitado diferente do emitente da chave
   const { page, ctx } = await abrir(browser, { dados: d, hash: "#lancamentos", gravavel: true, quem: "Ana" });
-  await page.fill("#busca", String(d.ctes[0].numero));
+  await irBase(page); await page.fill("#busca", String(d.ctes[0].numero));
   await page.click(`#tab-base [data-corrigir="${d.ctes[0].chave}"]`);
   await page.waitForSelector("#form-cte.editando");
   assert.match(await page.locator("#aviso-cnpj-chave").textContent(), /22\.222\.222\/0001-00.*não bate com a chave.*11\.111\.111\/0001-00/);

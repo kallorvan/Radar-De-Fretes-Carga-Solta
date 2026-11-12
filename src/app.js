@@ -9,11 +9,11 @@ import { fmtQuando, esc } from "./formato.js";
 import { $, $$, aviso } from "./ui.js";
 import { renderEvolucao } from "./telas/evolucao.js";
 import { renderRotas } from "./telas/rotas.js";
-import { renderLancamentos, abrirNaBase } from "./telas/lancamentos.js";
+import { renderLancamentos, renderBase, abrirNaBase } from "./telas/lancamentos.js";
 import { renderCadastro, abrirNoCadastro } from "./telas/cadastro.js";
 import { renderDados } from "./telas/dados.js";
 
-const TELAS = { evolucao: renderEvolucao, rotas: renderRotas, lancamentos: renderLancamentos, cadastro: renderCadastro, dados: renderDados };
+const TELAS = { evolucao: renderEvolucao, rotas: renderRotas, base: renderBase, lancamentos: renderLancamentos, cadastro: renderCadastro, dados: renderDados };
 const LS_QUEM = "radar-carga-solta:quem";
 
 const lerLS = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
@@ -41,7 +41,8 @@ const App = {
     const c = App.dados.ctes.find(x => x.chave === chave);
     if (!c) return;
     abrirNaBase(c, { editar: !App.somenteLeitura });
-    App.irPara("lancamentos", { metrica: App.filtros.metrica });
+    // quem pode lançar cai direto na correção (e volta para a base ao salvar); quem só consulta, na base buscando o CT-e
+    App.irPara(App.somenteLeitura ? "base" : "lancamentos", { metrica: App.filtros.metrica });
     scrollTo(0, 0);
   },
   abrirCnpj(cnpj) {
