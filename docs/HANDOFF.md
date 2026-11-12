@@ -30,13 +30,14 @@ A planilha real (`Radar_Fretes_Concorrentes_v2.10.xlsm`) e o relatório de itine
 
 O usuário pediu os dois painéis de lançamento no mesmo layout. Referência: repositório `kallorvan/Radar-De-Fretes-Container` (`src/css/lateral.css`, `src/js/lateral.js`).
 
-- **Menu lateral azul-marinho fixo à esquerda** (258 px): assinatura Dínamo | Tóliman em branco, título "Tóliman × mercado / Radar de fretes / Carga solta", abas em coluna (a aberta com fio coral à esquerda).
+- **Menu lateral azul-marinho fixo à esquerda** (258 px): assinatura Dínamo | Tóliman com as logos oficiais (letras brancas, traços das marcas em cores; `logos-lateral.png`), título "Tóliman × mercado / Radar de fretes / Carga solta", abas em coluna (a aberta com fio coral à esquerda).
 - **Recorte da Evolução no menu**, logo abaixo do botão Evolução (métrica, rota, transportador, cliente, produto, itinerário, período e Limpar recorte), como os filtros do Comparativo no Container. Nas outras telas ele some (`#filtros-lat`, preenchido por `renderEvolucao`, limpo em `App.render`).
 - **Quadro de gravação no pé do menu** (`#estado-gravacao`): estado, botão coral **Conectar a pasta** ou **Salvar agora**, e "Lançando como … · trocar". Gruda no pé quando o menu rola.
 - **Conteúdo em quadros brancos** na largura toda, sem título de página; cada quadro tem o título com filete azul-marinho embaixo. Botões em texto normal (primário azul-marinho).
 - **Evolução:** o número do recorte vai num quadro branco ao lado do gráfico (no Container, a posição e a distribuição dos gaps).
 - **Formulário de lançamento em blocos:** Dados do CT-e · Cliente e transportador · Produto e peso · Valores.
 - **Só computador:** o painel não tem layout de celular (decisão do usuário em 12/11/2026). Não gastar tempo com telas estreitas nas próximas mudanças.
+- **Fontes** Barlow Condensed, IBM Plex Sans e IBM Plex Mono por `<link>` no `<head>`, como no Container. O `@import` do `bundle.css` não vale: fica no meio da folha montada e o navegador o ignora (o painel caía em Arial).
 - Diferença que ficou: o Carga Solta continua com tema escuro automático; o Container é só claro.
 
 ## O que o painel faz hoje
@@ -92,6 +93,7 @@ A importação de planilha saiu da tela a pedido do usuário. Ela foi usada só 
 | `src/dados-itinerarios.js` (344 cidades, 1.321 itinerários) | relatório de itinerários do Rodopar | `node scripts/extrair-itinerarios.mjs caminho/itinerarios.xlsx` |
 | `src/dados-municipios.js` (5.291 nomes) | aba MUNICÍPIOS da planilha | `node scripts/extrair-municipios.mjs caminho/Radar_Fretes_Concorrentes.xlsm` |
 | `referencia/toliman-paineis/logos-cor.png` e `logos-branco.png` | `logo-dinamo-cor.png` + `logo-toliman-empilhada.png` | `python3 scripts/montar-logos.py` (Pillow) |
+| `referencia/toliman-paineis/logos-lateral.png` (a do menu: letras brancas, traços das marcas em cores) | logos oficiais `logo-dinamo-horizontal.png` + `logo-toliman-horizontal.png`, enviadas pelo usuário em 12/11/2026 | `python3 scripts/montar-logos-lateral.py` (Pillow e numpy) |
 
 Depois de regerar, rode `npm run montar` e troque o HTML na pasta. Ao abrir, o painel preenche sozinho os itinerários em branco que a tabela nova já sabe montar.
 
