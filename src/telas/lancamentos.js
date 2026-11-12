@@ -5,7 +5,7 @@ import { calcularCte, numeroDaChave, cnpjDaChave, codigoItinerario, normalizarCi
 import { filtrar } from "../agregacao.js";
 import { listarPdfs, indexarPdfs, pdfDoCte, planejarOrganizacao, executarOrganizacao, PASTA_REGISTRADOS } from "../pdfs.js";
 import { sugerirCidades, cidadeConhecida, cidadesMaisUsadas, contarUsos } from "../municipios.js";
-import { avaliarConta, valorParaCampo } from "../calculadora.js";
+import { lerConta, valorParaCampo } from "../calculadora.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
 import { $, $$, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 
@@ -33,7 +33,9 @@ const CAMPOS = [
   ["valorFrete", "Valor do frete", true, "", "text", ""],
   ["adicionais", "Adicionais", false, "", "text", ""],
 ];
-const botaoCalc = (k, rot) => `<button type="button" class="btn-calc" data-calc="${k}" title="Calculadora: fazer a conta antes de colocar o valor" aria-label="Calculadora de ${rot}">Calc</button>`;
+// calculadora nos campos de valor, como no Radar Container: botão 🧮 dentro do campo (ou tecla = no campo)
+const COM_CALC = new Set(["valorAssegurado", "valorSeguro", "valorFrete", "adicionais", "quantidade"]);
+const botaoCalc = (k, rot) => `<button type="button" class="calc-btn" data-calc="${k}" tabindex="-1" title="Calculadora (ou tecle = no campo). Enter põe o resultado aqui." aria-label="Abrir calculadora de ${rot}">🧮</button>`;
 const TRAVADOS = new Set(["cnpjTransportador", "itinerario"]);   // saem da chave e da rota
 const NUM = new Set(["valorAssegurado", "valorSeguro", "valorFrete", "adicionais", "quantidade", "pesoKg"]);
 const fmtCampo = (k, v) => v == null || v === "" ? "" : typeof v === "string" && estado.rascunho?.bruto ? v :
@@ -74,9 +76,9 @@ function formHtml(App, cte) {
   const r = estado.rascunho, v = r && (!cte || r.chave === cte.chave) ? { ...(cte || {}), ...r } : (cte || {});
   // os campos de texto da lista CAMPOS, pelo nome, na ordem pedida (cada bloco do formulário escolhe os seus)
   const campos = (...nomes) => nomes.map(nome => CAMPOS.find(c => c[0] === nome)).map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
-        ${k === "adicionais" ? '<span class="com-calc-wrap">' : ""}<input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
-          value="${esc(fmtCampo(k, v[k]))}" ${k === "adicionais" ? 'class="com-calc"' : ""} ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? `role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sug-${k}"` : ""} autocomplete="off">
-        ${k === "adicionais" ? botaoCalc(k, "adicionais") + "</span>" : ""}
+        ${COM_CALC.has(k) ? '<span class="comcalc">' : ""}<input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
+          value="${esc(fmtCampo(k, v[k]))}" ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? `role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sug-${k}"` : ""} autocomplete="off">
+        ${COM_CALC.has(k) ? botaoCalc(k, rot.toLowerCase()) + "</span>" : ""}
         ${k === "origem" || k === "destino" ? `<div class="sugestoes" id="sug-${k}" role="listbox" hidden></div><span class="nota aviso-cidade" data-cidade-aviso="${k}"></span>` : ""}
         ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("");
   return `<form id="form-cte" class="card${cte ? " editando" : ""}" novalidate data-escreve>
@@ -93,7 +95,7 @@ function formHtml(App, cte) {
     <div class="form-grid">
       <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App.dados.produtos, v.produto, "+ Cadastrar produto…")}</select><span class="erro" data-erro="produto"></span></label>
       <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App.dados.unidades, v.unidade, "+ Cadastrar unidade…")}</select><span class="erro" data-erro="unidade"></span></label>
-      <label class="campo"><span>Quantidade <i class="obrig">*</i></span><span class="com-calc-wrap"><input name="quantidade" class="com-calc" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off">${botaoCalc("quantidade", "quantidade")}</span><span class="erro" data-erro="quantidade"></span></label>
+      <label class="campo"><span>Quantidade <i class="obrig">*</i></span><span class="comcalc"><input name="quantidade" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off">${botaoCalc("quantidade", "quantidade")}</span><span class="erro" data-erro="quantidade"></span></label>
       <div class="campo"><span>Peso total (kg)</span><input name="pesoKg" type="text" inputmode="decimal" value="${esc(fmtCampo("pesoKg", v.pesoKg))}" autocomplete="off" aria-label="Peso total (kg)">
         <label class="nota caixa"><input type="checkbox" name="pesoInformado" ${v.pesoInformado ? "checked" : ""}> Usar o peso do CT-e</label><span class="erro" data-erro="pesoKg"></span></div>
     </div>
@@ -373,36 +375,79 @@ async function cadastrarNaLista(form, App, campo) {
   else { if (r?.erro) aviso(r.erro, true); sel.value = anterior; }
 }
 
-/* Calculadora de um campo: a conta começa com o valor que já está nele; "Usar este valor" põe o resultado e recalcula. */
-async function abrirCalculadora(form, campo) {
-  const inp = form.querySelector(`[name=${campo}]`), dlg = $("#dlg-calc"), f = dlg.querySelector("form");
-  const conta = f.elements.conta, saida = $("#calc-resultado"), usar = $("#calc-usar");
-  $("#dlg-calc-titulo").textContent = `Calculadora · ${campo === "adicionais" ? "Adicionais" : "Quantidade"}`;
-  conta.value = inp.value.trim();
-  const pintar = () => {
-    const v = avaliarConta(conta.value);
-    saida.textContent = v != null ? fmtNum(v, 2) : conta.value.trim() ? "conta incompleta" : "—";
-    usar.disabled = v == null;
-    return v;
-  };
-  conta.oninput = pintar;
-  f.onkeydown = e => { if (e.key === "Enter" && e.target === conta) { e.preventDefault(); if (pintar() != null) dlg.close("ok"); } };
-  f.querySelector(".teclado").onclick = e => {
-    const t = e.target.closest("[data-tecla]")?.dataset.tecla;
-    if (!t) return;
-    conta.value = t === "limpar" ? "" : t === "apagar" ? conta.value.replace(/\s*\S\s*$/, "") : conta.value + (/[0-9,]/.test(t) ? t : ` ${t} `);
-    pintar(); conta.focus();
-  };
-  pintar();
-  const ok = await new Promise(res => {
-    dlg.addEventListener("close", () => res(dlg.returnValue === "ok"), { once: true });
-    dlg.returnValue = ""; dlg.showModal(); conta.focus();
+/* Calculadora no modelo do Radar Container: janelinha logo abaixo do campo, com a conta começando pelo valor que já
+   está nele. Abre pelo botão 🧮 ou pela tecla = no campo; + − × ÷ digitados no campo abrem continuando a conta.
+   Enter (ou =) põe o resultado no campo e recalcula o formulário; Esc ou um clique fora fecha. */
+const CALC = { campo: null };
+function calcMostrar() {
+  const r = $("#calc-res"), l = lerConta($("#calc-exp").value);
+  const moeda = CALC.campo?.name !== "quantidade";
+  if (l.erro) { r.className = "calc-res err"; r.textContent = l.erro; return undefined; }
+  r.className = "calc-res";
+  r.textContent = l.valor == null ? "= —" : "= " + (moeda ? fmtMoeda(l.valor) : fmtNum(l.valor, 2));
+  return l.valor;
+}
+function calcPosicionar() {
+  const p = $("#calc");
+  if (!p || p.hidden || !CALC.campo?.isConnected) return;
+  const r = CALC.campo.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+  let top = r.bottom + 6;
+  if (top + h > innerHeight - 8 && r.top - h - 6 > 8) top = r.top - h - 6;
+  p.style.top = Math.max(8, top) + "px";
+  p.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+}
+function calcAbrir(campo, inicio) {
+  CALC.campo = campo;
+  $("#calc-campo").textContent = campo.closest(".campo")?.querySelector(":scope > span")?.textContent.replace("*", "").trim() || "";
+  const x = $("#calc-exp");
+  x.value = inicio != null ? inicio : campo.value.trim();
+  $("#calc").hidden = false;
+  calcPosicionar(); calcMostrar();
+  x.focus(); x.setSelectionRange(x.value.length, x.value.length);
+}
+function calcFechar(voltar) {
+  const p = $("#calc");
+  if (!p || p.hidden) return;
+  p.hidden = true;
+  if (voltar && CALC.campo?.isConnected) CALC.campo.focus();
+}
+function calcInserir() {
+  const v = calcMostrar();
+  if (v === undefined) return;                                   // conta com erro: fica aberta, com o aviso
+  if (v != null && v < 0) { const r = $("#calc-res"); r.className = "calc-res err"; r.textContent = "resultado negativo — confira a conta"; return; }
+  const c = CALC.campo;
+  c.value = v == null ? "" : valorParaCampo(v);
+  c.dispatchEvent(new Event("input", { bubbles: true }));
+  c.dispatchEvent(new Event("change", { bubbles: true }));
+  calcFechar(true);
+}
+/* A janelinha é uma só, no fim da página: liga os ouvintes dela uma vez. */
+let calcLigada = false;
+function ligarCalculadora() {
+  if (calcLigada || !$("#calc")) return;
+  calcLigada = true;
+  const x = $("#calc-exp"), p = $("#calc");
+  x.addEventListener("input", calcMostrar);
+  x.addEventListener("keydown", e => {
+    if (e.key === "Enter" || (e.key === "=" && !e.ctrlKey)) { e.preventDefault(); e.stopPropagation(); calcInserir(); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); calcFechar(true); }
   });
-  const v = avaliarConta(conta.value);
-  if (!ok || v == null) return;
-  inp.value = valorParaCampo(v);
-  inp.dispatchEvent(new Event("input", { bubbles: true }));
-  inp.focus();
+  $("#calc-ok").addEventListener("click", calcInserir);
+  $("#calc-fechar").addEventListener("click", () => calcFechar(true));
+  p.querySelectorAll(".calc-teclas button").forEach(b => {
+    b.addEventListener("mousedown", e => e.preventDefault());   // o foco fica na conta
+    b.addEventListener("click", () => {
+      const t = b.dataset.t;
+      if (t === "C") x.value = "";
+      else if (t === "⌫") x.value = x.value.slice(0, -1);
+      else x.value += /[÷×−+]/.test(t) ? ` ${t} ` : t;
+      calcMostrar(); x.focus();
+    });
+  });
+  document.addEventListener("mousedown", e => { if (!p.hidden && !p.contains(e.target) && !e.target.closest(".calc-btn")) calcFechar(false); });
+  addEventListener("resize", calcPosicionar);
+  addEventListener("scroll", calcPosicionar, true);
+  addEventListener("hashchange", () => calcFechar(false));   // trocou de tela: a janelinha não fica solta
 }
 
 /* Sugestões de município sob os campos de origem e destino: setas escolhem, Enter confirma, Esc fecha.
@@ -477,12 +522,27 @@ export function renderLancamentos(raiz, App) {
     // lançar só pelo botão: Enter num campo não envia o formulário
     form.addEventListener("keydown", ev => {
       if (ev.key === "Enter" && ev.target.matches("input, select")) ev.preventDefault();
+      // nos campos com calculadora: = abre; + − × ÷ abrem continuando o valor que já está no campo
+      const campo = ev.target;
+      if (!COM_CALC.has(campo.name) || ev.ctrlKey || ev.altKey || ev.metaKey) return;
+      if (ev.key === "=") { ev.preventDefault(); calcAbrir(campo); }
+      else if (/^[+*/]$/.test(ev.key) || (ev.key === "-" && campo.value.trim())) {
+        ev.preventDefault();
+        const op = { "+": "+", "-": "−", "*": "×", "/": "÷" }[ev.key];
+        calcAbrir(campo, (campo.value.trim() ? campo.value.trim() + " " : "") + op + " ");
+      }
     });
+    ligarCalculadora();
     form.addEventListener("submit", ev => { ev.preventDefault(); enviar(form, App); });
     form.addEventListener("click", ev => {
       if (ev.target.closest("[data-relancar]")) { enviar(form, App, { relancar: true }); return; }
       const calc = ev.target.closest("[data-calc]");
-      if (calc) { ev.preventDefault(); abrirCalculadora(form, calc.dataset.calc); return; }
+      if (calc) {
+        ev.preventDefault();
+        const campo = form.querySelector(`[name=${calc.dataset.calc}]`);
+        if ($("#calc").hidden || CALC.campo !== campo) calcAbrir(campo); else calcFechar(true);
+        return;
+      }
       const abrirEx = ev.target.closest("[data-abrir]");
       if (abrirEx) { estado.editando = abrirEx.dataset.abrir; estado.rascunho = null; App.render(); scrollTo(0, 0); }
       if (ev.target.closest("[data-cancelar]")) fimDaCorrecao(App);

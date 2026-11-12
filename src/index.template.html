@@ -59,21 +59,15 @@
     <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok">Cadastrar</button></div>
   </form>
 </dialog>
-<dialog id="dlg-calc" class="dlg dlg-calc">
-  <form method="dialog">
-    <h3 id="dlg-calc-titulo">Calculadora</h3>
-    <label class="campo"><span>Conta</span><input name="conta" autocomplete="off" inputmode="decimal" placeholder="ex.: 150 + 80,50 + 2 × 35"></label>
-    <p class="calc-resultado">= <b id="calc-resultado">—</b></p>
-    <div class="teclado">
-      <button type="button" data-tecla="7">7</button><button type="button" data-tecla="8">8</button><button type="button" data-tecla="9">9</button><button type="button" data-tecla="÷">÷</button>
-      <button type="button" data-tecla="4">4</button><button type="button" data-tecla="5">5</button><button type="button" data-tecla="6">6</button><button type="button" data-tecla="×">×</button>
-      <button type="button" data-tecla="1">1</button><button type="button" data-tecla="2">2</button><button type="button" data-tecla="3">3</button><button type="button" data-tecla="-">−</button>
-      <button type="button" data-tecla="0">0</button><button type="button" data-tecla=",">,</button><button type="button" data-tecla="(">(</button><button type="button" data-tecla="+">+</button>
-      <button type="button" data-tecla=")">)</button><button type="button" data-tecla="apagar">Apagar</button><button type="button" data-tecla="limpar">Limpar</button>
-    </div>
-    <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok" id="calc-usar">Usar este valor</button></div>
-  </form>
-</dialog>
+<!-- calculadora dos campos de valor, no modelo do Radar Container: abre logo abaixo do campo -->
+<div class="calc-pop" id="calc" role="dialog" aria-label="Calculadora" hidden>
+  <div class="calc-tit"><span>Calculadora</span><b id="calc-campo"></b><button type="button" class="calc-x" id="calc-fechar" aria-label="Fechar">×</button></div>
+  <input id="calc-exp" autocomplete="off" spellcheck="false" placeholder="ex.: 1.250,00 + 380 × 2">
+  <div class="calc-res" id="calc-res">= —</div>
+  <div class="calc-teclas"><button type="button" data-t="7">7</button><button type="button" data-t="8">8</button><button type="button" data-t="9">9</button><button type="button" data-t="÷" class="op">÷</button><button type="button" data-t="4">4</button><button type="button" data-t="5">5</button><button type="button" data-t="6">6</button><button type="button" data-t="×" class="op">×</button><button type="button" data-t="1">1</button><button type="button" data-t="2">2</button><button type="button" data-t="3">3</button><button type="button" data-t="−" class="op">−</button><button type="button" data-t="0">0</button><button type="button" data-t=",">,</button><button type="button" data-t="%" class="op">%</button><button type="button" data-t="+" class="op">+</button><button type="button" data-t="(" class="op">(</button><button type="button" data-t=")" class="op">)</button><button type="button" data-t="C" class="lp">C</button><button type="button" data-t="⌫" class="lp">⌫</button></div>
+  <button type="button" class="btn primario calc-ok" id="calc-ok">Inserir no campo (Enter)</button>
+  <div class="calc-dica">Enter insere no campo · Esc fecha</div>
+</div>
 <dialog id="dlg-confirma" class="dlg">
   <form method="dialog">
     <h3 id="dlg-confirma-titulo"></h3>

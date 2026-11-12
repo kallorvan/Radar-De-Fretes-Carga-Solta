@@ -54,7 +54,7 @@ O usuário pediu os dois painéis de lançamento no mesmo layout. Referência: r
   - **Contas:** tarifa = frete − seguro − adicionais. Peso = quantidade × kg da unidade, ou o peso do CT-e. R$/t e R$/saca saem daí.
   - **Cidades:** ao digitar, aparecem sugestões, primeiro as mais usadas da base e depois os municípios do Brasil. Nome fora da lista ganha aviso, sem bloquear.
   - **Produto e unidade novos** se cadastram sem sair do lançamento, pela opção "+ Cadastrar…" da lista.
-  - **Calculadora** (botão **Calc**) nos campos Adicionais e Quantidade.
+  - **Calculadora no modelo do Container** (pedido do usuário, 12/11/2026) nos campos Valor assegurado, Valor do seguro, Valor do frete, Adicionais e Quantidade: botão 🧮 dentro do campo ou tecla `=`; `+ − × ÷` digitados no campo abrem continuando o valor. Janelinha logo abaixo do campo (acima, perto do pé da tela); Enter ou `=` insere, Esc ou clique fora fecha. Mesma conta do Container (`lerConta` em `src/calculadora.js`): vírgula decimal, ponto de milhar, `%` (`1.000 + 10%` = 1.100), avisa o motivo do erro e recusa resultado negativo.
   - **Chave de acesso:** é conferida assim que tem 44 dígitos. Se o CT-e já está na base, o painel oferece **Abrir o registro**; se está na lixeira, **Lançar de novo**.
   - **Envio:** só pelo botão Lançar CT-e; Enter nos campos não envia.
 - **Base de CT-e** (aba própria desde 12/11/2026, a pedido do usuário, como a Base concorrentes do Container; antes ficava embaixo do formulário de Lançamentos; `renderBase` em `src/telas/lancamentos.js`, endereço `#base`)
@@ -104,7 +104,7 @@ Depois de regerar, rode `npm run montar` e troque o HTML na pasta. Ao abrir, o p
 
 ```bash
 npm install
-npm test                 # 182 testes de unidade (node:test)
+npm test                 # 183 testes de unidade (node:test)
 npm run montar           # gera dist/index.html (esbuild + CSS + logos embutidos)
 npm run test:e2e         # 61 testes no navegador (Playwright/Chromium), com uma pasta simulada
 ```
@@ -126,7 +126,7 @@ npm run test:e2e         # 61 testes no navegador (Playwright/Chromium), com uma
 - **Taxa do seguro:** 0% quando há valor assegurado e o seguro é zero; fica vazia só sem valor assegurado. Na migração, a taxa digitada é mantida quando reproduz o seguro guardado.
 - **PDF:** se dois PDFs têm o mesmo número de CT-e, o nome depois do traço é comparado com o nome do transportador no cadastro. Sem como decidir, o botão fica apagado com a dica.
 - **Pastas de mês:** `Registrados` fica direto na pasta do painel, a pedido do usuário (a primeira versão punha dentro de `PDFs Carga Solta`; o botão leva essas para a nova). O nome `1 - Janeiro_2026` põe o número do mês na frente para o Explorador ordenar; com mais de um ano, os meses iguais de anos diferentes ficam lado a lado.
-- **Janelas com formulário** (nome, produto, unidade, calculadora): o Enter no campo confirma. Por padrão o navegador acionaria o primeiro botão, que é o Cancelar.
+- **Janelas com formulário** (nome, produto, unidade): o Enter no campo confirma. Por padrão o navegador acionaria o primeiro botão, que é o Cancelar.
 
 ## Pendências e pontos em aberto
 

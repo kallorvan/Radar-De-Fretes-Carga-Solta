@@ -1,7 +1,7 @@
 // Calculadora dos campos Adicionais e Quantidade: conta digitada em pt-BR, sem eval.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { avaliarConta, valorParaCampo } from "../src/calculadora.js";
+import { avaliarConta, lerConta, valorParaCampo } from "../src/calculadora.js";
 
 test("soma, subtração, multiplicação e divisão com precedência", () => {
   assert.equal(avaliarConta("150 + 80,50 + 2 × 35"), 300.5);
@@ -26,4 +26,18 @@ test("valorParaCampo: até 2 casas, com vírgula", () => {
   assert.equal(valorParaCampo(300.5), "300,5");
   assert.equal(valorParaCampo(1 / 3), "0,33");
   assert.equal(valorParaCampo(520), "520");
+});
+
+test("como no Container: porcentagem, milhar sem vírgula e motivo do erro", () => {
+  assert.equal(avaliarConta("1.000 + 10%"), 1100);
+  assert.equal(avaliarConta("200 - 25%"), 150);
+  assert.equal(avaliarConta("1.250 × 10%"), 125);
+  assert.equal(avaliarConta("1.500 + 1"), 1501, "ponto seguido de 3 dígitos é milhar");
+  assert.equal(avaliarConta("1.5 × 2"), 3, "sem vírgula e sem grupo de 3 dígitos, o ponto é decimal");
+  assert.equal(avaliarConta("10 − 4"), 6, "o sinal de menos da tecla");
+  assert.deepEqual(lerConta(""), { valor: null });
+  assert.deepEqual(lerConta("10 +"), { erro: "conta incompleta" });
+  assert.deepEqual(lerConta("(2 + 3"), { erro: "falta fechar o parêntese" });
+  assert.deepEqual(lerConta("2 + 3)"), { erro: "parêntese sobrando" });
+  assert.deepEqual(lerConta("5 / 0"), { erro: "divisão por zero" });
 });

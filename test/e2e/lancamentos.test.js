@@ -348,36 +348,47 @@ test("Enter na janela de cadastro confirma", async () => {
   await ctx.close();
 });
 
-test("calculadora nos campos Adicionais e Quantidade", async () => {
+test("calculadora no modelo do Container: 🧮 no campo, Enter insere, Esc fecha, = e + abrem pelo teclado", async () => {
   const { page, ctx, erros } = await abrirLanc();
   await page.waitForSelector("#form-cte");
   await preencher(page, { valorFrete: "9.000,00" });
-  // adicionais: conta digitada
+  // os campos de valor e a quantidade têm o botão 🧮
+  for (const k of ["valorAssegurado", "valorSeguro", "valorFrete", "adicionais", "quantidade"])
+    assert.equal(await page.locator(`#form-cte [data-calc=${k}]`).textContent(), "🧮", k);
+  // adicionais: conta digitada; Enter põe o resultado no campo e recalcula a tarifa
   await page.click("#form-cte [data-calc=adicionais]");
-  await page.waitForSelector("#dlg-calc[open]");
-  await page.fill("#dlg-calc [name=conta]", "150 + 80,50 + 2 × 35");
-  assert.equal(await page.locator("#calc-resultado").textContent(), "300,50");
-  await page.click("#dlg-calc [value=ok]");
+  await page.waitForSelector("#calc:not([hidden])");
+  assert.match(await page.locator("#calc-campo").textContent(), /Adicionais/);
+  await page.fill("#calc-exp", "150 + 80,50 + 2 × 35");
+  assert.equal(await page.locator("#calc-res").textContent(), "= R$ 300,50");
+  await page.press("#calc-exp", "Enter");
   await page.waitForFunction(() => document.querySelector("#form-cte [name=adicionais]").value === "300,5");
+  assert.equal(await page.locator("#calc").isHidden(), true);
   assert.equal(await page.locator("#form-cte output[name=tarifa]").textContent(), "R$ 8.699,50");
-  // quantidade: começa com o valor do campo e usa as teclas da tela
-  await page.click("#form-cte [data-calc=quantidade]");
-  await page.waitForSelector("#dlg-calc[open]");
-  assert.equal(await page.locator("#dlg-calc [name=conta]").inputValue(), "50");
-  await page.click('#dlg-calc [data-tecla="×"]');
-  await page.click('#dlg-calc [data-tecla="2"]');
-  assert.equal(await page.locator("#calc-resultado").textContent(), "100,00");
-  await page.click("#dlg-calc [value=ok]");
+  // quantidade: × (tecla *) no campo abre continuando o valor; as teclas da janelinha completam a conta
+  await page.focus("#form-cte [name=quantidade]");
+  await page.keyboard.press("*");
+  await page.waitForSelector("#calc:not([hidden])");
+  assert.equal(await page.locator("#calc-exp").inputValue(), "50 × ");
+  await page.click('#calc [data-t="2"]');
+  assert.equal(await page.locator("#calc-res").textContent(), "= 100,00");
+  await page.click("#calc-ok");
   await page.waitForFunction(() => document.querySelector("#form-cte [name=quantidade]").value === "100");
   assert.equal(await page.locator("#form-cte [name=pesoKg]").inputValue(), "100.000");
-  // conta incompleta não deixa usar; cancelar mantém o campo
-  await page.click("#form-cte [data-calc=quantidade]");
-  await page.fill("#dlg-calc [name=conta]", "10 +");
-  assert.match(await page.locator("#calc-resultado").textContent(), /conta incompleta/);
-  assert.equal(await page.locator("#dlg-calc [value=ok]").isDisabled(), true);
-  await page.click("#dlg-calc [value=cancelar]");
-  await page.waitForFunction(() => !document.querySelector("#dlg-calc[open]"));
-  assert.equal(await page.locator("#form-cte [name=quantidade]").inputValue(), "100");
+  // = no campo abre; porcentagem como no Container
+  await page.focus("#form-cte [name=valorFrete]");
+  await page.keyboard.press("=");
+  await page.waitForSelector("#calc:not([hidden])");
+  await page.fill("#calc-exp", "1.000 + 10%");
+  assert.equal(await page.locator("#calc-res").textContent(), "= R$ 1.100,00");
+  // conta incompleta: o aviso aparece e Enter não insere; Esc fecha sem mexer no campo
+  await page.fill("#calc-exp", "10 +");
+  assert.match(await page.locator("#calc-res").textContent(), /conta incompleta/);
+  await page.press("#calc-exp", "Enter");
+  assert.equal(await page.locator("#calc").isHidden(), false);
+  await page.press("#calc-exp", "Escape");
+  await page.waitForSelector("#calc", { state: "hidden" });
+  assert.equal(await page.locator("#form-cte [name=valorFrete]").inputValue(), "9.000,00");
   assert.equal(await page.evaluate(() => window.RADAR_APP.dados.ctes.length), 7, "a calculadora não lança o CT-e");
   assert.deepEqual(erros, []);
   await ctx.close();
