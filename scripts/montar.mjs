@@ -17,7 +17,7 @@ const html = ler("src/index.template.html")
   .replace("/*CSS*/", () => css)
   .replace("/*JS*/", () => js.split("</script").join("<\\/script"))
   // assinatura Dínamo | Tóliman gerada por scripts/montar-logos.py
-  .replace("{{LOGOS_BRANCO}}", png("referencia/toliman-paineis/logos-branco.png"));
+  .replace("{{LOGOS_BRANCO}}", png("referencia/toliman-paineis/logos-lateral.png"));
 
 mkdirSync(new URL("dist/", raiz), { recursive: true });
 writeFileSync(new URL("dist/index.html", raiz), html);
