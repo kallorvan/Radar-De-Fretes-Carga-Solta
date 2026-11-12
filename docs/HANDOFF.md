@@ -60,7 +60,8 @@ O usuário pediu os dois painéis de lançamento no mesmo layout. Referência: r
   - Busca por número ou chave.
   - Corrigir e excluir.
   - Seleção e exclusão em massa.
-  - Botão **PDF**, que abre o arquivo do CT-e procurando em `PDFs Carga Solta` e em `Registrados`, e **Atualizar PDFs**.
+  - Botão **PDF**, que abre o arquivo do CT-e procurando na **pasta do painel inteira** (`listarPdfs` varre todas as subpastas, fora as ocultas), como no Container, e **Atualizar PDFs**.
+  - **Permissão ao reabrir:** o navegador lembra a pasta mas volta a pedir permissão para ler. Antes a leitura falhava calada e a base ficava sem nenhum PDF (relatado pelo usuário em 12/11/2026). Agora o painel avisa ao lado do botão, e **Atualizar PDFs** e **Organizar** pedem a permissão no clique (`carregarPdfs` em `src/telas/lancamentos.js`).
   - **Organizar PDFs por mês** (escondido no modo consulta): move cada PDF para `Registrados/<n> - <Mês>_<ano>/`, na pasta do painel.
     - O mês sai da emissão do CT-e ligado ao PDF (o mesmo vínculo do botão PDF). Sem CT-e na base, sai da chave de acesso no nome do arquivo (dígitos 3 a 6, AAMM). Sem nenhum dos dois, o PDF fica onde está.
     - Antes de mover, mostra quantos vão para cada pasta e pede confirmação.
@@ -101,9 +102,9 @@ Depois de regerar, rode `npm run montar` e troque o HTML na pasta. Ao abrir, o p
 
 ```bash
 npm install
-npm test                 # 180 testes de unidade (node:test)
+npm test                 # 182 testes de unidade (node:test)
 npm run montar           # gera dist/index.html (esbuild + CSS + logos embutidos)
-npm run test:e2e         # 59 testes no navegador (Playwright/Chromium), com uma pasta simulada
+npm run test:e2e         # 60 testes no navegador (Playwright/Chromium), com uma pasta simulada
 ```
 
 - **Código:** ES modules em `src/` e as telas em `src/telas/`. O build é IIFE e vai inteiro para dentro do HTML. Bibliotecas externas: SheetJS 0.18.5 (cdnjs, só para exportar) e Google Fonts.

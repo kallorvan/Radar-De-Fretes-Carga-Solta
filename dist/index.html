@@ -2593,7 +2593,6 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
   }
 
   // src/pdfs.js
-  var PASTA_PDFS = "PDFs Carga Solta";
   var PASTA_REGISTRADOS = "Registrados";
   function lerNomePdf(nome) {
     const s = String(nome ?? "");
@@ -2633,19 +2632,12 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const out = [];
     const ler = async (d, prefixo) => {
       for await (const [nome, h] of d.entries()) {
+        if (nome.startsWith(".")) continue;
         if (h.kind === "directory") await ler(h, prefixo + nome + "/");
         else if (/\.pdf$/i.test(nome)) out.push({ nome, caminho: prefixo + nome, handle: h, pai: d });
       }
     };
-    for (const nome of [PASTA_PDFS, PASTA_REGISTRADOS]) {
-      let dir;
-      try {
-        dir = await raiz.getDirectoryHandle(nome);
-      } catch (e) {
-        continue;
-      }
-      await ler(dir, nome + "/");
-    }
+    await ler(raiz, "");
     return out;
   }
   var MESES2 = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -3032,36 +3024,39 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     </div>
     <div id="tab-base"></div><div class="botoes" id="base-mais"></div></div>`;
   }
-  async function carregarPdfs(raiz, App2, { forcar = false } = {}) {
+  async function carregarPdfs(raiz, App2, { forcar = false, pedir = false } = {}) {
     const pasta = App2.gravador?.pasta, p = estado.pdfs;
     if (!pasta) {
-      Object.assign(p, { pasta: null, indice: null, total: 0 });
+      Object.assign(p, { pasta: null, indice: null, total: 0, erro: null });
       return;
     }
     if (!forcar && p.pasta === pasta && (p.indice || p.lendo)) return p.lendo;
     p.pasta = pasta;
-    p.lendo = listarPdfs(pasta).then(
-      (lista) => {
-        Object.assign(p, { lista, indice: indexarPdfs(lista), total: lista.length, lendo: null });
-      },
-      () => {
-        Object.assign(p, { lista: [], indice: indexarPdfs([]), total: 0, lendo: null });
-      }
-    );
+    const vazio2 = (erro) => Object.assign(p, { lista: [], indice: indexarPdfs([]), total: 0, erro, lendo: null });
+    p.lendo = (async () => {
+      let perm = typeof pasta.queryPermission === "function" ? await pasta.queryPermission({ mode: "read" }) : "granted";
+      if (perm !== "granted" && pedir) perm = await pasta.requestPermission({ mode: "readwrite" });
+      if (perm !== "granted") return vazio2("permissao");
+      const lista = await listarPdfs(pasta);
+      Object.assign(p, { lista, indice: indexarPdfs(lista), total: lista.length, erro: null, lendo: null });
+    })().catch((e) => vazio2(e?.name === "NotAllowedError" || e?.name === "SecurityError" ? "permissao" : e?.message || e?.name || "erro"));
     await p.lendo;
     if (raiz.isConnected && $("#tab-base", raiz)) pintarBase(raiz, App2);
   }
+  var problemaPdfs = (p) => p.erro === "permissao" ? "O navegador pede permissão para ler a pasta: clique em Atualizar PDFs." : p.erro ? `Não foi possível ler a pasta: ${p.erro}. Clique em Atualizar PDFs.` : null;
   function pdfDe(App2, c, mesmoNumero) {
     const p = estado.pdfs;
     if (!App2.gravador?.pasta) return { ok: false, dica: "Conecte a pasta (aba Dados) para abrir os PDFs." };
     if (!p.indice) return { ok: false, dica: "Lendo a pasta de PDFs…" };
+    if (problemaPdfs(p)) return { ok: false, dica: problemaPdfs(p) };
     const r = pdfDoCte(p.indice, c, { nomeTransportador: nomeDoCnpj(App2.dados, c.cnpjTransportador) || "", outrosComMesmoNumero: (mesmoNumero.get(c.numero) || 1) - 1 });
-    return r.ok ? { ok: true, item: r.item, dica: `Abrir ${r.item.caminho}` } : { ok: false, dica: r.motivo === "varios" ? "Mais de um PDF com esse número na pasta; o nome do transportador não decide." : `PDF não encontrado em ${PASTA_PDFS} e ${PASTA_REGISTRADOS}.` };
+    return r.ok ? { ok: true, item: r.item, dica: `Abrir ${r.item.caminho}` } : { ok: false, dica: r.motivo === "varios" ? "Mais de um PDF com esse número na pasta; o nome do transportador não decide." : "PDF não encontrado na pasta do painel nem nas subpastas." };
   }
   async function organizarPdfs(raiz, App2) {
     const pasta = App2.gravador?.pasta;
     if (!pasta) return aviso("Conecte a pasta na aba Dados para organizar os PDFs.", true);
-    await carregarPdfs(raiz, App2, { forcar: true });
+    await carregarPdfs(raiz, App2, { forcar: true, pedir: true });
+    if (problemaPdfs(estado.pdfs)) return aviso(problemaPdfs(estado.pdfs), true);
     const plano = planejarOrganizacao(estado.pdfs.lista || [], App2.dados.ctes, (c) => nomeDoCnpj(App2.dados, c.cnpjTransportador));
     const ficam = plano.semMes.length + plano.duplicados.length;
     const sobra = ficam ? ` ${ficam} ficam onde estão (${[plano.semMes.length && `${plano.semMes.length} sem CT-e na base nem chave no nome`, plano.duplicados.length && `${plano.duplicados.length} com nome repetido`].filter(Boolean).join(", ")}).` : "";
@@ -3111,7 +3106,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const mesmoNumero = /* @__PURE__ */ new Map();
     for (const c of d.ctes) mesmoNumero.set(c.numero, (mesmoNumero.get(c.numero) || 0) + 1);
     const p = estado.pdfs;
-    $("#pdfs-info", raiz).textContent = !App2.gravador?.pasta ? "PDFs: conecte a pasta na aba Dados." : !p.indice ? "Lendo a pasta de PDFs…" : `${fmtNum(p.total)} PDF${p.total === 1 ? "" : "s"} em ${PASTA_PDFS} e ${PASTA_REGISTRADOS}.`;
+    $("#pdfs-info", raiz).textContent = !App2.gravador?.pasta ? "PDFs: conecte a pasta na aba Dados." : !p.indice ? "Lendo a pasta de PDFs…" : problemaPdfs(p) || `${fmtNum(p.total)} PDF${p.total === 1 ? "" : "s"} na pasta do painel.`;
     tabelaOrdenavel($("#tab-base", raiz), [
       { titulo: "", valor: () => null, html: (c) => `<span data-escreve><input type="checkbox" data-sel="${c.chave}" aria-label="Selecionar CT-e ${esc(c.numero)}"${estado.selecionados.has(c.chave) ? " checked" : ""}></span>` },
       { titulo: "Emissão", valor: (c) => c.emissao, html: (c) => fmtData(c.emissao) + (noCorte(d, c) ? "" : '<span class="sub">antes do corte</span>') },
@@ -3386,8 +3381,9 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       if (ev.target.closest("[data-pdf]")) return abrirPdf(App2, ev.target.closest("[data-pdf]").dataset.pdf);
       if (ev.target.closest("[data-atualizar-pdfs]")) {
         if (!App2.gravador?.pasta) return aviso("Conecte a pasta na aba Dados para ler os PDFs.", true);
-        await carregarPdfs(raiz, App2, { forcar: true });
-        return aviso(`${fmtNum(estado.pdfs.total)} PDF${estado.pdfs.total === 1 ? "" : "s"} encontrados em ${PASTA_PDFS} e ${PASTA_REGISTRADOS}.`);
+        await carregarPdfs(raiz, App2, { forcar: true, pedir: true });
+        if (problemaPdfs(estado.pdfs)) return aviso(problemaPdfs(estado.pdfs), true);
+        return aviso(`${fmtNum(estado.pdfs.total)} PDF${estado.pdfs.total === 1 ? "" : "s"} encontrados na pasta do painel.`);
       }
       if (ev.target.closest("[data-organizar-pdfs]")) return organizarPdfs(raiz, App2);
       if (ev.target.closest("[data-excluir-selecionados]")) {

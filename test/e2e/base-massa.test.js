@@ -110,3 +110,33 @@ test("Organizar PDFs por mês: confirma e move para Registrados/1 - Janeiro_2026
   assert.deepEqual(erros, []);
   await ctx.close();
 });
+
+test("PDFs ao reabrir o painel: sem permissão de leitura avisa; Atualizar PDFs pede a permissão e acha os PDFs", async () => {
+  const dados = baseExemplo();
+  const c0 = dados.ctes[0];
+  const { page, ctx, erros } = await abrir(browser, {
+    dados, hash: "#dados", quem: "Ana",
+    antes: p => p.addInitScript(({ fake, texto, n }) => {
+      eval(fake + "; window.__pasta = new PastaFalsa('Radar Carga Solta'); window.__reg = new PastaFalsa('Registrados'); window.__mes = new PastaFalsa('1 - Janeiro_2026');");
+      window.__pasta.arquivos.set("radar-carga-solta-dados.js", texto);
+      window.__mes.arquivos.set(`CTE ${n} - Transportes Um.pdf`, "%PDF-1.4");
+      window.__reg.pastas.set("1 - Janeiro_2026", window.__mes);
+      window.__pasta.pastas.set("Registrados", window.__reg);
+      // como o Chrome ao reabrir: a pasta lembrada volta pedindo permissão, e o clique a concede
+      window.__pasta.permissao = "prompt";
+      window.__pasta.requestPermission = async function () { this.permissao = "granted"; return "granted"; };
+      window.showDirectoryPicker = async () => window.__pasta;
+    }, { fake: FAKE, texto: montarDadosJs(dados), n: c0.numero }),
+  });
+  await page.click("[data-conectar]");
+  await page.waitForFunction(() => /Conectado à pasta/.test(document.body.textContent));
+  await page.click("#abas button[data-aba=lancamentos]");
+  await page.waitForFunction(() => /permissão para ler a pasta/.test(document.querySelector("#pdfs-info")?.textContent || ""));
+  assert.match(await page.locator(`#tab-base [data-pdf="${c0.chave}"]`).getAttribute("title"), /Atualizar PDFs/);
+  await page.click("[data-atualizar-pdfs]");
+  await page.waitForSelector(`#tab-base [data-pdf="${c0.chave}"]:not([disabled])`);
+  assert.match(await page.locator(`#tab-base [data-pdf="${c0.chave}"]`).getAttribute("title"), /Registrados\/1 - Janeiro_2026\//);
+  assert.match(await page.locator("#pdfs-info").textContent(), /1 PDF na pasta do painel/);
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});

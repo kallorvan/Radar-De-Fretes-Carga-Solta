@@ -3,7 +3,7 @@
 import { validarCampos, nomeDoCnpj, grupoDoCnpj, unidadeDe, produtoDe, noCorte } from "../base.js";
 import { calcularCte, numeroDaChave, cnpjDaChave, codigoItinerario, normalizarCidade, normalizarCnpj, numeroBR, rotaDe, soDigitos } from "../calculos.js";
 import { filtrar } from "../agregacao.js";
-import { listarPdfs, indexarPdfs, pdfDoCte, planejarOrganizacao, executarOrganizacao, PASTA_PDFS, PASTA_REGISTRADOS } from "../pdfs.js";
+import { listarPdfs, indexarPdfs, pdfDoCte, planejarOrganizacao, executarOrganizacao, PASTA_REGISTRADOS } from "../pdfs.js";
 import { sugerirCidades, cidadeConhecida, cidadesMaisUsadas, contarUsos } from "../municipios.js";
 import { avaliarConta, valorParaCampo } from "../calculadora.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
@@ -208,31 +208,46 @@ function baseHtml() {
     <div id="tab-base"></div><div class="botoes" id="base-mais"></div></div>`;
 }
 
-/* Lê a pasta de PDFs da pasta conectada (uma vez por pasta, ou quando pedido) e redesenha a base. */
-async function carregarPdfs(raiz, App, { forcar = false } = {}) {
+/* Lê os PDFs da pasta conectada (uma vez por pasta, ou quando pedido) e redesenha a base.
+   Ao reabrir o painel, o navegador lembra a pasta mas volta a pedir permissão para ler: sem ela a leitura falhava
+   calada e a base ficava sem nenhum PDF. Agora a falta de permissão vira aviso, e um clique (Atualizar PDFs,
+   Organizar) pede a permissão: pedir só funciona a partir de um clique. */
+async function carregarPdfs(raiz, App, { forcar = false, pedir = false } = {}) {
   const pasta = App.gravador?.pasta, p = estado.pdfs;
-  if (!pasta) { Object.assign(p, { pasta: null, indice: null, total: 0 }); return; }
+  if (!pasta) { Object.assign(p, { pasta: null, indice: null, total: 0, erro: null }); return; }
   if (!forcar && p.pasta === pasta && (p.indice || p.lendo)) return p.lendo;
   p.pasta = pasta;
-  p.lendo = listarPdfs(pasta).then(lista => { Object.assign(p, { lista, indice: indexarPdfs(lista), total: lista.length, lendo: null }); },
-    () => { Object.assign(p, { lista: [], indice: indexarPdfs([]), total: 0, lendo: null }); });
+  const vazio = erro => Object.assign(p, { lista: [], indice: indexarPdfs([]), total: 0, erro, lendo: null });
+  p.lendo = (async () => {
+    let perm = typeof pasta.queryPermission === "function" ? await pasta.queryPermission({ mode: "read" }) : "granted";
+    if (perm !== "granted" && pedir) perm = await pasta.requestPermission({ mode: "readwrite" });
+    if (perm !== "granted") return vazio("permissao");
+    const lista = await listarPdfs(pasta);
+    Object.assign(p, { lista, indice: indexarPdfs(lista), total: lista.length, erro: null, lendo: null });
+  })().catch(e => vazio(e?.name === "NotAllowedError" || e?.name === "SecurityError" ? "permissao" : (e?.message || e?.name || "erro")));
   await p.lendo;
   if (raiz.isConnected && $("#tab-base", raiz)) pintarBase(raiz, App);
 }
+
+/* O que dizer quando a leitura dos PDFs não deu certo (null quando deu). */
+const problemaPdfs = p => p.erro === "permissao" ? "O navegador pede permissão para ler a pasta: clique em Atualizar PDFs."
+  : p.erro ? `Não foi possível ler a pasta: ${p.erro}. Clique em Atualizar PDFs.` : null;
 
 function pdfDe(App, c, mesmoNumero) {
   const p = estado.pdfs;
   if (!App.gravador?.pasta) return { ok: false, dica: "Conecte a pasta (aba Dados) para abrir os PDFs." };
   if (!p.indice) return { ok: false, dica: "Lendo a pasta de PDFs…" };
+  if (problemaPdfs(p)) return { ok: false, dica: problemaPdfs(p) };
   const r = pdfDoCte(p.indice, c, { nomeTransportador: nomeDoCnpj(App.dados, c.cnpjTransportador) || "", outrosComMesmoNumero: (mesmoNumero.get(c.numero) || 1) - 1 });
   return r.ok ? { ok: true, item: r.item, dica: `Abrir ${r.item.caminho}` }
-    : { ok: false, dica: r.motivo === "varios" ? "Mais de um PDF com esse número na pasta; o nome do transportador não decide." : `PDF não encontrado em ${PASTA_PDFS} e ${PASTA_REGISTRADOS}.` };
+    : { ok: false, dica: r.motivo === "varios" ? "Mais de um PDF com esse número na pasta; o nome do transportador não decide." : "PDF não encontrado na pasta do painel nem nas subpastas." };
 }
 /* Organizar por mês: relê a pasta, mostra o que vai acontecer, pede confirmação e move. */
 async function organizarPdfs(raiz, App) {
   const pasta = App.gravador?.pasta;
   if (!pasta) return aviso("Conecte a pasta na aba Dados para organizar os PDFs.", true);
-  await carregarPdfs(raiz, App, { forcar: true });
+  await carregarPdfs(raiz, App, { forcar: true, pedir: true });
+  if (problemaPdfs(estado.pdfs)) return aviso(problemaPdfs(estado.pdfs), true);
   const plano = planejarOrganizacao(estado.pdfs.lista || [], App.dados.ctes, c => nomeDoCnpj(App.dados, c.cnpjTransportador));
   const ficam = plano.semMes.length + plano.duplicados.length;
   const sobra = (ficam ? ` ${ficam} ficam onde estão (${[plano.semMes.length && `${plano.semMes.length} sem CT-e na base nem chave no nome`, plano.duplicados.length && `${plano.duplicados.length} com nome repetido`].filter(Boolean).join(", ")}).` : "");
@@ -280,7 +295,7 @@ function pintarBase(raiz, App) {
   for (const k of estado.selecionados) if (!d.ctes.some(c => c.chave === k)) estado.selecionados.delete(k);   // excluídos por outra via
   const mesmoNumero = new Map(); for (const c of d.ctes) mesmoNumero.set(c.numero, (mesmoNumero.get(c.numero) || 0) + 1);
   const p = estado.pdfs;
-  $("#pdfs-info", raiz).textContent = !App.gravador?.pasta ? "PDFs: conecte a pasta na aba Dados." : !p.indice ? "Lendo a pasta de PDFs…" : `${fmtNum(p.total)} PDF${p.total === 1 ? "" : "s"} em ${PASTA_PDFS} e ${PASTA_REGISTRADOS}.`;
+  $("#pdfs-info", raiz).textContent = !App.gravador?.pasta ? "PDFs: conecte a pasta na aba Dados." : !p.indice ? "Lendo a pasta de PDFs…" : problemaPdfs(p) || `${fmtNum(p.total)} PDF${p.total === 1 ? "" : "s"} na pasta do painel.`;
   tabelaOrdenavel($("#tab-base", raiz), [
     { titulo: "", valor: () => null, html: c => `<span data-escreve><input type="checkbox" data-sel="${c.chave}" aria-label="Selecionar CT-e ${esc(c.numero)}"${estado.selecionados.has(c.chave) ? " checked" : ""}></span>` },
     { titulo: "Emissão", valor: c => c.emissao, html: c => fmtData(c.emissao) + (noCorte(d, c) ? "" : '<span class="sub">antes do corte</span>') },
@@ -476,8 +491,9 @@ export function renderLancamentos(raiz, App) {
     if (ev.target.closest("[data-pdf]")) return abrirPdf(App, ev.target.closest("[data-pdf]").dataset.pdf);
     if (ev.target.closest("[data-atualizar-pdfs]")) {
       if (!App.gravador?.pasta) return aviso("Conecte a pasta na aba Dados para ler os PDFs.", true);
-      await carregarPdfs(raiz, App, { forcar: true });
-      return aviso(`${fmtNum(estado.pdfs.total)} PDF${estado.pdfs.total === 1 ? "" : "s"} encontrados em ${PASTA_PDFS} e ${PASTA_REGISTRADOS}.`);
+      await carregarPdfs(raiz, App, { forcar: true, pedir: true });
+      if (problemaPdfs(estado.pdfs)) return aviso(problemaPdfs(estado.pdfs), true);
+      return aviso(`${fmtNum(estado.pdfs.total)} PDF${estado.pdfs.total === 1 ? "" : "s"} encontrados na pasta do painel.`);
     }
     if (ev.target.closest("[data-organizar-pdfs]")) return organizarPdfs(raiz, App);
     if (ev.target.closest("[data-excluir-selecionados]")) {

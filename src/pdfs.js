@@ -48,21 +48,20 @@ export function pdfDoCte(indice, cte, { nomeTransportador = "", outrosComMesmoNu
   return { ok: false, motivo: cands.length > 1 || todos.length > 1 ? "varios" : "nenhum" };
 }
 
-/* Todos os .pdf das pastas PDFs Carga Solta e Registrados (e subpastas); o caminho parte da pasta do painel.
-   Pasta que não existe é pulada. */
+/* Todos os .pdf da pasta do painel e de todas as subpastas (PDFs Carga Solta, Registrados ou qualquer outra),
+   como no Radar Container: o PDF é achado onde quer que esteja. O caminho parte da pasta do painel.
+   Pastas ocultas (nome começando com ".") ficam de fora. Erro de leitura (permissão, por exemplo) sobe para
+   quem chamou, para virar aviso: antes ele era engolido e a lista saía vazia sem explicação. */
 export async function listarPdfs(raiz) {
   const out = [];
   const ler = async (d, prefixo) => {
     for await (const [nome, h] of d.entries()) {
+      if (nome.startsWith(".")) continue;
       if (h.kind === "directory") await ler(h, prefixo + nome + "/");
       else if (/\.pdf$/i.test(nome)) out.push({ nome, caminho: prefixo + nome, handle: h, pai: d });
     }
   };
-  for (const nome of [PASTA_PDFS, PASTA_REGISTRADOS]) {
-    let dir;
-    try { dir = await raiz.getDirectoryHandle(nome); } catch (e) { continue; }
-    await ler(dir, nome + "/");
-  }
+  await ler(raiz, "");
   return out;
 }
 
