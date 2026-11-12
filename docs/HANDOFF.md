@@ -1,6 +1,6 @@
 # Handoff · Radar de Fretes · Carga Solta
 
-Atualizado em 10/11/2026. A última alteração foi o botão **Organizar PDFs por mês** (PR #1, na `main`), já testado pelo usuário na pasta real: os PDFs foram para as pastas certas.
+Atualizado em 12/11/2026. A última alteração foi o **layout do Radar de Fretes Container** (menu lateral azul-marinho), para padronizar os painéis de lançamento. Antes dela, o botão **Organizar PDFs por mês** (PR #1), testado pelo usuário na pasta real.
 
 ## Onde está
 
@@ -25,6 +25,19 @@ A planilha real (`Radar_Fretes_Concorrentes_v2.10.xlsm`) e o relatório de itine
   - A sessão registra o que mudou: alterados, excluídos, restaurados, apagados da lixeira, cadastro, listas e configuração. Ver `src/arquivo.js` (`juntar`) e `src/pasta.js`.
   - O que ainda não foi gravado fica no IndexedDB do navegador e volta na próxima abertura.
 - **Sem login:** cada pessoa informa o nome, e toda ação vai para o histórico (até 500 registros). Excluir manda o CT-e para a lixeira.
+
+## Layout (igual ao do Radar de Fretes Container)
+
+O usuário pediu os dois painéis de lançamento no mesmo layout. Referência: repositório `kallorvan/Radar-De-Fretes-Container` (`src/css/lateral.css`, `src/js/lateral.js`).
+
+- **Menu lateral azul-marinho fixo à esquerda** (258 px): assinatura Dínamo | Tóliman em branco, título "Tóliman × mercado / Radar de fretes / Carga solta", abas em coluna (a aberta com fio coral à esquerda).
+- **Recorte da Evolução no menu**, logo abaixo do botão Evolução (métrica, rota, transportador, cliente, produto, itinerário, período e Limpar recorte), como os filtros do Comparativo no Container. Nas outras telas ele some (`#filtros-lat`, preenchido por `renderEvolucao`, limpo em `App.render`).
+- **Quadro de gravação no pé do menu** (`#estado-gravacao`): estado, botão coral **Conectar a pasta** ou **Salvar agora**, e "Lançando como … · trocar". Gruda no pé quando o menu rola.
+- **Conteúdo em quadros brancos** na largura toda, sem título de página; cada quadro tem o título com filete azul-marinho embaixo. Botões em texto normal (primário azul-marinho).
+- **Evolução:** o número do recorte vai num quadro branco ao lado do gráfico (no Container, a posição e a distribuição dos gaps).
+- **Formulário de lançamento em blocos:** Dados do CT-e · Cliente e transportador · Produto e peso · Valores.
+- **Telas estreitas (até 900 px):** o menu volta para cima e rola junto; o formulário passa a 2 colunas e, no celular, a 1.
+- Diferença que ficou: o Carga Solta continua com tema escuro automático; o Container é só claro.
 
 ## O que o painel faz hoje
 
@@ -88,7 +101,7 @@ Depois de regerar, rode `npm run montar` e troque o HTML na pasta. Ao abrir, o p
 npm install
 npm test                 # 180 testes de unidade (node:test)
 npm run montar           # gera dist/index.html (esbuild + CSS + logos embutidos)
-npm run test:e2e         # 57 testes no navegador (Playwright/Chromium), com uma pasta simulada
+npm run test:e2e         # 59 testes no navegador (Playwright/Chromium), com uma pasta simulada
 ```
 
 - **Código:** ES modules em `src/` e as telas em `src/telas/`. O build é IIFE e vai inteiro para dentro do HTML. Bibliotecas externas: SheetJS 0.18.5 (cdnjs, só para exportar) e Google Fonts.
@@ -106,7 +119,6 @@ npm run test:e2e         # 57 testes no navegador (Playwright/Chromium), com uma
 - **Taxa do seguro:** 0% quando há valor assegurado e o seguro é zero; fica vazia só sem valor assegurado. Na migração, a taxa digitada é mantida quando reproduz o seguro guardado.
 - **PDF:** se dois PDFs têm o mesmo número de CT-e, o nome depois do traço é comparado com o nome do transportador no cadastro. Sem como decidir, o botão fica apagado com a dica.
 - **Pastas de mês:** `Registrados` fica direto na pasta do painel, a pedido do usuário (a primeira versão punha dentro de `PDFs Carga Solta`; o botão leva essas para a nova). O nome `1 - Janeiro_2026` põe o número do mês na frente para o Explorador ordenar; com mais de um ano, os meses iguais de anos diferentes ficam lado a lado.
-- **Cabeçalho:** não encolhe mais ao rolar; só a sombra muda. Encolher fazia a página tremer perto do fim.
 - **Janelas com formulário** (nome, produto, unidade, calculadora): o Enter no campo confirma. Por padrão o navegador acionaria o primeiro botão, que é o Cancelar.
 
 ## Pendências e pontos em aberto

@@ -8,11 +8,11 @@ after(async () => { await browser?.close(); });
 
 test("casca abre, troca de aba e não tem erro", async () => {
   const { page, erros, ctx } = await abrir(browser);
-  await page.waitForSelector("#conteudo .sec-head");
+  await page.waitForSelector("#conteudo .card");
   assert.equal(await page.locator("#abas button[aria-selected=true]").textContent(), "Evolução");
   await page.click("#abas button[data-aba=rotas]");
   await page.waitForFunction(() => location.hash === "#rotas");
-  assert.match(await page.locator("#conteudo h2").textContent(), /Rotas/);
+  assert.match(await page.locator("#conteudo .card h3").first().textContent(), /por rota/);
   assert.match(await page.locator("#estado-gravacao").textContent(), /Pasta não conectada|Somente consulta/);
   assert.equal(await semRolagemHorizontal(page), true);
   await page.screenshot({ path: "test-results/casca.png", fullPage: true });
@@ -20,33 +20,59 @@ test("casca abre, troca de aba e não tem erro", async () => {
   await ctx.close();
 });
 
-test("assinatura Dínamo | Tóliman no topo com 44 px e no rodapé em branco", async () => {
+test("menu lateral como o do Radar Container: assinatura branca, abas em coluna e o conteúdo ao lado", async () => {
   const { page, ctx } = await abrir(browser);
-  await page.waitForSelector("#conteudo .sec-head");
-  const topo = page.locator(".logos-cor img");
-  assert.equal(await topo.count(), 1);
-  assert.equal(await topo.getAttribute("alt"), "Grupo Dínamo e Tóliman Transportes");
-  assert.equal(Math.round((await topo.boundingBox()).height), 44);
-  assert.equal(await page.locator(".logos-branco img").count(), 1);
+  await page.waitForSelector("#conteudo .card");
+  const logo = page.locator(".lateral .logos-branco img");
+  assert.equal(await logo.count(), 1);
+  assert.equal(await logo.getAttribute("alt"), "Grupo Dínamo e Tóliman Transportes");
+  const menu = await page.locator("#topo").boundingBox();
+  assert.equal(Math.round(menu.x), 0);
+  assert.equal(Math.round(menu.width), 258);
+  assert.equal(Math.round(menu.height), 900, "o menu ocupa a altura da tela");
+  // as abas ficam uma embaixo da outra
+  const ys = await page.$$eval("#abas button", bs => bs.map(b => Math.round(b.getBoundingClientRect().y)));
+  assert.ok(ys.every((y, i) => i === 0 || y > ys[i - 1]), ys.join());
+  assert.ok((await page.locator("#conteudo .card").first().boundingBox()).x >= 258, "o conteúdo começa depois do menu");
+  // o quadro de gravação fica no pé do menu
+  const salvar = await page.locator("#estado-gravacao").boundingBox();
+  assert.ok(salvar.y + salvar.height > 700, String(salvar.y));
   await ctx.close();
 });
 
-test("cabeçalho não muda de altura ao rolar (sem tremer no fim da página)", async () => {
+test("menu fixo: rolar a página não move o menu nem faz a página pular no fim", async () => {
   const { baseExemplo } = await import("../fixtures/base-exemplo.js");
   const { page, ctx } = await abrir(browser, { dados: baseExemplo(), hash: "#evolucao" });
   await page.waitForSelector(".kpi");
-  const alturaTopo = () => page.evaluate(() => document.querySelector("#topo").getBoundingClientRect().height);
-  const antes = await alturaTopo();
-  const docAntes = await page.evaluate(() => document.documentElement.scrollHeight);
-  await page.evaluate(() => scrollTo(0, 40));
-  await page.waitForFunction(() => document.querySelector("#topo").classList.contains("scrolled"));
-  assert.equal(await alturaTopo(), antes);
-  assert.equal(await page.evaluate(() => document.documentElement.scrollHeight), docAntes);
-  // no fim da página a rolagem fica parada (antes, encolher e crescer o cabeçalho fazia a página pular)
   await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  assert.equal(Math.round((await page.locator("#topo").boundingBox()).y), 0);
   const ys = [];
   for (let i = 0; i < 6; i++) { await page.waitForTimeout(60); ys.push(await page.evaluate(() => scrollY)); }
   assert.equal(new Set(ys).size, 1, ys.join());
+  await ctx.close();
+});
+
+test("Evolução: o recorte fica no menu lateral, abaixo do botão Evolução, e some nas outras telas", async () => {
+  const { baseExemplo } = await import("../fixtures/base-exemplo.js");
+  const { page, ctx } = await abrir(browser, { dados: baseExemplo(), hash: "#evolucao" });
+  await page.waitForSelector("#filtros-lat select[data-f=rota]");
+  const evol = await page.locator("#abas button[data-aba=evolucao]").boundingBox();
+  const filtros = await page.locator("#filtros-lat").boundingBox();
+  const rotas = await page.locator("#abas button[data-aba=rotas]").boundingBox();
+  assert.ok(filtros.y > evol.y && filtros.y < rotas.y, `${evol.y} ${filtros.y} ${rotas.y}`);
+  await page.click("#abas button[data-aba=rotas]");
+  await page.waitForSelector("#tab-rotas tbody tr");
+  assert.equal(await page.locator("#filtros-lat").isHidden(), true);
+  await ctx.close();
+});
+
+test("tela estreita: o menu volta para cima, sem rolagem horizontal", async () => {
+  const { page, ctx } = await abrir(browser, { largura: 390, altura: 800 });
+  await page.waitForSelector("#conteudo .card");
+  const menu = await page.locator("#topo").boundingBox();
+  const card = await page.locator("#conteudo .card").first().boundingBox();
+  assert.ok(card.y >= menu.y + menu.height - 1, "o conteúdo vem depois do menu");
+  assert.equal(await semRolagemHorizontal(page), true);
   await ctx.close();
 });
 

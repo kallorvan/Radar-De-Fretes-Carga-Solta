@@ -31,7 +31,7 @@ test("Evolução vazia não oferece importar planilha", async () => {
 test("restaura da lixeira uma vez só", async () => {
   const d = baseExemplo(); excluir(d, d.ctes[0].chave, "Bia", "2026-10-28T12:00:00.000Z");
   const { page, ctx } = await abrir(browser, { dados: d, hash: "#dados", ...opc });
-  for (const aba of ["rotas", "dados", "evolucao", "dados"]) { await page.click(`#abas button[data-aba=${aba}]`); await page.waitForSelector("#conteudo .sec-head"); }
+  for (const aba of ["rotas", "dados", "evolucao", "dados"]) { await page.click(`#abas button[data-aba=${aba}]`); await page.waitForSelector("#conteudo .card"); }
   assert.match(await page.locator("#tab-lixeira").textContent(), /Bia/);
   await page.evaluate(() => { const orig = window.RADAR_APP.alterar; window.__chamadas = 0; window.RADAR_APP.alterar = (...a) => { window.__chamadas++; return orig(...a); }; });
   await page.click("#tab-lixeira [data-restaurar]");

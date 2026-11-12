@@ -81,6 +81,9 @@ const App = {
 
   render() {
     $$("#abas button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.aba === App.aba)));
+    // os filtros do menu lateral são da tela aberta: a Evolução preenche os dela
+    const lat = $("#filtros-lat");
+    lat.innerHTML = ""; lat.hidden = true;
     TELAS[App.aba]($("#conteudo"), App);
   },
 };
@@ -96,11 +99,13 @@ function pintarEstado() {
   const msg = App.somenteLeitura
     ? (location.protocol === "file:" ? "Este navegador não grava na pasta. Abra pelo Chrome ou Edge para lançar." : "Aberto por link: só consulta. Para lançar, abra o HTML pela pasta compartilhada no Chrome ou Edge.")
     : g.mensagem || (App.dados.salvoEm ? `Última gravação ${fmtQuando(App.dados.salvoEm)}${App.dados.salvoPor ? " por " + App.dados.salvoPor : ""}.` : "Base ainda não gravada na pasta.");
+  // quadro de gravação no pé do menu lateral: estado, o botão que resolve e quem está lançando
+  const botao = App.somenteLeitura ? "" : !g.pasta
+    ? `<button class="btn primario" type="button" data-acao="conectar">Conectar a pasta</button>`
+    : estado !== "salvo" && estado !== "conflito" ? `<button class="btn primario" type="button" data-acao="salvar">Salvar agora</button>` : "";
   $("#estado-gravacao").innerHTML =
-    `<span class="perlab"><i class="marca ${estado}"></i>${esc(ROTULO[estado] || estado)}</span><span class="msg">${esc(msg)}</span>` +
-    (!App.somenteLeitura && !g.pasta ? `<button class="btn mini" type="button" data-acao="conectar">Conectar a pasta</button>` : "") +
-    (!App.somenteLeitura && g.pasta && estado !== "salvo" && estado !== "conflito" ? `<button class="btn mini" type="button" data-acao="salvar">Salvar agora</button>` : "") +
-    `<span class="quem">${App.quem ? `Lançando como <b>${esc(App.quem)}</b> ` : ""}<button class="btn mini" type="button" data-acao="nome">${App.quem ? "Trocar" : "Informar nome"}</button></span>`;
+    `<div class="sl-estado ${estado}"><b><i class="marca ${estado}"></i>${esc(ROTULO[estado] || estado)}</b><span class="msg">${esc(msg)}</span></div>` + botao +
+    `<div class="sl-quem">${App.quem ? `Lançando como <b>${esc(App.quem)}</b> · ` : ""}<button class="sl-link" type="button" data-acao="nome">${App.quem ? "trocar" : "Informar nome"}</button></div>`;
   const fixo = $("#aviso-fixo");
   if (!App.somenteLeitura && (estado === "erro" || estado === "conflito")) {
     fixo.hidden = false;
@@ -150,10 +155,6 @@ async function iniciar() {
     const b = ev.target.closest("[data-acao]");
     if (b && (b.closest("#estado-gravacao") || b.closest("#aviso-fixo"))) acaoGravacao(b.dataset.acao);
   });
-  const topo = $("#topo");
-  const mede = () => document.documentElement.style.setProperty("--stickyh", topo.offsetHeight + "px");
-  addEventListener("scroll", () => topo.classList.toggle("scrolled", scrollY > 8), { passive: true });
-  addEventListener("resize", mede); mede();
   addEventListener("hashchange", () => { ({ aba: App.aba, filtros: App.filtros } = lerHash(location.hash)); App.render(); });
   ({ aba: App.aba, filtros: App.filtros } = lerHash(location.hash));
   pintarEstado();

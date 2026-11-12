@@ -11,7 +11,7 @@ O painel é um arquivo HTML só. Ele fica numa pasta compartilhada do SharePoint
 5. Vá em **Dados → Conectar a pasta** e escolha a pasta do passo 1. Como ela ainda não tem o `radar-carga-solta-dados.js`, o painel pergunta **"Criar a base nesta pasta?"**: confirme.
 6. **Data de corte.** A base começa com corte em **01/08/2026**: CT-e emitidos antes dessa data ficam na base, mas fora da Evolução, das Rotas, das exceções e da classificação. A data pode ser mudada em **Dados → Data de corte**; vazia, todos entram.
 7. Lance os CT-e na aba **Lançamentos**. (A importação da planilha antiga foi usada só na implantação e saiu do painel.)
-8. A gravação é automática: a barra abaixo do menu mostra **Tudo salvo** quando o arquivo da pasta está em dia.
+8. A gravação é automática: o quadro no pé do menu lateral mostra **Tudo salvo** quando o arquivo da pasta está em dia.
 
 ## Uso no dia a dia
 
@@ -34,7 +34,7 @@ O painel é um arquivo HTML só. Ele fica numa pasta compartilhada do SharePoint
 
 - Cada pessoa abre o HTML pela pasta sincronizada no Chrome ou no Edge.
 - Na primeira vez em cada computador, é preciso clicar em **Conectar a pasta** (aba Dados). Depois disso o navegador lembra.
-- Se o navegador pedir permissão para gravar, clique em **Salvar agora** na barra de gravação.
+- Se o navegador pedir permissão para gravar, clique em **Salvar agora** no pé do menu lateral.
 - Se outra pessoa gravou depois que você abriu o painel, aparece o aviso **Outra pessoa gravou na pasta**. **Juntar e salvar** parte do arquivo da pasta e aplica por cima só o que você mudou: nada do que a outra pessoa lançou se perde.
 - Alterações que ainda não foram gravadas ficam guardadas no navegador e voltam quando o painel é aberto de novo.
 - O painel confere, imediatamente antes de gravar, se alguém gravou antes. Mas, se duas pessoas gravarem no mesmo minuto antes de o OneDrive sincronizar, o OneDrive pode criar uma cópia com o nome do computador (ex.: `radar-carga-solta-dados-PC01.js`). Se uma cópia assim aparecer na pasta, avise quem cuida do painel: o conteúdo dela precisa ser conferido e lançado de novo, e depois a cópia pode ser apagada.

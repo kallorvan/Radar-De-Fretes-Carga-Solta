@@ -3,7 +3,7 @@
 import { resumoRotas, mesesEntre } from "../agregacao.js";
 import { miniGrafico } from "../graficos.js";
 import { esc, fmtMoeda, fmtNum, fmtMes } from "../formato.js";
-import { $, $$, secHead, tabelaOrdenavel, opcoes } from "../ui.js";
+import { $, $$, tabelaOrdenavel, opcoes } from "../ui.js";
 import { produtoDe } from "../base.js";
 import { variacaoHtml, NOMES_METRICA } from "./evolucao.js";
 
@@ -14,7 +14,6 @@ export function renderRotas(raiz, App) {
   const todos = rotas.flatMap(r => Object.keys(r.porMes)).sort();
   const meses = todos.length ? mesesEntre(todos[0], todos.at(-1)) : [];
   raiz.innerHTML = `<section class="secao"><div class="wrap">
-    ${secHead("Rotas", "Uma linha por origem → destino. Clique para ver a evolução da rota.")}
     <div class="card"><div class="card-head"><div><h3>${NOMES_METRICA[metrica]} por rota</h3>
       <p class="hint">Mediana do último mês com dados; a variação compara com o mês anterior que teve CT-e. O traço mostra ${meses.length ? fmtMes(meses[0]) + " a " + fmtMes(meses.at(-1)) : "os meses"}.</p></div>
       <label class="campo curto"><span>Produto</span><select id="f-produto-rotas">${opcoes(d.produtos.map(p => [p.id, p.nome]), produto)}</select></label>

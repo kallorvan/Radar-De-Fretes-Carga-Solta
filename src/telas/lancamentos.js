@@ -7,7 +7,7 @@ import { listarPdfs, indexarPdfs, pdfDoCte, planejarOrganizacao, executarOrganiz
 import { sugerirCidades, cidadeConhecida, cidadesMaisUsadas, contarUsos } from "../municipios.js";
 import { avaliarConta, valorParaCampo } from "../calculadora.js";
 import { esc, fmtMoeda, fmtNum, fmtPct, fmtData, fmtCnpj, fmtQuando } from "../formato.js";
-import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
+import { $, $$, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 
 const POR_PAGINA = 100;
 const estado = { editando: null, busca: "", limite: POR_PAGINA, rascunho: null, selecionados: new Set(),
@@ -72,29 +72,40 @@ function lerForm(form) {
 function formHtml(App, cte) {
   // rascunho: o formulário como estava antes de um redesenho (cadastro de produto ou unidade no meio do lançamento)
   const r = estado.rascunho, v = r && (!cte || r.chave === cte.chave) ? { ...(cte || {}), ...r } : (cte || {});
-  return `<form id="form-cte" class="card${cte ? " editando" : ""}" novalidate data-escreve>
-    <div class="card-head"><div><h3>${cte ? "Corrigir lançamento" : "Lançar CT-e"}</h3>
-      <p class="hint">${cte ? `Corrigindo o CT-e Nº ${esc(cte.numero)}, lançado por ${esc(cte.criadoPor)} em ${fmtQuando(cte.criadoEm)}. A chave não muda.` :
-        "Campos com * são obrigatórios. Taxa do seguro, tarifa, peso, R$/t e R$/saca são calculados."}</p></div></div>
-    <div id="aviso-chave-box"></div>
-    <div class="form-grid">
-      ${CAMPOS.map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
+  // os campos de texto da lista CAMPOS, pelo nome, na ordem pedida (cada bloco do formulário escolhe os seus)
+  const campos = (...nomes) => nomes.map(nome => CAMPOS.find(c => c[0] === nome)).map(([k, rot, obrig, cls, tipo, ph]) => `<label class="campo ${cls}"><span>${rot}${obrig ? ' <i class="obrig">*</i>' : ""}</span>
         ${k === "adicionais" ? '<span class="com-calc-wrap">' : ""}<input name="${k}" type="${tipo}" ${tipo === "text" && (NUM.has(k) || k === "numero") ? 'inputmode="decimal"' : ""} placeholder="${ph}"
           value="${esc(fmtCampo(k, v[k]))}" ${k === "adicionais" ? 'class="com-calc"' : ""} ${k === "chave" && cte ? "disabled" : ""} ${TRAVADOS.has(k) ? "readonly" : ""} ${k === "origem" || k === "destino" ? `role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sug-${k}"` : ""} autocomplete="off">
         ${k === "adicionais" ? botaoCalc(k, "adicionais") + "</span>" : ""}
         ${k === "origem" || k === "destino" ? `<div class="sugestoes" id="sug-${k}" role="listbox" hidden></div><span class="nota aviso-cidade" data-cidade-aviso="${k}"></span>` : ""}
-        ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("")}
+        ${k.startsWith("cnpj") ? `<span class="nota" data-nome="${k}"></span>` : ""}<span class="erro" data-erro="${k}"></span></label>`).join("");
+  return `<form id="form-cte" class="card${cte ? " editando" : ""}" novalidate data-escreve>
+    <div class="card-head"><div><h3>${cte ? "Corrigir lançamento" : "Lançar CT-e"}</h3>
+      <p class="hint">${cte ? `Corrigindo o CT-e Nº ${esc(cte.numero)}, lançado por ${esc(cte.criadoPor)} em ${fmtQuando(cte.criadoEm)}. A chave não muda.` :
+        "Campos com * são obrigatórios. Taxa do seguro, tarifa, peso, R$/t e R$/saca são calculados."}</p></div></div>
+    <h4 class="fsec">Dados do CT-e</h4>
+    <div class="form-grid">${campos("chave", "numero", "emissao")}</div>
+    <div id="aviso-chave-box"></div>
+    <h4 class="fsec">Cliente e transportador</h4>
+    <div class="form-grid">${campos("cnpjTransportador", "cnpjCliente", "origem", "destino", "itinerario")}
+      <label class="campo check"><input type="checkbox" name="vpo" ${v.vpo ? "checked" : ""}><span>VPO</span></label></div>
+    <h4 class="fsec">Produto e peso</h4>
+    <div class="form-grid">
       <label class="campo"><span>Produto <i class="obrig">*</i></span><select name="produto">${opcoesLista(App.dados.produtos, v.produto, "+ Cadastrar produto…")}</select><span class="erro" data-erro="produto"></span></label>
       <label class="campo"><span>Unidade <i class="obrig">*</i></span><select name="unidade">${opcoesLista(App.dados.unidades, v.unidade, "+ Cadastrar unidade…")}</select><span class="erro" data-erro="unidade"></span></label>
       <label class="campo"><span>Quantidade <i class="obrig">*</i></span><span class="com-calc-wrap"><input name="quantidade" class="com-calc" type="text" inputmode="decimal" value="${esc(fmtCampo("quantidade", v.quantidade))}" autocomplete="off">${botaoCalc("quantidade", "quantidade")}</span><span class="erro" data-erro="quantidade"></span></label>
       <div class="campo"><span>Peso total (kg)</span><input name="pesoKg" type="text" inputmode="decimal" value="${esc(fmtCampo("pesoKg", v.pesoKg))}" autocomplete="off" aria-label="Peso total (kg)">
         <label class="nota caixa"><input type="checkbox" name="pesoInformado" ${v.pesoInformado ? "checked" : ""}> Usar o peso do CT-e</label><span class="erro" data-erro="pesoKg"></span></div>
+    </div>
+    <h4 class="fsec">Valores</h4>
+    <div class="form-grid">
+      ${campos("valorAssegurado", "valorSeguro")}
       <label class="campo"><span>Taxa do seguro</span><output name="taxaSeguro">—</output></label>
+      ${campos("valorFrete", "adicionais")}
       <label class="campo"><span>Tarifa do frete</span><output name="tarifa">—</output></label>
       <label class="campo"><span>R$/t</span><output name="precoTonelada">—</output></label>
       <label class="campo"><span>R$/saca</span><output name="precoSaca">—</output></label>
-      <label class="campo check"><input type="checkbox" name="vpo" ${v.vpo ? "checked" : ""}><span>VPO</span></label>
-      <label class="campo w3"><span>Observações</span><input name="observacoes" value="${esc(v.observacoes || "")}" maxlength="300"></label>
+      <label class="campo tudo"><span>Observações</span><input name="observacoes" value="${esc(v.observacoes || "")}" maxlength="300"></label>
     </div>
     ${cte && cte.cnpjTransportador !== cnpjDaChave(cte.chave) ? `<p class="aviso-campo" id="aviso-cnpj-chave">O CNPJ do transportador guardado neste CT-e (${fmtCnpj(cte.cnpjTransportador)}) não bate com a chave de acesso. Ao salvar a correção, vale o da chave: ${fmtCnpj(cnpjDaChave(cte.chave))}.</p>` : ""}
     <div id="form-msg"></div>
@@ -409,7 +420,6 @@ export function renderLancamentos(raiz, App) {
   const cte = estado.editando ? App.dados.ctes.find(c => c.chave === estado.editando) : null;
   if (!cte) estado.editando = null;
   raiz.innerHTML = `<section class="secao"><div class="wrap pilha">
-    ${secHead("Lançamentos", "Um CT-e de concorrente por lançamento. Cada um registra quem lançou e quando.")}
     ${App.somenteLeitura ? `<div class="card"><p class="vazio">Painel aberto só para consulta: para lançar, abra o HTML pela pasta compartilhada no Chrome ou Edge.</p></div>` : formHtml(App, cte)}
     ${baseHtml()}</div></section>`;
 

@@ -12,7 +12,7 @@ test("evolução mostra mediana da rota", async () => {
   const { page, erros, ctx } = await abrir(browser, { dados: baseExemplo(), hash: "#evolucao?rota=A%20%E2%86%92%20B" });
   await page.waitForSelector(".bignum");
   assert.equal(await page.locator(".bignum").textContent(), "R$ 190,00");
-  assert.match(await page.locator(".hero h1").textContent(), /A → B/);
+  assert.match(await page.locator(".destaque h1").textContent(), /A → B/);
   assert.equal(await page.locator(".grafico circle.cte").count(), 6, "um ponto por CT-e da rota");
   assert.equal(await page.locator(".grafico path.mediana").count(), 1);
   assert.match(await page.locator(".legenda-gradiente").textContent(), /mais barato R\$ 160,00.*mais caro R\$ 190,00/);
@@ -28,14 +28,14 @@ test("evolução mostra mediana da rota", async () => {
 test("trocar a métrica e o filtro atualiza o endereço", async () => {
   const { page, ctx } = await abrir(browser, { dados: baseExemplo() });
   await page.waitForSelector(".bignum");
-  assert.match(await page.locator(".hero h1").textContent(), /Preço por tonelada/i);
+  assert.match(await page.locator(".destaque h1").textContent(), /Preço por tonelada/i);
   assert.equal(await page.locator(".modes button[data-metrica]").count(), 3);
   await page.click(".modes button[data-metrica=tarifa]");
   await page.waitForFunction(() => location.hash.includes("metrica=tarifa"));
-  await page.waitForFunction(() => /Tarifa/i.test(document.querySelector(".hero h1").textContent));
+  await page.waitForFunction(() => /Tarifa/i.test(document.querySelector(".destaque h1").textContent));
   await page.selectOption("#f-rota", "A → B");
   await page.waitForFunction(() => location.hash.includes("rota="));
-  await page.waitForFunction(() => /A → B/.test(document.querySelector(".hero h1 em").textContent));
+  await page.waitForFunction(() => /A → B/.test(document.querySelector(".destaque h1 em").textContent));
   assert.equal(await page.locator(".bignum").textContent(), "R$ 9.500,00");
   await ctx.close();
 });

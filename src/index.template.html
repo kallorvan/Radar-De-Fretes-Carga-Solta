@@ -9,30 +9,24 @@
 </style>
 </head>
 <body>
-<div class="stickytop" id="topo">
-  <header class="top"><div class="wrap top-in">
-    <span class="logos-cor"><img src="{{LOGOS_COR}}" alt="Grupo Dínamo e Tóliman Transportes"></span>
-    <div class="rule"></div>
-    <div class="who">Radar de fretes<b>Carga solta</b></div>
-    <nav class="abas" id="abas" aria-label="Telas do painel">
-      <button type="button" data-aba="evolucao">Evolução</button>
-      <button type="button" data-aba="rotas">Rotas</button>
-      <button type="button" data-aba="lancamentos">Lançamentos</button>
-      <button type="button" data-aba="cadastro">Cadastro</button>
-      <button type="button" data-aba="dados">Dados</button>
-    </nav>
-  </div></header>
-  <div class="perbar"><div class="wrap perbar-in estado-gravacao" id="estado-gravacao"></div></div>
-</div>
+<aside class="lateral" id="topo"><div class="lat-in">
+  <div class="brand">
+    <span class="logos-branco"><img src="{{LOGOS_BRANCO}}" alt="Grupo Dínamo e Tóliman Transportes"></span>
+    <div class="who">Tóliman × mercado<b>Radar de fretes</b><i>Carga solta</i></div>
+  </div>
+  <nav class="abas" id="abas" aria-label="Telas do painel">
+    <button type="button" data-aba="evolucao">Evolução</button>
+    <button type="button" data-aba="rotas">Rotas</button>
+    <button type="button" data-aba="lancamentos">Lançamentos</button>
+    <button type="button" data-aba="cadastro">Cadastro</button>
+    <button type="button" data-aba="dados">Dados</button>
+  </nav>
+  <div class="filtros-lat" id="filtros-lat" hidden></div>
+  <div class="salvar-lat" id="estado-gravacao"></div>
+  <div class="lat-rodape" title="Lançamentos do Radar de Fretes · Carga Solta; histórico importado de Radar_Fretes_Concorrentes_v2.10.xlsm (aba Base Carga Solta 2026).">CT-e dos concorrentes × carga solta</div>
+</div></aside>
 <div class="aviso-fixo" id="aviso-fixo" hidden></div>
 <main id="conteudo"></main>
-<footer><div class="wrap foot">
-  <span class="logos-branco"><img src="{{LOGOS_BRANCO}}" alt="Grupo Dínamo e Tóliman Transportes"></span>
-  <p>Radar de Fretes · Carga Solta. Preços de frete de concorrentes, lançados CT-e a CT-e pela equipe.
-    <span class="src">Origem dos números</span>
-    <span class="rel"><b>Lançamentos do Radar de Fretes · Carga Solta</b>; histórico importado de <b>Radar_Fretes_Concorrentes_v2.10.xlsm</b> (aba Base Carga Solta 2026).</span>
-  </p>
-</div></footer>
 <div id="tip" role="tooltip"></div>
 <dialog id="dlg-nome" class="dlg">
   <form method="dialog">

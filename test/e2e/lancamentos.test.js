@@ -97,7 +97,7 @@ test("corrigir muda o formulário e salva", async () => {
 test("excluir pede confirmação e vai para a lixeira", async () => {
   const { page, ctx, erros } = await abrirLanc();
   // redesenhos antes do clique não podem acumular ações
-  for (const aba of ["rotas", "lancamentos", "evolucao", "lancamentos"]) { await page.click(`#abas button[data-aba=${aba}]`); await page.waitForSelector("#conteudo .sec-head"); }
+  for (const aba of ["rotas", "lancamentos", "evolucao", "lancamentos"]) { await page.click(`#abas button[data-aba=${aba}]`); await page.waitForSelector("#conteudo .card"); }
   await page.fill("#busca", "4");
   await page.waitForFunction(() => document.querySelectorAll("#tab-base tbody tr").length === 1);
   await page.evaluate(() => { const orig = window.RADAR_APP.alterar; window.__chamadas = 0; window.RADAR_APP.alterar = (...a) => { window.__chamadas++; return orig(...a); }; });
