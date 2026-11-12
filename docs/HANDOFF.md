@@ -31,7 +31,7 @@ A planilha real (`Radar_Fretes_Concorrentes_v2.10.xlsm`) e o relatório de itine
 O usuário pediu os dois painéis de lançamento no mesmo layout. Referência: repositório `kallorvan/Radar-De-Fretes-Container` (`src/css/lateral.css`, `src/js/lateral.js`).
 
 - **Menu lateral azul-marinho fixo à esquerda** (258 px): assinatura Dínamo | Tóliman com as logos oficiais (letras brancas, traços das marcas em cores; `logos-lateral.png`), título "Tóliman × mercado / Radar de fretes / Carga solta", abas em coluna (a aberta com fio coral à esquerda).
-- **Recorte da Evolução no menu**, logo abaixo do botão Evolução (métrica, rota, transportador, cliente, produto, itinerário, período e Limpar recorte), como os filtros do Comparativo no Container. Nas outras telas ele some (`#filtros-lat`, preenchido por `renderEvolucao`, limpo em `App.render`).
+- **Recorte da Evolução no menu**, logo abaixo do botão Evolução (métrica, rota, transportador, cliente, produto, itinerário, período e Limpar recorte), como os filtros do Comparativo no Container. Nas outras telas ele some (`#filtros-lat`, preenchido por `renderEvolucao`, limpo em `App.render`). Clicar no botão Evolução com ela aberta **recolhe** o recorte e clicar de novo abre, com a seta ▾/▸ no botão (pedido do usuário, como o Comparativo do Container); vindo de outra tela, abre (`pintarRecorte` em `src/app.js`).
 - **Quadro de gravação no pé do menu** (`#estado-gravacao`): estado, botão coral **Conectar a pasta** ou **Salvar agora**, e "Lançando como … · trocar". Gruda no pé quando o menu rola.
 - **Conteúdo em quadros brancos** na largura toda, sem título de página; cada quadro tem o título com filete azul-marinho embaixo. Botões em texto normal (primário azul-marinho).
 - **Evolução:** o número do recorte vai num quadro branco ao lado do gráfico (no Container, a posição e a distribuição dos gaps).
@@ -103,7 +103,7 @@ Depois de regerar, rode `npm run montar` e troque o HTML na pasta. Ao abrir, o p
 npm install
 npm test                 # 180 testes de unidade (node:test)
 npm run montar           # gera dist/index.html (esbuild + CSS + logos embutidos)
-npm run test:e2e         # 58 testes no navegador (Playwright/Chromium), com uma pasta simulada
+npm run test:e2e         # 59 testes no navegador (Playwright/Chromium), com uma pasta simulada
 ```
 
 - **Código:** ES modules em `src/` e as telas em `src/telas/`. O build é IIFE e vai inteiro para dentro do HTML. Bibliotecas externas: SheetJS 0.18.5 (cdnjs, só para exportar) e Google Fonts.

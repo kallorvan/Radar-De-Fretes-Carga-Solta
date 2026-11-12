@@ -36,7 +36,10 @@ button,input,select,textarea{font:inherit;color:inherit}
   text-transform:uppercase;transition:color .12s,background .12s}
 .abas button:hover{color:#fff}
 .abas button[aria-selected="true"]{color:#fff;border-left-color:var(--accent);background:rgba(255,255,255,.08)}
-.abas button[data-aba="evolucao"]{order:1}
+.abas button[data-aba="evolucao"]{order:1;display:flex;align-items:center;justify-content:space-between}
+/* seta do recorte, como no Comparativo do Container: ▾ aberto, ▸ recolhido */
+.abas button[data-aba="evolucao"]::after{content:"▾";font-size:10px;opacity:.7;transition:transform .15s}
+.abas button[data-aba="evolucao"][aria-expanded="false"]::after{transform:rotate(-90deg)}
 .abas button[data-aba="rotas"]{order:3}
 .abas button[data-aba="lancamentos"]{order:4}
 .abas button[data-aba="cadastro"]{order:5}

@@ -85,8 +85,8 @@ export function renderEvolucao(raiz, App) {
   const valorTxt = fmtMoeda(r.valor);
 
   // recorte no menu lateral, abaixo do botão Evolução (como os filtros do Comparativo no Radar Container)
+  // aberto ou recolhido: quem decide é o App (clique no botão Evolução)
   const lat = $("#filtros-lat");
-  lat.hidden = false;
   lat.innerHTML = `
     <div class="lat-cap">Métrica</div>
     <div class="modes" role="group" aria-label="Métrica">

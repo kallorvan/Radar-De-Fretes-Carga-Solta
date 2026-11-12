@@ -85,8 +85,19 @@ const App = {
     const lat = $("#filtros-lat");
     lat.innerHTML = ""; lat.hidden = true;
     TELAS[App.aba]($("#conteudo"), App);
+    pintarRecorte();
   },
 };
+
+/* O recorte da Evolução no menu: aberto ou recolhido. Como no Comparativo do Radar Container, clicar no botão
+   Evolução com ela já aberta recolhe; clicar de novo abre. Entrar na Evolução vindo de outra tela abre. */
+let recorteAberto = true;
+function pintarRecorte() {
+  const lat = $("#filtros-lat"), b = $('#abas button[data-aba="evolucao"]');
+  lat.hidden = !(App.aba === "evolucao" && recorteAberto && lat.innerHTML.trim());
+  b.setAttribute("aria-expanded", String(App.aba === "evolucao" && recorteAberto));
+  b.title = App.aba === "evolucao" ? (recorteAberto ? "Clique para recolher o recorte" : "Clique para abrir o recorte") : "";
+}
 window.RADAR_APP = App;   // para depuração no console
 
 const ROTULO = {
@@ -149,7 +160,10 @@ async function iniciar() {
 
   $("#abas").addEventListener("click", ev => {
     const b = ev.target.closest("button[data-aba]");
-    if (b) App.irPara(b.dataset.aba, App.filtros);
+    if (!b) return;
+    if (b.dataset.aba === "evolucao" && App.aba === "evolucao") { recorteAberto = !recorteAberto; pintarRecorte(); return; }
+    if (b.dataset.aba === "evolucao") recorteAberto = true;
+    App.irPara(b.dataset.aba, App.filtros);
   });
   document.addEventListener("click", ev => {
     const b = ev.target.closest("[data-acao]");

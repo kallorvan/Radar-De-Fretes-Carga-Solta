@@ -379,7 +379,10 @@ button,input,select,textarea{font:inherit;color:inherit}
   text-transform:uppercase;transition:color .12s,background .12s}
 .abas button:hover{color:#fff}
 .abas button[aria-selected="true"]{color:#fff;border-left-color:var(--accent);background:rgba(255,255,255,.08)}
-.abas button[data-aba="evolucao"]{order:1}
+.abas button[data-aba="evolucao"]{order:1;display:flex;align-items:center;justify-content:space-between}
+/* seta do recorte, como no Comparativo do Container: ▾ aberto, ▸ recolhido */
+.abas button[data-aba="evolucao"]::after{content:"▾";font-size:10px;opacity:.7;transition:transform .15s}
+.abas button[data-aba="evolucao"][aria-expanded="false"]::after{transform:rotate(-90deg)}
 .abas button[data-aba="rotas"]{order:3}
 .abas button[data-aba="lancamentos"]{order:4}
 .abas button[data-aba="cadastro"]{order:5}
@@ -2462,7 +2465,6 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     const formatar = (v) => metrica === "tarifa" ? fmtMoeda(v).replace(/,\d\d$/, "") : fmtMoeda(v);
     const valorTxt = fmtMoeda(r.valor);
     const lat = $("#filtros-lat");
-    lat.hidden = false;
     lat.innerHTML = `
     <div class="lat-cap">Métrica</div>
     <div class="modes" role="group" aria-label="Métrica">
@@ -3810,8 +3812,16 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       lat.innerHTML = "";
       lat.hidden = true;
       TELAS[App.aba]($("#conteudo"), App);
+      pintarRecorte();
     }
   };
+  var recorteAberto = true;
+  function pintarRecorte() {
+    const lat = $("#filtros-lat"), b = $('#abas button[data-aba="evolucao"]');
+    lat.hidden = !(App.aba === "evolucao" && recorteAberto && lat.innerHTML.trim());
+    b.setAttribute("aria-expanded", String(App.aba === "evolucao" && recorteAberto));
+    b.title = App.aba === "evolucao" ? recorteAberto ? "Clique para recolher o recorte" : "Clique para abrir o recorte" : "";
+  }
   window.RADAR_APP = App;
   var ROTULO = {
     "somente-leitura": "Somente consulta",
@@ -3879,7 +3889,14 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
     App.gravador.baseSalvoEm = arquivo.salvoEm ?? null;
     $("#abas").addEventListener("click", (ev) => {
       const b = ev.target.closest("button[data-aba]");
-      if (b) App.irPara(b.dataset.aba, App.filtros);
+      if (!b) return;
+      if (b.dataset.aba === "evolucao" && App.aba === "evolucao") {
+        recorteAberto = !recorteAberto;
+        pintarRecorte();
+        return;
+      }
+      if (b.dataset.aba === "evolucao") recorteAberto = true;
+      App.irPara(b.dataset.aba, App.filtros);
     });
     document.addEventListener("click", (ev) => {
       const b = ev.target.closest("[data-acao]");

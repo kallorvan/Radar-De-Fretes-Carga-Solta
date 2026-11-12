@@ -66,6 +66,29 @@ test("Evolução: o recorte fica no menu lateral, abaixo do botão Evolução, e
   await ctx.close();
 });
 
+test("Evolução: clicar no botão com ela aberta recolhe o recorte; clicar de novo abre", async () => {
+  const { baseExemplo } = await import("../fixtures/base-exemplo.js");
+  const { page, ctx, erros } = await abrir(browser, { dados: baseExemplo(), hash: "#evolucao" });
+  const botao = page.locator("#abas button[data-aba=evolucao]");
+  await page.waitForSelector("#filtros-lat select[data-f=rota]");
+  assert.equal(await botao.getAttribute("aria-expanded"), "true");
+  await botao.click();
+  await page.waitForFunction(() => document.querySelector("#filtros-lat").hidden);
+  assert.equal(await botao.getAttribute("aria-expanded"), "false");
+  assert.equal(await page.evaluate(() => location.hash), "#evolucao", "continua na Evolução");
+  await botao.click();
+  await page.waitForSelector("#filtros-lat select[data-f=rota]");
+  // recolhido, mudar de tela e voltar: o recorte abre de novo
+  await botao.click();
+  await page.waitForFunction(() => document.querySelector("#filtros-lat").hidden);
+  await page.click("#abas button[data-aba=rotas]");
+  await page.waitForSelector("#tab-rotas tbody tr");
+  await botao.click();
+  await page.waitForSelector("#filtros-lat select[data-f=rota]");
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});
+
 test("Enter no campo de nome confirma o nome", async () => {
   const { page, ctx } = await abrir(browser, { hash: "#dados", gravavel: true });
   await page.click("[data-nome]");
