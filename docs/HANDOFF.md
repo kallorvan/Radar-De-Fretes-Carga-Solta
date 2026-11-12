@@ -1,6 +1,6 @@
 # Handoff · Radar de Fretes · Carga Solta
 
-Atualizado em 12/11/2026, depois do merge do PR #3 na `main`.
+Atualizado em 12/11/2026, depois do merge do PR #3 na `main` e da confirmação do usuário de que os PDFs voltaram a aparecer na pasta real.
 
 **Histórico recente (pull requests em `kallorvan/Radar-De-Fretes-Carga-Solta`):**
 - **PR #1:** botão **Organizar PDFs por mês** (`Registrados/1 - Janeiro_2026/`…). Testado pelo usuário na pasta real: funcionou.
@@ -150,7 +150,7 @@ npm run test:e2e         # 61 testes no navegador (Playwright/Chromium), com uma
 2. **Linha estranha no relatório do Rodopar:** o itinerário `MCHBYU` está como Machado → Campestre/MG, mas BYU é o código de Campestre/AL. Vale conferir no Rodopar.
 3. **CT-e com origem "JOAQUIM DA BARRA"** (nº 2848): o usuário ia corrigir para São Joaquim da Barra pelo painel. Conferir se foi feito.
 4. **Conferir na pasta real o que entrou no PR #3** (aqui só deu para testar com pasta simulada e sem Google Fonts):
-   - **PDFs:** na aba Base de CT-e, clicar em **Atualizar PDFs** e permitir a leitura; os botões PDF devem acender. Era o defeito relatado em 12/11/2026 (sem permissão, a leitura falhava calada).
+   - ~~PDFs~~ **confirmado pelo usuário em 12/11/2026:** os PDFs voltaram a aparecer na pasta real. Era o defeito da permissão de leitura ao reabrir o painel (a leitura falhava calada); agora o painel avisa e o **Atualizar PDFs** pede a permissão.
    - **Fontes:** devem ficar iguais às do Container (Barlow Condensed nos títulos, IBM Plex no texto).
    - **Organizar PDFs por mês** agora olha a pasta inteira: na primeira vez, conferir na confirmação se a lista de PDFs a mover faz sentido.
    - Pastas antigas que ficarem vazias em `PDFs Carga Solta` não são apagadas pelo painel; a equipe apaga à mão.
