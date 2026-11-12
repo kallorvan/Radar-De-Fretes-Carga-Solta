@@ -17,7 +17,11 @@ const html = ler("src/index.template.html")
   .replace("/*CSS*/", () => css)
   .replace("/*JS*/", () => js.split("</script").join("<\\/script"))
   // assinatura Dínamo | Tóliman gerada por scripts/montar-logos.py
-  .replace("{{LOGOS_BRANCO}}", png("referencia/toliman-paineis/logos-lateral.png"));
+  .replace("{{LOGOS_BRANCO}}", png("referencia/toliman-paineis/logos-lateral.png"))
+  // favicon do design system Tóliman (artefato Layout Base: favicon.svg, favicon-32.png, apple-touch-icon.png)
+  .replace("{{FAVICON_SVG}}", "data:image/svg+xml;base64," + readFileSync(new URL("referencia/toliman-paineis/favicon.svg", raiz)).toString("base64"))
+  .replace("{{FAVICON_32}}", png("referencia/toliman-paineis/favicon-32.png"))
+  .replace("{{APPLE_TOUCH}}", png("referencia/toliman-paineis/apple-touch-icon.png"));
 
 mkdirSync(new URL("dist/", raiz), { recursive: true });
 writeFileSync(new URL("dist/index.html", raiz), html);

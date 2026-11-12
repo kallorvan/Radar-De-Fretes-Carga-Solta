@@ -50,7 +50,7 @@ O usuário pediu os dois painéis de lançamento no mesmo layout. Referência: r
 - **Formulário de lançamento em blocos:** Dados do CT-e · Cliente e transportador · Produto e peso · Valores.
 - **Só computador:** o painel não tem layout de celular (decisão do usuário em 12/11/2026). Não gastar tempo com telas estreitas nas próximas mudanças.
 - **Abas:** Evolução · Rotas · Base de CT-e · Lançamentos · Cadastro · Dados (a base antes dos lançamentos, como no Container).
-- **Favicon** do design system Tóliman Painéis: o símbolo Dínamo (faixas `mark-red`, `mark-yellow` e `plum`) sobre um quadrado `navy` de cantos arredondados, o mesmo do Radar Container (SVG embutido no `<head>` de `src/index.template.html`). O `dinamo-mark.svg` que o README do design system cita não veio para o repositório.
+- **Favicon** do design system Tóliman, copiado do artefato **Layout Base** (`https://claude.ai/artifact/8YEF6Kt7bsybJZDwEy2RVt`, skill `layout-padrao`): as três faixas arredondadas do símbolo Dínamo em coral `#D84864`, areia `#F0CE88` e lilás `#A881AE`, sem fundo. Arquivos em `referencia/toliman-paineis/` (`favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`), embutidos por `scripts/montar.mjs`. Atualizado em 13/11/2026: o primeiro favicon (faixas vermelha, amarela e roxa sobre quadrado navy, o do Container v62) era o desenho antigo. Se o Layout Base mudar de novo, copiar os três arquivos e remontar. O Container ainda usa o antigo.
 - **Fontes** Barlow Condensed, IBM Plex Sans e IBM Plex Mono por `<link>` no `<head>`, como no Container. O `@import` do `bundle.css` não vale: fica no meio da folha montada e o navegador o ignora (o painel caía em Arial).
 - Diferença que ficou: o Carga Solta continua com tema escuro automático; o Container é só claro.
 
