@@ -1,60 +1,63 @@
-// Calculadora dos campos Adicionais e Quantidade: a conta digitada é lida por um interpretador próprio
-// (nunca eval). Aceita + - * / × ÷, parênteses, sinal e números em pt-BR ("1.234,56", "80,50"); "R$" é ignorado.
+// Calculadora dos campos de valor do lançamento, no mesmo modelo do Radar de Fretes Container (v61): a conta é
+// lida por um interpretador próprio (nunca eval). Aceita + − × ÷ (ou * / x), parênteses, sinal, % e números em
+// pt-BR: vírgula decimal e ponto de milhar ("1.234,56"); sem vírgula, ponto seguido de grupos de 3 dígitos é
+// milhar ("1.500" = 1500), senão é decimal ("1.5"). "a + b%" = a mais b% de a; "a × b%" = b% de a. "R$" é ignorado.
 
-import { numeroBR, arred2 } from "./calculos.js";
+import { arred2 } from "./calculos.js";
 
-/* Peças da conta: números ("1.080", "80,50") e símbolos; qualquer outra coisa invalida a conta. */
-function pecas(texto) {
-  const s = String(texto ?? "").replace(/R\$/gi, " ").replace(/×|x/gi, "*").replace(/÷|:/g, "/");
-  const out = [];
-  for (let i = 0; i < s.length;) {
-    const c = s[i];
-    if (/\s/.test(c)) { i++; continue; }
-    if ("+-*/()".includes(c)) {
-      if (c === "*" && s[i + 1] === "*") return null;   // potência não é aceita
-      out.push(c); i++; continue;
-    }
-    const m = s.slice(i).match(/^\d[\d.,]*/);
-    if (!m) return null;
-    const n = numeroBR(m[0]);
-    if (n == null || (m[0].match(/,/g) || []).length > 1) return null;
-    out.push(n); i += m[0].length;
-  }
-  return out;
+function numero(t) {
+  let s = t;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
+  if (!/^(\d+\.?\d*|\.\d+)$/.test(s)) throw new Error("número inválido: " + t);
+  return parseFloat(s);
 }
 
-/* Resultado da conta, ou null se ela estiver incompleta, inválida ou dividir por zero. */
-export function avaliarConta(texto) {
-  const p = pecas(texto);
-  if (!p || !p.length) return null;
+/* A conta: { valor } ou { erro } com o motivo ("conta incompleta", "divisão por zero"…); vazia dá { valor: null }. */
+export function lerConta(expr) {
+  const s = String(expr ?? "").replace(/R\$/gi, "").replace(/[x×]/gi, "*").replace(/÷/g, "/").replace(/[−–]/g, "-").replace(/\s+/g, "");
+  if (!s) return { valor: null };
+  const tk = s.match(/\d[\d.,]*|[.,]\d[\d.,]*|[-+*/()%]|./g) || [];
   let i = 0;
-  const erro = () => { throw new Error("conta"); };
+  const ve = () => tk[i];
   const fator = () => {
-    const t = p[i++];
-    if (t === "-") return -fator();
+    const t = tk[i++];
+    let r;
+    if (t === "-") { const f = fator(); return { v: -f.v, pct: f.pct }; }
     if (t === "+") return fator();
-    if (t === "(") { const v = soma(); if (p[i++] !== ")") erro(); return v; }
-    return typeof t === "number" ? t : erro();
+    if (t === "(") { r = { v: soma(), pct: false }; if (tk[i++] !== ")") throw new Error("falta fechar o parêntese"); }
+    else if (t != null && /^[\d.,]/.test(t)) r = { v: numero(t), pct: false };
+    else throw new Error("conta incompleta");
+    if (ve() === "%") { i++; r = { v: r.v / 100, pct: true }; }
+    return r;
   };
-  const produto = () => {
-    let v = fator();
-    while (p[i] === "*" || p[i] === "/") {
-      const op = p[i++], b = fator();
-      if (op === "/" && b === 0) erro();
-      v = op === "*" ? v * b : v / b;
+  const termo = () => {
+    let a = fator();
+    while (ve() === "*" || ve() === "/") {
+      const op = tk[i++], b = fator();
+      a = { v: op === "*" ? a.v * b.v : a.v / b.v, pct: false };
     }
-    return v;
+    return a;
   };
   const soma = () => {
-    let v = produto();
-    while (p[i] === "+" || p[i] === "-") { const op = p[i++]; const b = produto(); v = op === "+" ? v + b : v - b; }
-    return v;
+    let a = termo().v;
+    while (ve() === "+" || ve() === "-") {
+      const op = tk[i++], b = termo();
+      const v = b.pct ? a * b.v : b.v;
+      a = op === "+" ? a + v : a - v;
+    }
+    return a;
   };
   try {
     const v = soma();
-    return i === p.length && Number.isFinite(v) ? Math.round(v * 1e9) / 1e9 : null;
-  } catch (e) { return null; }
+    if (i < tk.length) throw new Error(tk[i] === ")" ? "parêntese sobrando" : "conta incompleta");
+    if (!Number.isFinite(v)) throw new Error("divisão por zero");
+    return { valor: Math.round(v * 1e9) / 1e9 };
+  } catch (e) { return { erro: e.message }; }
 }
+
+/* Resultado da conta, ou null se ela estiver vazia, incompleta, inválida ou dividir por zero. */
+export const avaliarConta = texto => lerConta(texto).valor ?? null;
 
 /* Como o resultado entra no campo: até 2 casas, com vírgula ("300,5", "520"). */
 export const valorParaCampo = v => String(arred2(v)).replace(".", ",");

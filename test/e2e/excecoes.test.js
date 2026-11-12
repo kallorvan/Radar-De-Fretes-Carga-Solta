@@ -28,6 +28,9 @@ test("exceção de CT-e abre a correção dele na base", async () => {
   await page.waitForSelector("#form-cte.editando");
   assert.match(await page.locator("#form-cte .card-head").textContent(), /Corrigindo o CT-e Nº 900/);
   assert.match(await page.evaluate(() => location.hash), /^#lancamentos/);
+  // cancelando a correção, a aba Base de CT-e mostra o CT-e buscado
+  await page.click("#form-cte [data-cancelar]");
+  await page.waitForSelector("#tab-base");
   assert.equal(await page.locator("#busca").inputValue(), "900");
   assert.deepEqual(erros, []);
   await ctx.close();

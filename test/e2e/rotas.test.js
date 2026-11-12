@@ -17,7 +17,7 @@ test("rotas lista por CT-e e abre evolução filtrada", async () => {
   assert.equal(await linhas.first().locator("svg.mini").count(), 1);
   await linhas.first().click();
   await page.waitForFunction(() => location.hash.startsWith("#evolucao?rota="));
-  assert.match(await page.locator(".hero h1 em").textContent(), /A → B/);
+  assert.match(await page.locator(".destaque h1 em").textContent(), /A → B/);
   assert.deepEqual(erros, []);
   await ctx.close();
 });

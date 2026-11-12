@@ -31,4 +31,7 @@ export async function abrir(browser, { dados = null, hash = "", largura = 1280, 
   return { page, ctx, dir, erros };
 }
 
+/* Abre a aba Base de CT-e (a base saiu da aba Lançamentos). */
+export async function irBase(page) { await page.click("#abas button[data-aba=base]"); await page.waitForSelector("#tab-base"); }
+
 export const semRolagemHorizontal = page => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);

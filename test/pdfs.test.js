@@ -147,3 +147,19 @@ test("Registrados dentro de PDFs Carga Solta (versão anterior) vai para a da pa
   assert.equal(raiz.pastas.get(PASTA_REGISTRADOS).pastas.get("3 - Março_2026").arquivos.get("CTE 4 - Oasis.pdf"), "%PDF quatro");
   assert.equal(velha.arquivos.size, 0);
 });
+
+test("listarPdfs procura na pasta do painel inteira, fora as pastas ocultas", async () => {
+  const raiz = new PastaFalsa("Radar");
+  raiz.arquivos.set("CTE 7 - Solto na raiz.pdf", "%PDF");
+  (await (await raiz.getDirectoryHandle("Antigos", { create: true })).getDirectoryHandle("2025", { create: true })).arquivos.set("CTE 8 - X.pdf", "%PDF");
+  (await raiz.getDirectoryHandle(".lixo", { create: true })).arquivos.set("CTE 9 - Oculto.pdf", "%PDF");
+  (await raiz.getDirectoryHandle(PASTA_PDFS, { create: true })).arquivos.set("CTE 1 - A.pdf", "%PDF");
+  const caminhos = (await listarPdfs(raiz)).map(p => p.caminho).sort();
+  assert.deepEqual(caminhos, ["Antigos/2025/CTE 8 - X.pdf", "CTE 7 - Solto na raiz.pdf", "PDFs Carga Solta/CTE 1 - A.pdf"]);
+});
+
+test("listarPdfs não esconde erro de leitura (a falta de permissão vira aviso na tela)", async () => {
+  const raiz = new PastaFalsa("Radar");
+  raiz.entries = async function* () { throw Object.assign(new Error("sem permissão"), { name: "NotAllowedError" }); };
+  await assert.rejects(listarPdfs(raiz), { name: "NotAllowedError" });
+});

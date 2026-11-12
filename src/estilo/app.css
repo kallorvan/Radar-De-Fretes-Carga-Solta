@@ -11,55 +11,94 @@
   --accent-d:#ff8a9c;--accent-soft:#3a1720;--accent-wash:#2a1520;--ok:#5cc28a;--yard-20:#7d96c7;--pie-5:#5f7bb5;
   --erro:#ff8a80;--erro-bg:#3a1714}
 body{background:var(--paper);overflow-x:hidden}
-.hero,footer{background:var(--hero-bg)}
 #tip{background:#0b1730}
 .modes.light button[aria-pressed="true"]{color:var(--card)}
 button,input,select,textarea{font:inherit;color:inherit}
 
-/* cabeçalho */
-/* assinatura Dínamo | Tóliman: uma imagem só, com as letras das duas marcas na mesma altura */
-.logos-cor{display:flex;align-items:center}
-.logos-cor img{height:44px;width:auto;display:block}
-/* ao rolar só a sombra muda: encolher o cabeçalho mudava a altura da página e, perto do fim dela,
-   a rolagem voltava, o cabeçalho crescia de novo e a tela ficava tremendo */
-.stickytop.scrolled .logos-cor img{height:44px}
-.stickytop.scrolled .top-in{padding:14px 0}
-.stickytop.scrolled .perbar-in{padding:10px 0}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .logos-cor img{filter:brightness(0) invert(.92)}}
-:root[data-theme="dark"] .logos-cor img{filter:brightness(0) invert(.92)}
-.top .who b{display:block}
-.abas{margin-left:auto;display:flex;gap:20px;font-size:12.5px;font-weight:500;flex-wrap:wrap}
-.abas button{background:none;border:0;padding:0 0 2px;color:var(--steel);cursor:pointer;border-bottom:2px solid transparent}
-.abas button:hover,.abas button[aria-selected="true"]{color:var(--accent-d);border-color:var(--accent)}
-.abas button[aria-selected="true"]{color:var(--navy)}
+/* ═══ Layout do Radar de Fretes Container: menu lateral azul-marinho fixo à esquerda (logos, título, abas,
+   filtros da tela aberta, quadro de gravação no pé) e o conteúdo em quadros brancos à direita ═══ */
+:root{--lat:258px}
+.lateral{position:fixed;top:0;left:0;bottom:0;width:var(--lat);z-index:70;background:var(--hero-bg);color:#fff;
+  box-shadow:4px 0 18px -12px rgba(0,0,0,.45);overflow-y:auto;overflow-x:hidden}
+.lat-in{min-height:100%;padding:18px 14px 14px;display:flex;flex-direction:column}
+.lateral .brand{order:0;display:flex;flex-direction:column;gap:14px;padding:4px 4px 18px;margin-bottom:10px;border-bottom:1px solid var(--hairline-on-navy)}
+/* assinatura Dínamo | Tóliman em branco: uma imagem só, com as letras das duas marcas na mesma altura */
 .logos-branco{display:flex;align-items:center}
-.logos-branco img{height:28px;width:auto;display:block}
-
-/* barra de gravação */
-.estado-gravacao{font-size:12.5px;color:var(--steel)}
-.estado-gravacao .perlab{margin-right:-4px}
-.estado-gravacao b{color:var(--navy);font-weight:600}
-.estado-gravacao .msg{flex:1 1 260px;min-width:0}
-.estado-gravacao .quem{margin-left:auto;white-space:nowrap}
-.marca{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--steel-l);margin-right:6px;vertical-align:1px}
-.marca.salvo{background:var(--ok)}.marca.pendente,.marca.salvando{background:var(--yard-20)}
+.logos-branco img{width:100%;max-width:210px;height:auto;display:block}
+.lateral .who{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--steel-l);
+  padding-left:12px;border-left:2px solid var(--accent)}
+.lateral .who b{display:block;font-family:var(--font-disp);font-size:24px;font-weight:700;letter-spacing:.02em;color:#fff;line-height:1.05;margin-top:3px}
+.lateral .who i{display:block;font-style:normal;font-family:var(--font-disp);font-size:15px;font-weight:600;letter-spacing:.08em;color:var(--tip-key);margin-top:2px}
+/* abas: lista vertical; os filtros da tela entram logo abaixo do botão Evolução */
+.abas{display:contents}
+.abas button{background:transparent;border:0;border-left:3px solid transparent;border-radius:0 2px 2px 0;color:var(--on-navy-2);
+  text-align:left;padding:9px 12px;cursor:pointer;font-family:var(--font-disp);font-size:15px;font-weight:600;letter-spacing:.06em;
+  text-transform:uppercase;transition:color .12s,background .12s}
+.abas button:hover{color:#fff}
+.abas button[aria-selected="true"]{color:#fff;border-left-color:var(--accent);background:rgba(255,255,255,.08)}
+.abas button[data-aba="evolucao"]{order:1;display:flex;align-items:center;justify-content:space-between}
+/* seta do recorte, como no Comparativo do Container: ▾ aberto, ▸ recolhido */
+.abas button[data-aba="evolucao"]::after{content:"▾";font-size:10px;opacity:.7;transition:transform .15s}
+.abas button[data-aba="evolucao"][aria-expanded="false"]::after{transform:rotate(-90deg)}
+.abas button[data-aba="rotas"]{order:3}
+.abas button[data-aba="base"]{order:4}
+.abas button[data-aba="lancamentos"]{order:5}
+.abas button[data-aba="cadastro"]{order:6}
+.abas button[data-aba="dados"]{order:7}
+.filtros-lat{order:2;margin:4px 0 10px 10px;padding:8px 10px 12px;border-left:1px solid rgba(255,255,255,.18)}
+.lat-cap{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.62);margin-bottom:5px}
+.filtros-lat .modes{margin:0;display:flex}
+.filtros-lat .modes button{flex:1;padding:6px 4px;font-size:10px;letter-spacing:.08em}
+.filtros-lat .filtros{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-top:12px}
+.filtros-lat .campo>span{color:rgba(255,255,255,.62)}
+.filtros-lat .campo select{background:#fff;color:#141c31;border-color:transparent;font-size:12.5px;padding:7px 9px}
+.filtros-lat .lat-par{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.filtros-lat .btn{width:100%;background:transparent;color:#fff;border-color:rgba(255,255,255,.35);margin-top:2px}
+.filtros-lat .btn:hover{border-color:#fff;color:#fff}
+/* quadro de gravação, fixo no pé do menu: com os filtros abertos o menu rola, e ele segue à vista */
+.salvar-lat{order:9;margin-top:auto;padding:12px 4px 10px;border-top:1px solid var(--hairline-on-navy);display:flex;flex-direction:column;gap:8px;
+  position:sticky;bottom:-14px;z-index:2;background:var(--hero-bg);box-shadow:0 -10px 14px -10px rgba(0,0,0,.5)}
+.sl-estado{font-size:11.5px;line-height:1.4;color:var(--on-navy-2)}
+.sl-estado b{display:flex;align-items:center;font-family:var(--font-mono);font-size:9.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--on-navy-2);margin-bottom:2px}
+.sl-estado.salvo b{color:#7fd3a8}
+.sl-estado.pendente b,.sl-estado.salvando b,.sl-estado.desconectado b{color:#f9d590}
+.sl-estado.erro b,.sl-estado.conflito b{color:#ff9dae}
+.salvar-lat .btn.primario{background:var(--accent);border-color:var(--accent);color:#fff}
+.salvar-lat .btn.primario:hover{background:var(--accent-d);border-color:var(--accent-d)}
+.sl-quem{font-size:11.5px;color:var(--on-navy-2)}
+.sl-quem b{color:#fff;font-weight:600}
+.sl-link{background:none;border:0;padding:0;color:var(--on-navy-2);font:inherit;text-decoration:underline;cursor:pointer}
+.sl-link:hover{color:#fff}
+.sl-link.escuro{color:var(--navy)}.sl-link.escuro:hover{color:var(--accent-d)}
+.lanc-rodape{margin-top:10px!important}
+.lat-rodape{order:10;padding:12px 4px 0;border-top:1px solid var(--hairline-on-navy);font-family:var(--font-mono);font-size:9.5px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--foot-src);line-height:1.6}
+.lat-rodape span{display:block;margin-top:4px;font-family:var(--font-body);font-size:10.5px;letter-spacing:0;text-transform:none;line-height:1.45}
+.marca{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--steel-l);margin-right:6px;flex:none}
+.marca.salvo{background:#7fd3a8}.marca.pendente,.marca.salvando,.marca.desconectado{background:#f9d590}
 .marca.erro,.marca.conflito{background:var(--accent)}
-.aviso-fixo{position:sticky;top:var(--stickyh,110px);z-index:55;background:var(--erro-bg);color:var(--erro);border-bottom:1px solid var(--erro);padding:10px 0;font-size:13px}
+/* conteúdo à direita do menu, na largura toda */
+#conteudo,.aviso-fixo{margin-left:var(--lat)}
+#conteudo .wrap,.aviso-fixo .wrap{max-width:none;margin:0;padding:0 26px}
+/* painel só de computador (decisão do usuário, 12/11/2026): sem layout de celular */
+.aviso-fixo{position:sticky;top:0;z-index:55;background:var(--erro-bg);color:var(--erro);border-bottom:1px solid var(--erro);padding:10px 0;font-size:13px}
 .aviso-fixo .wrap{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .aviso-fixo.conflito{background:var(--accent-wash);color:var(--ink);border-color:var(--accent)}
 .aviso-fixo b{color:var(--accent-d)}
 
 /* botões e campos */
-.btn{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;background:var(--card);color:var(--navy);
-  border:1px solid var(--line);border-radius:2px;padding:8px 13px;cursor:pointer;white-space:nowrap}
-.btn:hover{border-color:var(--navy)}
+/* botões como os do Radar Container: texto normal, borda fina, primário azul-marinho */
+.btn{font-family:var(--font-body);font-size:13px;font-weight:500;letter-spacing:0;text-transform:none;background:var(--card);color:var(--ink);
+  border:1px solid #c3cdd8;border-radius:2px;padding:7px 13px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center}
+.btn:hover{border-color:var(--navy);color:var(--navy)}
 .btn.primario{background:var(--hero-bg);border-color:var(--hero-bg);color:#fff}
 .btn.primario:hover{background:#1d2644}
 .btn.perigo{color:var(--accent-d);border-color:var(--accent-soft)}
 .btn.perigo:hover{border-color:var(--accent)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
-.btn.mini{padding:4px 8px;font-size:9.5px}
-.on-navy .btn{background:transparent;color:#fff;border-color:var(--border-on-navy)}
+.btn.mini{padding:3px 9px;font-size:12px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn{border-color:var(--line)}}
+:root[data-theme="dark"] .btn{border-color:var(--line)}
 .campo{display:flex;flex-direction:column;gap:5px;min-width:0}
 .campo>span{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--steel)}
 .campo>span .obrig{color:var(--accent-d)}
@@ -75,13 +114,21 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* filtros */
 .filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 14px;align-items:end}
 .filtros .largo{grid-column:span 2}
-.hero .filtros .campo>span{color:var(--on-navy-3)}
-.hero .filtros select{background:#0f1f3f;border-color:var(--border-on-navy);color:#fff}
 
-/* conteúdo */
-.secao{padding:40px 0 8px}
+/* conteúdo: quadros brancos empilhados, como no Radar Container */
+.secao{padding:16px 0 8px}
 .secao:last-child{padding-bottom:56px}
-.pilha>*+*{margin-top:22px}
+.pilha>*+*{margin-top:16px}
+.card{padding:16px 18px 18px}
+.card h3{font-size:18px;letter-spacing:.03em}
+.card .card-head{margin:-16px -18px 16px;padding:13px 18px 11px;border-bottom:2px solid var(--navy)}
+.card .card-head .hint{margin-top:2px}
+.card .card-head > .btn{margin-left:auto}
+.cols2{gap:16px}
+/* blocos do formulário de lançamento: título em Mono caixa alta com filete (Dados do CT-e · Cliente e transportador · …) */
+.fsec{font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--navy);
+  margin:20px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--line)}
+#form-cte .card-head + .fsec{margin-top:4px}
 .tabela{overflow-x:auto}
 .tabela table{min-width:640px}
 .tabela th[data-ordem]{cursor:pointer;user-select:none}
@@ -126,19 +173,27 @@ td .sub{display:block;font-size:11px;color:var(--steel)}
 .somente-leitura [data-escreve]{display:none!important}
 
 /* evolução */
-.bignum{font-size:84px;white-space:nowrap}
-.bignum .un{font-size:.36em;letter-spacing:.02em}
-.bignum.longo{font-size:60px}
-.hero .split span .sobe{color:#ffb3c0}.hero .split span .desce{color:#9be0b8}
-.hero-grid{grid-template-columns:minmax(0,340px) minmax(0,1fr)}
-@media (max-width:1000px){.hero-grid{grid-template-columns:minmax(0,1fr)}}
+/* topo da Evolução: o número do recorte e o gráfico lado a lado (no Container, posição e distribuição dos gaps) */
+.strip{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:16px;align-items:stretch}
+@media (max-width:1150px){.strip{grid-template-columns:minmax(0,1fr)}}
+.destaque .eyebrow{color:var(--accent-d);margin-bottom:8px}
+.destaque h1{font-size:28px;line-height:1.05;text-transform:uppercase;color:var(--navy)}
+.destaque h1 em{display:block;font-style:normal;font-size:.7em;color:var(--steel);margin-top:2px}
+.destaque .sub{font-size:12.5px;color:var(--steel);margin:8px 0 16px;line-height:1.45}
+.bignum{font-family:var(--font-disp);font-weight:700;font-size:62px;line-height:1;color:var(--navy);white-space:nowrap}
+.bignum .un{font-size:.36em;letter-spacing:.02em;color:var(--accent-d)}
+.bignum.longo{font-size:46px}
+.destaque .bigcap{color:var(--steel)}
+.destaque .split{margin-top:16px;padding-top:12px;gap:22px;border-top-color:var(--line)}
+.destaque .split div span{color:var(--navy);font-size:26px}
+.destaque .split div small{color:var(--steel)}
 .grafico svg{max-height:340px}
 .exc .tabela table{min-width:520px}
 
 /* lançamentos */
 .form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 16px}
 .form-grid .w2{grid-column:span 2}.form-grid .w3{grid-column:span 3}
-#form-cte.editando{border-left:3px solid var(--accent)}
+.form-grid .tudo{grid-column:1 / -1}#form-cte.editando{border-left:3px solid var(--accent)}
 #form-cte .nota input[name^="nome"]{margin-top:6px;width:100%;border:1px solid var(--accent);padding:7px 9px;font-size:13px;background:var(--card);color:var(--ink)}
 #form-cte .nota input[name^="nome"][aria-invalid="true"]{background:var(--accent-wash)}
 #form-cte .nota .erro{display:block}
@@ -177,16 +232,29 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 .sugestoes button{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 10px;font-size:13px;cursor:pointer;color:var(--ink,inherit)}
 .sugestoes button:hover,.sugestoes button[aria-selected="true"]{background:color-mix(in srgb, var(--accent) 12%, transparent)}
 .aviso-cidade:not(:empty){color:var(--accent-d)}
-/* calculadora dentro dos campos Adicionais e Quantidade */
-#form-cte input.com-calc{padding-right:58px}
-.com-calc-wrap{position:relative;display:block}
-.com-calc-wrap input{width:100%}
-.btn-calc{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--paper,#f3f5f9);border:1px solid var(--line);color:var(--navy);padding:4px 7px;cursor:pointer}
-.btn-calc:hover{border-color:var(--accent);color:var(--accent-d)}
-.dlg-calc .calc-resultado{font-size:20px;margin:6px 0 12px;color:var(--steel)}
-.dlg-calc .calc-resultado b{color:var(--navy);font-variant-numeric:tabular-nums}
-.teclado{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
-.teclado button{font:inherit;font-size:15px;padding:9px 0;background:var(--paper,#f3f5f9);border:1px solid var(--line);color:var(--ink);cursor:pointer}
-.teclado button:hover{border-color:var(--accent)}
-.teclado [data-tecla=apagar],.teclado [data-tecla=limpar]{font-size:11px;text-transform:uppercase;letter-spacing:.06em}
-.teclado [data-tecla=limpar]{grid-column:span 2}
+/* calculadora dos campos de valor, no modelo do Radar Container (v61): 🧮 dentro do campo, janelinha abaixo dele */
+.comcalc{position:relative;display:block}
+.comcalc input{width:100%;padding-right:34px}
+.calc-btn{position:absolute;right:3px;top:50%;transform:translateY(-50%);width:28px;height:26px;border:0;border-radius:3px;
+  background:transparent;cursor:pointer;font-size:14px;line-height:1;opacity:.55;padding:0}
+.calc-btn:hover,.calc-btn:focus-visible{opacity:1;background:var(--mist)}
+.calc-pop{position:fixed;z-index:1000;width:252px;background:var(--card);border:1px solid #c3cdd8;border-radius:8px;
+  box-shadow:0 10px 30px rgba(10,15,30,.22);padding:10px 12px 10px;color:var(--ink)}
+.calc-pop[hidden]{display:none}
+.calc-tit{display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--steel);font-weight:600;margin-bottom:6px}
+.calc-tit b{color:var(--navy);font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.calc-x{border:0;background:transparent;font-size:18px;line-height:1;color:var(--steel);cursor:pointer;padding:0 2px}
+.calc-x:hover{color:var(--accent-d)}
+.calc-pop #calc-exp{width:100%;box-sizing:border-box;border:1px solid #c3cdd8;border-radius:4px;padding:7px 8px;
+  font:500 15px/1.2 var(--font-mono);text-align:right;color:var(--ink);background:var(--tint)}
+.calc-pop #calc-exp:focus{outline:2px solid var(--navy);outline-offset:-1px}
+.calc-res{font:600 18px/1.3 var(--font-mono);text-align:right;color:var(--navy);margin:6px 0 8px;min-height:24px}
+.calc-res.err{font:500 12px/1.4 var(--font-body);color:var(--accent-d);padding-top:5px}
+.calc-teclas{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.calc-teclas button{height:32px;border:1px solid #c3cdd8;border-radius:4px;background:var(--card);cursor:pointer;
+  font:500 15px/1 var(--font-mono);color:var(--ink)}
+.calc-teclas button:hover{border-color:var(--navy);color:var(--navy)}
+.calc-teclas button.op{background:var(--tint);color:var(--navy);font-weight:600}
+.calc-teclas button.lp{color:var(--accent-d)}
+.calc-ok{width:100%;margin-top:8px}
+.calc-dica{font-size:11px;color:var(--steel);margin-top:6px;text-align:center}

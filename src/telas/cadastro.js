@@ -4,7 +4,7 @@
 import { grupoDoCnpj } from "../base.js";
 import { normalizarCnpj, raizCnpj, soDigitos } from "../calculos.js";
 import { esc, fmtCnpj, fmtNum } from "../formato.js";
-import { $, secHead, tabelaOrdenavel, aviso } from "../ui.js";
+import { $, tabelaOrdenavel, aviso } from "../ui.js";
 
 const estado = { busca: "", destaque: null };
 
@@ -24,7 +24,6 @@ export function renderCadastro(raiz, App) {
   for (const c of d.ctes) for (const k of [c.cnpjTransportador, c.cnpjCliente]) uso.set(k, (uso.get(k) || 0) + 1);
 
   raiz.innerHTML = `<section class="secao"><div class="wrap pilha">
-    ${secHead("Cadastro", "Nomes dos CNPJ, o produto de costume de cada cliente, e as listas de produtos e unidades de medida.")}
     <div class="cols2">
       <div class="card"><h3>Produtos</h3><p class="hint">O que é transportado. O nome pode mudar a qualquer momento.</p>
         <div id="tab-produtos"></div>

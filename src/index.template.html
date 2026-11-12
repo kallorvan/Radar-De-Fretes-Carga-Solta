@@ -4,35 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Radar de Fretes · Carga Solta</title>
+<!-- fontes como no Radar Container: por <link>, porque o @import do bundle.css fica no meio da folha e o navegador o ignora -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <style>
 /*CSS*/
 </style>
 </head>
 <body>
-<div class="stickytop" id="topo">
-  <header class="top"><div class="wrap top-in">
-    <span class="logos-cor"><img src="{{LOGOS_COR}}" alt="Grupo Dínamo e Tóliman Transportes"></span>
-    <div class="rule"></div>
-    <div class="who">Radar de fretes<b>Carga solta</b></div>
-    <nav class="abas" id="abas" aria-label="Telas do painel">
-      <button type="button" data-aba="evolucao">Evolução</button>
-      <button type="button" data-aba="rotas">Rotas</button>
-      <button type="button" data-aba="lancamentos">Lançamentos</button>
-      <button type="button" data-aba="cadastro">Cadastro</button>
-      <button type="button" data-aba="dados">Dados</button>
-    </nav>
-  </div></header>
-  <div class="perbar"><div class="wrap perbar-in estado-gravacao" id="estado-gravacao"></div></div>
-</div>
+<aside class="lateral" id="topo"><div class="lat-in">
+  <div class="brand">
+    <span class="logos-branco"><img src="{{LOGOS_BRANCO}}" alt="Grupo Dínamo e Tóliman Transportes"></span>
+    <div class="who">Tóliman × mercado<b>Radar de fretes</b><i>Carga solta</i></div>
+  </div>
+  <nav class="abas" id="abas" aria-label="Telas do painel">
+    <button type="button" data-aba="evolucao">Evolução</button>
+    <button type="button" data-aba="rotas">Rotas</button>
+    <button type="button" data-aba="base">Base de CT-e</button>
+    <button type="button" data-aba="lancamentos">Lançamentos</button>
+    <button type="button" data-aba="cadastro">Cadastro</button>
+    <button type="button" data-aba="dados">Dados</button>
+  </nav>
+  <div class="filtros-lat" id="filtros-lat" hidden></div>
+  <div class="salvar-lat" id="estado-gravacao"></div>
+  <div class="lat-rodape" title="Lançamentos do Radar de Fretes · Carga Solta; histórico importado de Radar_Fretes_Concorrentes_v2.10.xlsm (aba Base Carga Solta 2026).">CT-e dos concorrentes × carga solta</div>
+</div></aside>
 <div class="aviso-fixo" id="aviso-fixo" hidden></div>
 <main id="conteudo"></main>
-<footer><div class="wrap foot">
-  <span class="logos-branco"><img src="{{LOGOS_BRANCO}}" alt="Grupo Dínamo e Tóliman Transportes"></span>
-  <p>Radar de Fretes · Carga Solta. Preços de frete de concorrentes, lançados CT-e a CT-e pela equipe.
-    <span class="src">Origem dos números</span>
-    <span class="rel"><b>Lançamentos do Radar de Fretes · Carga Solta</b>; histórico importado de <b>Radar_Fretes_Concorrentes_v2.10.xlsm</b> (aba Base Carga Solta 2026).</span>
-  </p>
-</div></footer>
 <div id="tip" role="tooltip"></div>
 <dialog id="dlg-nome" class="dlg">
   <form method="dialog">
@@ -60,21 +59,15 @@
     <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok">Cadastrar</button></div>
   </form>
 </dialog>
-<dialog id="dlg-calc" class="dlg dlg-calc">
-  <form method="dialog">
-    <h3 id="dlg-calc-titulo">Calculadora</h3>
-    <label class="campo"><span>Conta</span><input name="conta" autocomplete="off" inputmode="decimal" placeholder="ex.: 150 + 80,50 + 2 × 35"></label>
-    <p class="calc-resultado">= <b id="calc-resultado">—</b></p>
-    <div class="teclado">
-      <button type="button" data-tecla="7">7</button><button type="button" data-tecla="8">8</button><button type="button" data-tecla="9">9</button><button type="button" data-tecla="÷">÷</button>
-      <button type="button" data-tecla="4">4</button><button type="button" data-tecla="5">5</button><button type="button" data-tecla="6">6</button><button type="button" data-tecla="×">×</button>
-      <button type="button" data-tecla="1">1</button><button type="button" data-tecla="2">2</button><button type="button" data-tecla="3">3</button><button type="button" data-tecla="-">−</button>
-      <button type="button" data-tecla="0">0</button><button type="button" data-tecla=",">,</button><button type="button" data-tecla="(">(</button><button type="button" data-tecla="+">+</button>
-      <button type="button" data-tecla=")">)</button><button type="button" data-tecla="apagar">Apagar</button><button type="button" data-tecla="limpar">Limpar</button>
-    </div>
-    <div class="botoes"><button class="btn" value="cancelar" formnovalidate>Cancelar</button><button class="btn primario" value="ok" id="calc-usar">Usar este valor</button></div>
-  </form>
-</dialog>
+<!-- calculadora dos campos de valor, no modelo do Radar Container: abre logo abaixo do campo -->
+<div class="calc-pop" id="calc" role="dialog" aria-label="Calculadora" hidden>
+  <div class="calc-tit"><span>Calculadora</span><b id="calc-campo"></b><button type="button" class="calc-x" id="calc-fechar" aria-label="Fechar">×</button></div>
+  <input id="calc-exp" autocomplete="off" spellcheck="false" placeholder="ex.: 1.250,00 + 380 × 2">
+  <div class="calc-res" id="calc-res">= —</div>
+  <div class="calc-teclas"><button type="button" data-t="7">7</button><button type="button" data-t="8">8</button><button type="button" data-t="9">9</button><button type="button" data-t="÷" class="op">÷</button><button type="button" data-t="4">4</button><button type="button" data-t="5">5</button><button type="button" data-t="6">6</button><button type="button" data-t="×" class="op">×</button><button type="button" data-t="1">1</button><button type="button" data-t="2">2</button><button type="button" data-t="3">3</button><button type="button" data-t="−" class="op">−</button><button type="button" data-t="0">0</button><button type="button" data-t=",">,</button><button type="button" data-t="%" class="op">%</button><button type="button" data-t="+" class="op">+</button><button type="button" data-t="(" class="op">(</button><button type="button" data-t=")" class="op">)</button><button type="button" data-t="C" class="lp">C</button><button type="button" data-t="⌫" class="lp">⌫</button></div>
+  <button type="button" class="btn primario calc-ok" id="calc-ok">Inserir no campo (Enter)</button>
+  <div class="calc-dica">Enter insere no campo · Esc fecha</div>
+</div>
 <dialog id="dlg-confirma" class="dlg">
   <form method="dialog">
     <h3 id="dlg-confirma-titulo"></h3>

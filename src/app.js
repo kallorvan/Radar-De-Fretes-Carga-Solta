@@ -9,11 +9,11 @@ import { fmtQuando, esc } from "./formato.js";
 import { $, $$, aviso } from "./ui.js";
 import { renderEvolucao } from "./telas/evolucao.js";
 import { renderRotas } from "./telas/rotas.js";
-import { renderLancamentos, abrirNaBase } from "./telas/lancamentos.js";
+import { renderLancamentos, renderBase, abrirNaBase } from "./telas/lancamentos.js";
 import { renderCadastro, abrirNoCadastro } from "./telas/cadastro.js";
 import { renderDados } from "./telas/dados.js";
 
-const TELAS = { evolucao: renderEvolucao, rotas: renderRotas, lancamentos: renderLancamentos, cadastro: renderCadastro, dados: renderDados };
+const TELAS = { evolucao: renderEvolucao, rotas: renderRotas, base: renderBase, lancamentos: renderLancamentos, cadastro: renderCadastro, dados: renderDados };
 const LS_QUEM = "radar-carga-solta:quem";
 
 const lerLS = k => { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } };
@@ -41,7 +41,8 @@ const App = {
     const c = App.dados.ctes.find(x => x.chave === chave);
     if (!c) return;
     abrirNaBase(c, { editar: !App.somenteLeitura });
-    App.irPara("lancamentos", { metrica: App.filtros.metrica });
+    // quem pode lançar cai direto na correção (e volta para a base ao salvar); quem só consulta, na base buscando o CT-e
+    App.irPara(App.somenteLeitura ? "base" : "lancamentos", { metrica: App.filtros.metrica });
     scrollTo(0, 0);
   },
   abrirCnpj(cnpj) {
@@ -81,9 +82,23 @@ const App = {
 
   render() {
     $$("#abas button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.aba === App.aba)));
+    // os filtros do menu lateral são da tela aberta: a Evolução preenche os dela
+    const lat = $("#filtros-lat");
+    lat.innerHTML = ""; lat.hidden = true;
     TELAS[App.aba]($("#conteudo"), App);
+    pintarRecorte();
   },
 };
+
+/* O recorte da Evolução no menu: aberto ou recolhido. Como no Comparativo do Radar Container, clicar no botão
+   Evolução com ela já aberta recolhe; clicar de novo abre. Entrar na Evolução vindo de outra tela abre. */
+let recorteAberto = true;
+function pintarRecorte() {
+  const lat = $("#filtros-lat"), b = $('#abas button[data-aba="evolucao"]');
+  lat.hidden = !(App.aba === "evolucao" && recorteAberto && lat.innerHTML.trim());
+  b.setAttribute("aria-expanded", String(App.aba === "evolucao" && recorteAberto));
+  b.title = App.aba === "evolucao" ? (recorteAberto ? "Clique para recolher o recorte" : "Clique para abrir o recorte") : "";
+}
 window.RADAR_APP = App;   // para depuração no console
 
 const ROTULO = {
@@ -96,11 +111,13 @@ function pintarEstado() {
   const msg = App.somenteLeitura
     ? (location.protocol === "file:" ? "Este navegador não grava na pasta. Abra pelo Chrome ou Edge para lançar." : "Aberto por link: só consulta. Para lançar, abra o HTML pela pasta compartilhada no Chrome ou Edge.")
     : g.mensagem || (App.dados.salvoEm ? `Última gravação ${fmtQuando(App.dados.salvoEm)}${App.dados.salvoPor ? " por " + App.dados.salvoPor : ""}.` : "Base ainda não gravada na pasta.");
+  // quadro de gravação no pé do menu lateral: estado, o botão que resolve e quem está lançando
+  const botao = App.somenteLeitura ? "" : !g.pasta
+    ? `<button class="btn primario" type="button" data-acao="conectar">Conectar a pasta</button>`
+    : estado !== "salvo" && estado !== "conflito" ? `<button class="btn primario" type="button" data-acao="salvar">Salvar agora</button>` : "";
   $("#estado-gravacao").innerHTML =
-    `<span class="perlab"><i class="marca ${estado}"></i>${esc(ROTULO[estado] || estado)}</span><span class="msg">${esc(msg)}</span>` +
-    (!App.somenteLeitura && !g.pasta ? `<button class="btn mini" type="button" data-acao="conectar">Conectar a pasta</button>` : "") +
-    (!App.somenteLeitura && g.pasta && estado !== "salvo" && estado !== "conflito" ? `<button class="btn mini" type="button" data-acao="salvar">Salvar agora</button>` : "") +
-    `<span class="quem">${App.quem ? `Lançando como <b>${esc(App.quem)}</b> ` : ""}<button class="btn mini" type="button" data-acao="nome">${App.quem ? "Trocar" : "Informar nome"}</button></span>`;
+    `<div class="sl-estado ${estado}"><b><i class="marca ${estado}"></i>${esc(ROTULO[estado] || estado)}</b><span class="msg">${esc(msg)}</span></div>` + botao +
+    `<div class="sl-quem">${App.quem ? `Lançando como <b>${esc(App.quem)}</b> · ` : ""}<button class="sl-link" type="button" data-acao="nome">${App.quem ? "trocar" : "Informar nome"}</button></div>`;
   const fixo = $("#aviso-fixo");
   if (!App.somenteLeitura && (estado === "erro" || estado === "conflito")) {
     fixo.hidden = false;
@@ -144,16 +161,15 @@ async function iniciar() {
 
   $("#abas").addEventListener("click", ev => {
     const b = ev.target.closest("button[data-aba]");
-    if (b) App.irPara(b.dataset.aba, App.filtros);
+    if (!b) return;
+    if (b.dataset.aba === "evolucao" && App.aba === "evolucao") { recorteAberto = !recorteAberto; pintarRecorte(); return; }
+    if (b.dataset.aba === "evolucao") recorteAberto = true;
+    App.irPara(b.dataset.aba, App.filtros);
   });
   document.addEventListener("click", ev => {
     const b = ev.target.closest("[data-acao]");
     if (b && (b.closest("#estado-gravacao") || b.closest("#aviso-fixo"))) acaoGravacao(b.dataset.acao);
   });
-  const topo = $("#topo");
-  const mede = () => document.documentElement.style.setProperty("--stickyh", topo.offsetHeight + "px");
-  addEventListener("scroll", () => topo.classList.toggle("scrolled", scrollY > 8), { passive: true });
-  addEventListener("resize", mede); mede();
   addEventListener("hashchange", () => { ({ aba: App.aba, filtros: App.filtros } = lerHash(location.hash)); App.render(); });
   ({ aba: App.aba, filtros: App.filtros } = lerHash(location.hash));
   pintarEstado();

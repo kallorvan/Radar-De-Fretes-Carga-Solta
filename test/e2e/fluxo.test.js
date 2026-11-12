@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { chromium, abrir } from "./ajuda.js";
+import { chromium, abrir, irBase } from "./ajuda.js";
 import { baseExemplo } from "../fixtures/base-exemplo.js";
 import { incluir } from "../../src/base.js";
 import { campos, chaveN } from "../ajuda.js";
@@ -52,11 +52,11 @@ test("fluxo completo com pasta simulada", async () => {
   await page.selectOption("#form-cte [name=unidade]", "TON");
   await page.click("#form-cte button[type=submit]");
   await esperarGravado(page, () => window.__pasta.arquivos.get("radar-carga-solta-dados.js").includes('"numero":99999'));
-  await page.fill("#busca", "99999");
+  await irBase(page); await page.fill("#busca", "99999");
   await page.click("#tab-base [data-corrigir]");
   await page.fill("#form-cte [name=quantidade]", "70");
   await page.click("#form-cte button[type=submit]");
-  await page.fill("#busca", "99999");
+  await irBase(page); await page.fill("#busca", "99999");
   await page.click("#tab-base [data-excluir]");
   await page.click("#dlg-confirma-ok");
   await page.click("#abas button[data-aba=dados]");
@@ -81,7 +81,7 @@ test("fluxo completo com pasta simulada", async () => {
     p.arquivos.set("radar-carga-solta-dados.js", "window.RADAR_CS3=" + JSON.stringify(d) + ";");
   });
   await page.click("#abas button[data-aba=lancamentos]");
-  await page.fill("#busca", "99999");
+  await irBase(page); await page.fill("#busca", "99999");
   await page.click("#tab-base [data-excluir]");
   await page.click("#dlg-confirma-ok");
   await page.waitForSelector("#aviso-fixo.conflito", { timeout: 8000 });

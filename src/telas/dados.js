@@ -6,7 +6,7 @@ import { grupoDoCnpj, unidadeDe } from "../base.js";
 import { rotaDe, calcularCte, numeroBR } from "../calculos.js";
 import { sugerirClassificacao, pendentesDeClassificacao } from "../classificacao.js";
 import { esc, fmtData, fmtNum, fmtMoeda, fmtQuando } from "../formato.js";
-import { $, $$, secHead, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
+import { $, $$, tabelaOrdenavel, confirmar, aviso } from "../ui.js";
 
 // escolhas: o que a pessoa ajustou em cada linha da classificação, guardado entre redesenhos
 const estado = { escolhas: new Map() };
@@ -62,7 +62,6 @@ export function renderDados(raiz, App) {
         ${g.pasta ? `<button class="btn" type="button" data-salvar>Salvar agora</button>` : ""}</div>`;
 
   raiz.innerHTML = `<section class="secao"><div class="wrap pilha">
-    ${secHead("Dados", "Onde a base fica gravada, a importação do histórico e o registro de quem fez o quê.")}
     <div class="card"><h3>Pasta compartilhada</h3>${pasta}</div>
     <div class="card"><h3>Exportar para Excel</h3><p class="hint">A base inteira no mesmo layout da planilha: ${fmtNum(d.ctes.length)} CT-e e ${fmtNum(d.cnpjs.length)} CNPJ.</p>
       <button class="btn" type="button" data-exportar ${d.ctes.length ? "" : "disabled"}>Baixar .xlsx</button></div>

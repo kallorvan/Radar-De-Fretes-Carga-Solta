@@ -25,7 +25,7 @@ test("Evolução deixa fora o CT-e antes do corte e avisa; a base mostra todos",
   await page.waitForSelector(".kpi");
   assert.equal(await kpiCtes(page), "3");
   assert.match(await page.locator("#aviso-corte").textContent(), /1 CT-e emitido antes de 01\/08\/2026 fora da análise/);
-  await page.click("#abas button[data-aba=lancamentos]");
+  await page.click("#abas button[data-aba=base]");
   await page.waitForFunction(() => document.querySelectorAll("#tab-base tbody tr").length === 4);
   assert.match(await page.locator("#tab-base tbody").textContent(), /antes do corte/);
   assert.deepEqual(erros, []);
