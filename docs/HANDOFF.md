@@ -1,17 +1,29 @@
 # Handoff · Radar de Fretes · Carga Solta
 
-Atualizado em 12/11/2026. A última alteração foi o **layout do Radar de Fretes Container** (menu lateral azul-marinho), para padronizar os painéis de lançamento. Antes dela, o botão **Organizar PDFs por mês** (PR #1), testado pelo usuário na pasta real.
+Atualizado em 12/11/2026, depois do merge do PR #3 na `main`.
+
+**Histórico recente (pull requests em `kallorvan/Radar-De-Fretes-Carga-Solta`):**
+- **PR #1:** botão **Organizar PDFs por mês** (`Registrados/1 - Janeiro_2026/`…). Testado pelo usuário na pasta real: funcionou.
+- **PR #2:** só este handoff.
+- **PR #3:** padronização com o **Radar de Fretes Container**:
+  - layout do Container (menu lateral azul-marinho, logos oficiais em cores, fontes por `<link>`);
+  - recorte da Evolução no menu, que recolhe;
+  - aba **Base de CT-e** separada dos Lançamentos;
+  - calculadora no modelo do Container;
+  - correção dos PDFs que não apareciam ao reabrir o painel (permissão de leitura) e busca na pasta inteira;
+  - painel só de computador.
 
 ## Onde está
 
 | O quê | Onde |
 |---|---|
 | Painel pronto para a pasta | `dist/index.html`. Na pasta do SharePoint o arquivo se chama `Radar de Fretes - Carga Solta.html`. |
-| Código | branch `main`, igual a `claude/compassionate-hopper-b5gz9t` |
+| Código | branch `main` (o trabalho entra por pull request a partir de `claude/compassionate-hopper-b5gz9t`) |
 | Dados | `radar-carga-solta-dados.js`, na pasta do SharePoint (fora do repositório), com `backups/` ao lado (as 60 últimas versões) |
-| PDFs dos CT-e | duas pastas dentro da pasta do painel: `PDFs Carga Solta`, onde a equipe salva os novos, e `Registrados`, com subpastas por mês de emissão (`1 - Janeiro_2026`, `2 - Fevereiro_2026`…). Nomes como `CTE 1234 - Oasis.pdf` |
+| PDFs dos CT-e | dentro da pasta do painel: `PDFs Carga Solta`, onde a equipe salva os novos, e `Registrados`, com subpastas por mês de emissão (`1 - Janeiro_2026`, `2 - Fevereiro_2026`…). O botão PDF procura na pasta do painel inteira. Nomes como `CTE 1234 - Oasis.pdf` |
 | Guia de instalação e uso | `docs/IMPLANTACAO.md` |
 | Desenho | `docs/superpowers/specs/` e `docs/superpowers/plans/`. São três etapas: o painel, depois produto e unidade com R$/t, depois o adendo 2. |
+| Painel irmão (referência de layout) | `kallorvan/Radar-De-Fretes-Container`: menu lateral (`src/css/lateral.css`, `src/js/lateral.js`) e calculadora (`src/js/painel.js`, `calcAvaliar`). Mudança de layout pedida para um painel deve valer para os dois. |
 
 A planilha real (`Radar_Fretes_Concorrentes_v2.10.xlsm`) e o relatório de itinerários do Rodopar (`itinerarios.xlsx`) **não** vão para o repositório (`*.xlsm` e `*.xlsx` estão no `.gitignore`). Eles têm CNPJ de clientes.
 
@@ -110,12 +122,13 @@ npm run test:e2e         # 61 testes no navegador (Playwright/Chromium), com uma
 ```
 
 - **Código:** ES modules em `src/` e as telas em `src/telas/`. O build é IIFE e vai inteiro para dentro do HTML. Bibliotecas externas: SheetJS 0.18.5 (cdnjs, só para exportar) e Google Fonts.
-- **Visual:** design system Tóliman Painéis (`referencia/toliman-paineis/`), tokens gerados em `build/tokens.css`. Sem ícones, tudo em pt-BR. Claro e escuro.
+- **Visual:** design system Tóliman Painéis (`referencia/toliman-paineis/`), tokens gerados em `build/tokens.css`, com o layout do Radar Container por cima (`src/estilo/app.css`). Único ícone: o 🧮 da calculadora, como no Container. Tudo em pt-BR. Claro e escuro.
 - **Testes:**
   - pasta simulada em `test/fakes/pasta-falsa.js`;
   - bases de exemplo em `test/fixtures/base-exemplo.js`, com `corte = null` porque os CT-e de exemplo são de janeiro a abril;
   - em `test/ajuda.js`, `campos()` monta a chave com o CNPJ do transportador dentro.
-- **Fluxo de trabalho:** a cada mudança, o usuário recebe só o HTML (ou um zip com o HTML e o `LEIA-ME`, gerado a partir do `IMPLANTACAO.md`). Push na branch de trabalho e na `main`.
+- **Fluxo de trabalho:** a cada mudança, o usuário recebe o HTML já com o nome da pasta (`Radar de Fretes - Carga Solta.html`) para conferir. Commit e push na branch de trabalho; quando o usuário aprova, pull request para a `main` e merge. Branch já mesclada: recomeçar da `main` antes de continuar.
+- **Ambiente de nuvem:** o Google Fonts é bloqueado, então as capturas de tela saem em Arial; as fontes certas só aparecem no computador do usuário.
 
 ## Decisões tomadas pelo caminho (confirmar se alguma estiver errada)
 
@@ -126,6 +139,9 @@ npm run test:e2e         # 61 testes no navegador (Playwright/Chromium), com uma
 - **Taxa do seguro:** 0% quando há valor assegurado e o seguro é zero; fica vazia só sem valor assegurado. Na migração, a taxa digitada é mantida quando reproduz o seguro guardado.
 - **PDF:** se dois PDFs têm o mesmo número de CT-e, o nome depois do traço é comparado com o nome do transportador no cadastro. Sem como decidir, o botão fica apagado com a dica.
 - **Pastas de mês:** `Registrados` fica direto na pasta do painel, a pedido do usuário (a primeira versão punha dentro de `PDFs Carga Solta`; o botão leva essas para a nova). O nome `1 - Janeiro_2026` põe o número do mês na frente para o Explorador ordenar; com mais de um ano, os meses iguais de anos diferentes ficam lado a lado.
+- **Base de CT-e em aba própria** (12/11/2026): Corrigir abre o formulário em Lançamentos e volta para a base ao salvar ou cancelar.
+- **Calculadora do Container** (12/11/2026): na Quantidade o resultado aparece sem "R$"; o resto é igual.
+- **Botões PDF / Corrigir / Excluir empilhados** em cada linha da base: lado a lado, o Excluir ficava cortado na borda da tabela.
 - **Janelas com formulário** (nome, produto, unidade): o Enter no campo confirma. Por padrão o navegador acionaria o primeiro botão, que é o Cancelar.
 
 ## Pendências e pontos em aberto
@@ -133,7 +149,11 @@ npm run test:e2e         # 61 testes no navegador (Playwright/Chromium), com uma
 1. **Tarifa de referência da Tóliman para carga solta:** em espera; o usuário ainda não tem a tarifa. Ela entraria como comparação na Evolução e nas Rotas.
 2. **Linha estranha no relatório do Rodopar:** o itinerário `MCHBYU` está como Machado → Campestre/MG, mas BYU é o código de Campestre/AL. Vale conferir no Rodopar.
 3. **CT-e com origem "JOAQUIM DA BARRA"** (nº 2848): o usuário ia corrigir para São Joaquim da Barra pelo painel. Conferir se foi feito.
-4. **PDFs:** abrir e organizar por mês foram testados pelo usuário na pasta real e funcionaram. Pastas antigas que ficarem vazias em `PDFs Carga Solta` não são apagadas pelo painel; a equipe apaga à mão.
+4. **Conferir na pasta real o que entrou no PR #3** (aqui só deu para testar com pasta simulada e sem Google Fonts):
+   - **PDFs:** na aba Base de CT-e, clicar em **Atualizar PDFs** e permitir a leitura; os botões PDF devem acender. Era o defeito relatado em 12/11/2026 (sem permissão, a leitura falhava calada).
+   - **Fontes:** devem ficar iguais às do Container (Barlow Condensed nos títulos, IBM Plex no texto).
+   - **Organizar PDFs por mês** agora olha a pasta inteira: na primeira vez, conferir na confirmação se a lista de PDFs a mover faz sentido.
+   - Pastas antigas que ficarem vazias em `PDFs Carga Solta` não são apagadas pelo painel; a equipe apaga à mão.
 5. **Pequenos, conhecidos e não corrigidos:**
    - duas pessoas mudando o kg da mesma unidade ao mesmo tempo: vale a última gravação;
    - o aviso de "rota com produtos misturados" aparece só na Evolução, não em Rotas;
