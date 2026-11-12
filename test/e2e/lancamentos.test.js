@@ -260,6 +260,42 @@ test("cidade: sugere municípios ao digitar, escolhe com teclado e avisa nome fo
   await ctx.close();
 });
 
+test("cidade: Tab completa o nome com a sugestão marcada e vai para o próximo campo", async () => {
+  const { page, ctx, erros } = await abrirLanc();
+  await page.waitForSelector("#form-cte");
+  const origem = page.locator("#form-cte [name=origem]"), destino = page.locator("#form-cte [name=destino]");
+  // digitando, a primeira sugestão já vem marcada; Tab completa e o foco segue para o destino
+  await origem.fill("são joaquim da b");
+  await page.waitForSelector('#sug-origem button[aria-selected="true"]');
+  await origem.press("Tab");
+  assert.equal(await origem.inputValue(), "SAO JOAQUIM DA BARRA");
+  assert.equal(await page.evaluate(() => document.activeElement.name), "destino");
+  assert.equal(await page.locator("#form-cte [data-cidade-aviso=origem]").textContent(), "");
+  // ↓ troca a marcada; Tab completa com ela
+  await destino.fill("ribeirão p");
+  await page.waitForSelector("#sug-destino button");
+  const opcoes = await page.locator("#sug-destino button").allTextContents();
+  if (opcoes.length > 1) {
+    await destino.press("ArrowDown");
+    await destino.press("Tab");
+    assert.equal(await destino.inputValue(), opcoes[1]);
+  }
+  // Esc fecha as sugestões e o Tab mantém o que foi digitado
+  await destino.fill("Joaquim da Barra");
+  await page.waitForSelector("#sug-destino button");
+  await destino.press("Escape");
+  await destino.press("Tab");
+  assert.equal(await destino.inputValue(), "Joaquim da Barra");
+  // campo vazio: a lista das mais usadas aparece, mas o Tab não preenche nada
+  await origem.fill("");
+  await origem.focus();
+  await page.waitForSelector("#sug-origem button");
+  await origem.press("Tab");
+  assert.equal(await origem.inputValue(), "");
+  assert.deepEqual(erros, []);
+  await ctx.close();
+});
+
 test("campo de origem vazio sugere as origens mais usadas", async () => {
   const { page, ctx } = await abrirLanc();
   await page.waitForSelector("#form-cte");

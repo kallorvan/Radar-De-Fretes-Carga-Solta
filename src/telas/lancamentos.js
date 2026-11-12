@@ -460,7 +460,8 @@ function ligarCidades(form, App) {
     let lista = [], ativo = -1;
     const fechar = () => { lista = []; ativo = -1; caixa.hidden = true; caixa.innerHTML = ""; inp.setAttribute("aria-expanded", "false"); };
     const pintar = () => {
-      caixa.innerHTML = lista.map((c, i) => `<button type="button" role="option" tabindex="-1" data-cidade="${esc(c)}" aria-selected="${i === ativo}">${esc(c)}</button>`).join("");
+      caixa.innerHTML = lista.map((c, i) => `<button type="button" role="option" tabindex="-1" data-cidade="${esc(c)}" aria-selected="${i === ativo}">${esc(c)}</button>`).join("") +
+        (lista.length && inp.value.trim() ? `<div class="sug-dica" aria-hidden="true">Tab completa com a marcada · ↑↓ trocam · Esc mantém o digitado</div>` : "");
       caixa.hidden = !lista.length; inp.setAttribute("aria-expanded", String(lista.length > 0));
       caixa.style.top = `${inp.offsetTop + inp.offsetHeight + 2}px`;   // logo abaixo do campo, por cima das mensagens
       caixa.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
@@ -468,11 +469,20 @@ function ligarCidades(form, App) {
     const avisar = () => { aviso.textContent = cidadeConhecida(inp.value, extras) ? "" : "Cidade não encontrada na lista de municípios. Confira o nome."; };
     const escolher = c => { inp.value = c; fechar(); avisar(); inp.dispatchEvent(new Event("change", { bubbles: true })); };
     // campo vazio: as cidades mais usadas neste campo; digitando: as da base primeiro, depois os municípios
-    const sugerir = () => { lista = inp.value.trim() ? sugerirCidades(inp.value, { extras, usos }) : cidadesMaisUsadas(App.dados.ctes, nome); ativo = -1; pintar(); };
+    // digitando, a primeira sugestão já vem marcada: é a que o Tab (ou o Enter) completa
+    const sugerir = () => {
+      const digitado = inp.value.trim();
+      lista = digitado ? sugerirCidades(inp.value, { extras, usos }) : cidadesMaisUsadas(App.dados.ctes, nome);
+      ativo = digitado && lista.length ? 0 : -1;
+      pintar();
+    };
     inp.addEventListener("input", () => { aviso.textContent = ""; sugerir(); });
     inp.addEventListener("focus", () => { if (!inp.value.trim()) sugerir(); });
     inp.addEventListener("keydown", ev => {
       if (!lista.length) return;
+      // auto completar: Tab põe a sugestão marcada no campo e segue para o próximo campo, sem digitar o nome todo.
+      // Com o campo vazio (lista das mais usadas) o Tab só passa adiante, para não preencher sem querer.
+      if (ev.key === "Tab" && inp.value.trim() && ativo >= 0) { escolher(lista[ativo]); return; }
       if (ev.key === "ArrowDown" || ev.key === "ArrowUp") { ev.preventDefault(); ativo = (ativo + (ev.key === "ArrowDown" ? 1 : -1) + lista.length) % lista.length; pintar(); }
       else if (ev.key === "Enter" && ativo >= 0) { ev.preventDefault(); escolher(lista[ativo]); }
       else if (ev.key === "Escape") fechar();
