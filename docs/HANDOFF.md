@@ -65,6 +65,7 @@ O usuário pediu os dois painéis de lançamento no mesmo layout. Referência: r
   - **Seguro:** o usuário informa valor assegurado e valor do seguro; a taxa é calculada.
   - **Contas:** tarifa = frete − seguro − adicionais. Peso = quantidade × kg da unidade, ou o peso do CT-e. R$/t e R$/saca saem daí.
   - **Cidades:** ao digitar, aparecem sugestões, primeiro as mais usadas da base e depois os municípios do Brasil. Nome fora da lista ganha aviso, sem bloquear.
+  - **Auto completar com Tab** (pedido do usuário, 12/11/2026): digitando, a primeira sugestão vem marcada; Tab completa com a marcada e segue para o próximo campo; Esc mantém o digitado. Campo vazio: o Tab não preenche (`ligarCidades` em `src/telas/lancamentos.js`).
   - **Produto e unidade novos** se cadastram sem sair do lançamento, pela opção "+ Cadastrar…" da lista.
   - **Calculadora no modelo do Container** (pedido do usuário, 12/11/2026) nos campos Valor assegurado, Valor do seguro, Valor do frete, Adicionais e Quantidade: botão 🧮 dentro do campo ou tecla `=`; `+ − × ÷` digitados no campo abrem continuando o valor. Janelinha logo abaixo do campo (acima, perto do pé da tela); Enter ou `=` insere, Esc ou clique fora fecha. Mesma conta do Container (`lerConta` em `src/calculadora.js`): vírgula decimal, ponto de milhar, `%` (`1.000 + 10%` = 1.100), avisa o motivo do erro e recusa resultado negativo.
   - **Chave de acesso:** é conferida assim que tem 44 dígitos. Se o CT-e já está na base, o painel oferece **Abrir o registro**; se está na lixeira, **Lançar de novo**.
@@ -118,7 +119,7 @@ Depois de regerar, rode `npm run montar` e troque o HTML na pasta. Ao abrir, o p
 npm install
 npm test                 # 183 testes de unidade (node:test)
 npm run montar           # gera dist/index.html (esbuild + CSS + logos embutidos)
-npm run test:e2e         # 61 testes no navegador (Playwright/Chromium), com uma pasta simulada
+npm run test:e2e         # 62 testes no navegador (Playwright/Chromium), com uma pasta simulada
 ```
 
 - **Código:** ES modules em `src/` e as telas em `src/telas/`. O build é IIFE e vai inteiro para dentro do HTML. Bibliotecas externas: SheetJS 0.18.5 (cdnjs, só para exportar) e Google Fonts.

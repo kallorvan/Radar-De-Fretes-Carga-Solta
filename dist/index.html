@@ -572,6 +572,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
 /* sugestões de município sob origem e destino */
 #form-cte .campo{position:relative}
 .sugestoes{position:absolute;left:0;right:0;top:100%;z-index:20;background:var(--card);border:1px solid var(--hairline,#d8dee9);box-shadow:0 6px 18px rgba(17,35,70,.14);max-height:260px;overflow:auto}
+.sugestoes .sug-dica{position:sticky;bottom:0;padding:5px 10px 6px;border-top:1px solid var(--line);font-family:var(--font-mono);font-size:9.5px;letter-spacing:.06em;color:var(--steel);background:var(--tint)}
 .sugestoes button{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 10px;font-size:13px;cursor:pointer;color:var(--ink,inherit)}
 .sugestoes button:hover,.sugestoes button[aria-selected="true"]{background:color-mix(in srgb, var(--accent) 12%, transparent)}
 .aviso-cidade:not(:empty){color:var(--accent-d)}
@@ -3299,7 +3300,7 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
         inp.setAttribute("aria-expanded", "false");
       };
       const pintar = () => {
-        caixa.innerHTML = lista.map((c, i) => `<button type="button" role="option" tabindex="-1" data-cidade="${esc(c)}" aria-selected="${i === ativo}">${esc(c)}</button>`).join("");
+        caixa.innerHTML = lista.map((c, i) => `<button type="button" role="option" tabindex="-1" data-cidade="${esc(c)}" aria-selected="${i === ativo}">${esc(c)}</button>`).join("") + (lista.length && inp.value.trim() ? `<div class="sug-dica" aria-hidden="true">Tab completa com a marcada · ↑↓ trocam · Esc mantém o digitado</div>` : "");
         caixa.hidden = !lista.length;
         inp.setAttribute("aria-expanded", String(lista.length > 0));
         caixa.style.top = `${inp.offsetTop + inp.offsetHeight + 2}px`;
@@ -3315,8 +3316,9 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
         inp.dispatchEvent(new Event("change", { bubbles: true }));
       };
       const sugerir = () => {
-        lista = inp.value.trim() ? sugerirCidades(inp.value, { extras, usos }) : cidadesMaisUsadas(App2.dados.ctes, nome);
-        ativo = -1;
+        const digitado = inp.value.trim();
+        lista = digitado ? sugerirCidades(inp.value, { extras, usos }) : cidadesMaisUsadas(App2.dados.ctes, nome);
+        ativo = digitado && lista.length ? 0 : -1;
         pintar();
       };
       inp.addEventListener("input", () => {
@@ -3328,6 +3330,10 @@ input.kg-lista:disabled{color:var(--steel);cursor:not-allowed}
       });
       inp.addEventListener("keydown", (ev) => {
         if (!lista.length) return;
+        if (ev.key === "Tab" && inp.value.trim() && ativo >= 0) {
+          escolher(lista[ativo]);
+          return;
+        }
         if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
           ev.preventDefault();
           ativo = (ativo + (ev.key === "ArrowDown" ? 1 : -1) + lista.length) % lista.length;
