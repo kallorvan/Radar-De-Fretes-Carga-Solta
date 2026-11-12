@@ -50,6 +50,7 @@ O usuário pediu os dois painéis de lançamento no mesmo layout. Referência: r
 - **Formulário de lançamento em blocos:** Dados do CT-e · Cliente e transportador · Produto e peso · Valores.
 - **Só computador:** o painel não tem layout de celular (decisão do usuário em 12/11/2026). Não gastar tempo com telas estreitas nas próximas mudanças.
 - **Abas:** Evolução · Rotas · Base de CT-e · Lançamentos · Cadastro · Dados (a base antes dos lançamentos, como no Container).
+- **Favicon** do design system Tóliman Painéis: o símbolo Dínamo (faixas `mark-red`, `mark-yellow` e `plum`) sobre um quadrado `navy` de cantos arredondados, o mesmo do Radar Container (SVG embutido no `<head>` de `src/index.template.html`). O `dinamo-mark.svg` que o README do design system cita não veio para o repositório.
 - **Fontes** Barlow Condensed, IBM Plex Sans e IBM Plex Mono por `<link>` no `<head>`, como no Container. O `@import` do `bundle.css` não vale: fica no meio da folha montada e o navegador o ignora (o painel caía em Arial).
 - Diferença que ficou: o Carga Solta continua com tema escuro automático; o Container é só claro.
 
